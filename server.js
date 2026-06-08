@@ -41,6 +41,8 @@ const LANGUAGE_OPTIONS = {
       'Conclusion',
       'Mention finale obligatoire',
     ],
+    riskTableColumns:
+      'Numéro | Activité ou tâche | Danger | Situation dangereuse | Risque ou dommage possible | Personnes exposées | Mesures existantes | Preuve des mesures existantes | Gravité | Justification Gravité | Probabilité | Justification Probabilité | Exposition | Justification Exposition | Score initial | Niveau de risque initial | Mesures complémentaires proposées | Type de mesure selon la hiérarchie de prévention | Responsable | Échéance | Score résiduel estimé | Justification du score résiduel | Moyen de contrôle ou preuve attendue | Priorité',
     actionTableColumns:
       'Numéro d’action | Risque concerné | Mesure proposée | Objectif | Responsable | Service concerné | Échéance | Moyens nécessaires | Budget estimatif si possible | Indicateur de réalisation | Preuve attendue | Statut | Lien avec Plan Annuel d’Action ou Plan Global de Prévention',
     priorityLabels: 'action, risque concerné, responsable, échéance et preuve attendue',
@@ -49,13 +51,13 @@ const LANGUAGE_OPTIONS = {
   },
   nl: {
     label: 'Nederlands',
-    title: '# Risicoanalyse – Concept ter validatie',
+    title: '# Risicoanalyse – Ontwerp te valideren',
     sections: [
       'Identificatie van het document',
       'Context en doelstelling',
-      'Toepasselijke Belgische reglementaire referenties',
+      'Toepasselijke Belgische regelgeving',
       'Afbakening van de analyse',
-      'Gebruikte of nog te verkrijgen informatiebronnen',
+      'Gebruikte of te verkrijgen informatiebronnen',
       'Hypothesen en beperkingen',
       'Beschrijving van functies, taken en blootgestelde werknemers',
       'Gedetailleerde identificatie van gevaren',
@@ -64,14 +66,16 @@ const LANGUAGE_OPTIONS = {
       'Actieprioriteiten',
       'Ontwerp van actieplan',
       'Verband met het Globaal Preventieplan en het Jaaractieplan',
-      'Aan te maken of bij te werken documenten',
+      'Documenten op te stellen of bij te werken',
       'Te raadplegen of te betrekken actoren',
       'Noodzakelijke bijlagen',
       'Conclusie',
-      'Verplichte slotvermelding',
+      'Validatievermelding',
     ],
+    riskTableColumns:
+      'Nr. | Activiteit | Gevaar | Risico | Blootgestelde personen | Bestaande maatregelen | Bestaand bewijs | Ernst | Motivering ernst | Waarschijnlijkheid | Motivering waarschijnlijkheid | Blootstelling | Motivering blootstelling | Score | Niveau | Aanvullende maatregelen | Type maatregel | Verantwoordelijke | Termijn | Restrisico | Controle/bewijs | Prioriteit',
     actionTableColumns:
-      'Actie | Risico | Voorgestelde maatregel | Doelstelling | Verantwoordelijke | Betrokken dienst | Deadline | Benodigde middelen | Budgetraming indien mogelijk | Realisatie-indicator | Verwacht bewijs | Status | Link met Jaaractieplan of Globaal Preventieplan',
+      'Nr. | Betrokken risico | Voorgestelde maatregel | Doel | Verantwoordelijke | Termijn | Benodigde middelen | Indicator | Verwacht bewijs | Status | Link JAP/GPP',
     priorityLabels: 'actie, risico, verantwoordelijke, deadline en verwacht bewijs',
     finalMention:
       'Dit document is een ontwerp dat moet worden aangepast aan de werkelijke situatie van de onderneming en gevalideerd door de preventieadviseur, de werkgever en, indien van toepassing, de externe dienst, de arbeidsarts of het CPBW. Het vormt op zichzelf geen bewijs van reglementaire conformiteit.',
@@ -99,6 +103,8 @@ const LANGUAGE_OPTIONS = {
       'Conclusion',
       'Mandatory final statement',
     ],
+    riskTableColumns:
+      'No. | Activity or task | Hazard | Hazardous situation | Risk or possible harm | Exposed persons | Existing measures | Evidence of existing measures | Severity | Severity rationale | Probability | Probability rationale | Exposure | Exposure rationale | Initial score | Initial risk level | Additional proposed measures | Prevention hierarchy measure type | Responsible person | Deadline | Estimated residual score | Residual score rationale | Control method or expected evidence | Priority',
     actionTableColumns:
       'Action | Risk | Proposed measure | Objective | Responsible | Department concerned | Deadline | Required resources | Estimated budget if possible | Completion indicator | Expected evidence | Status | Link with Annual Action Plan or Global Prevention Plan',
     priorityLabels: 'action, risk, responsible, deadline and expected evidence',
@@ -128,6 +134,8 @@ const LANGUAGE_OPTIONS = {
       'Schlussfolgerung',
       'Verpflichtender Schlusshinweis',
     ],
+    riskTableColumns:
+      'Nr. | Tätigkeit oder Aufgabe | Gefahr | Gefährliche Situation | Risiko oder möglicher Schaden | Exponierte Personen | Bestehende Maßnahmen | Nachweis bestehender Maßnahmen | Schweregrad | Begründung Schweregrad | Wahrscheinlichkeit | Begründung Wahrscheinlichkeit | Exposition | Begründung Exposition | Ausgangsscore | Risikostufe | Zusätzliche Maßnahmen | Art der Maßnahme | Verantwortlicher | Frist | Restrisiko | Kontrolle/Nachweis | Priorität',
     actionTableColumns:
       'Aktion | Risiko | Vorgeschlagene Maßnahme | Ziel | Verantwortlicher | Betroffener Dienst | Frist | Erforderliche Mittel | Geschätztes Budget falls möglich | Umsetzungsindikator | Erwarteter Nachweis | Status | Verbindung zum Jährlichen Aktionsplan oder Globalen Präventionsplan',
     priorityLabels: 'Aktion, Risiko, Verantwortlicher, Frist und erwarteter Nachweis',
@@ -145,7 +153,7 @@ const RISK_LEVEL_LABELS = {
   },
   nl: {
     low: 'Laag',
-    medium: 'Middelmatig',
+    medium: 'Gemiddeld',
     high: 'Hoog',
     critical: 'Kritiek',
   },
@@ -288,16 +296,16 @@ app.post('/api/generate-document', async (req, res, next) => {
       throw error;
     }
 
-    const { documentType, formData } = req.body || {};
-    const { language, languageLabel } = normalizeLanguage(req.body?.language, req.body?.languageLabel);
+    const { documentType, formData, language, languageLabel } = req.body || {};
     validateGenerateDocumentPayload(documentType, formData);
+    const targetLanguage = resolveTargetLanguage(language, languageLabel, formData);
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
 
     console.info('Demande de génération reçue', {
       documentType,
-      language,
+      language: targetLanguage.code,
       formFields: Object.keys(formData).length,
     });
 
@@ -311,7 +319,7 @@ app.post('/api/generate-document', async (req, res, next) => {
           content: [
             {
               type: 'input_text',
-              text: buildUserPrompt(documentType, formData, language, languageLabel),
+              text: buildUserPrompt(documentType, formData, targetLanguage.code, targetLanguage.label),
             },
           ],
         },
@@ -417,6 +425,85 @@ function normalizeLanguage(language, languageLabel) {
     language: LANGUAGE_OPTIONS[normalizedLanguage] ? normalizedLanguage : 'fr',
     languageLabel: normalizedLabel === option.label ? normalizedLabel : option.label,
   };
+}
+
+function resolveTargetLanguage(language, languageLabel, formData) {
+  const normalizedLanguage = typeof language === 'string' ? language.trim().toLowerCase() : '';
+
+  if (LANGUAGE_OPTIONS[normalizedLanguage]) {
+    return {
+      code: normalizedLanguage,
+      label: LANGUAGE_OPTIONS[normalizedLanguage].label,
+    };
+  }
+
+  const detectedLanguage = detectDominantFormLanguage(formData);
+  const option = LANGUAGE_OPTIONS[detectedLanguage] || LANGUAGE_OPTIONS.fr;
+
+  return {
+    code: detectedLanguage,
+    label: option.label,
+  };
+}
+
+function detectDominantFormLanguage(formData) {
+  const text = Object.values(formData || {})
+    .filter((value) => typeof value === 'string')
+    .join(' ')
+    .normalize('NFC')
+    .toLowerCase();
+
+  const scores = {
+    nl: countLanguageMarkers(text, [
+      'te controleren',
+      'preventieadviseur',
+      'werknemers',
+      'werkplaats',
+      'risicoanalyse',
+      'arbeidsarts',
+      'gevaar',
+      'blootstelling',
+      'maatregelen',
+      'welzijn',
+    ]),
+    en: countLanguageMarkers(text, [
+      'risk',
+      'workers',
+      'workplace',
+      'assessment',
+      'hazard',
+      'exposure',
+      'measures',
+      'safety',
+      'prevention',
+      'incident',
+    ]),
+    de: countLanguageMarkers(text, [
+      'gefährdungsbeurteilung',
+      'arbeitnehmer',
+      'arbeitsplatz',
+      'zu prüfen',
+      'gefahr',
+      'risiko',
+      'exposition',
+      'maßnahmen',
+      'arbeitssicherheit',
+      'prävention',
+    ]),
+  };
+
+  const detected = Object.entries(scores)
+    .sort((left, right) => right[1] - left[1])[0];
+
+  return detected && detected[1] > 0 ? detected[0] : 'fr';
+}
+
+function countLanguageMarkers(text, markers) {
+  return markers.reduce((score, marker) => {
+    const escapedMarker = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matches = text.match(new RegExp(`\\b${escapedMarker}\\b`, 'gu'));
+    return score + (matches?.length || 0);
+  }, 0);
 }
 
 function getRiskLevel(score, language = 'fr') {
@@ -797,20 +884,20 @@ function buildUserPrompt(documentType, formData, language = 'fr', languageLabel 
   ].join('\n');
 
   return `Type de document demandé : ${documentType}
-Langue demandée par l’application : ${language} (${resolvedLanguageLabel})
+Langue cible déterminée par le backend : ${language} (${resolvedLanguageLabel})
 
 Données formData à exploiter :
 ${JSON.stringify(formData, null, 2)}
 
 Consignes opérationnelles :
 1. Utilise les valeurs renseignées comme faits fournis. Pour chaque champ "Non renseigné / à vérifier", indique l’information comme manquante, hypothèse prudente ou point à valider.
-2. Rédige tout le document en ${resolvedLanguageLabel}. Tous les titres, tableaux, explications, priorités, plans d’action, mentions et conclusions doivent être dans cette langue.
+2. La langue cible est : ${resolvedLanguageLabel}. Tu dois rédiger l’intégralité du document dans cette langue. Si les réponses du formulaire sont majoritairement dans une autre langue, utilise la langue cible déterminée. Si la langue cible n’a pas été fournie mais que les réponses du formulaire sont dans une langue identifiable, réponds dans cette langue. Ne mélange jamais les langues dans les titres, tableaux, explications, priorités, plans d’action, mentions ou conclusions. Les noms officiels belges peuvent rester dans leur forme officielle si nécessaire, mais les explications doivent être dans la langue cible.
 3. Respecte exactement cette structure de 18 sections, dans cet ordre, avec ces titres traduits :
 ${structure}
 4. Avant de répondre, remplace toute formulation non professionnelle, incohérente, anglaise ou mal traduite. N’utilise jamais : "Retour au travail des piétons", "Retour au travail", "Exportation occasionnelle", "Exportation", "Fréquence des interventions dernières", "Conformité normale", "Accident register", "Moderate", "PDV requise pour EPI", "Préventeur interna", "Barrage aux risques chimiques", "Utlisation sécurisée", "Fréquence des presences", "€ pour reformation", "Fiches de donnée sécurité", "EPI audios", "État de l’atelier contrôle", "Mesure à priorité", "Risqués", "Utilisation d’équipements dangereuse sans précision", "Engagement renforcé", "interna", "Barrage aux risques", "Effectivité", "environnement de travail agitée", "environnement agitée", "Une perte auditive". Utilise des formulations professionnelles dans la langue demandée, équivalentes à : "circulation véhicules/piétons", "exposition occasionnelle", "fréquence d’intervention à vérifier sur le terrain", "conformité à vérifier", "registre des accidents/incidents", "modérée", "procédure de vérification des EPI", "préventeur interne ou conseiller en prévention interne", "maîtrise des risques chimiques", "utilisation sécurisée", "présence régulière des produits", "formation complémentaire à planifier", "fiches de données de sécurité", "EPI auditifs", "état de l’atelier contrôlé", "mesure organisationnelle", "mesure technique", "formation et information", "protection collective", "équipement de protection individuelle", "risques", "efficacité de la signalisation", "environnement de travail bruyant ou perturbé", "perte auditive".
 5. Section 3 : sélectionne maximum 8 références pertinentes parmi : Loi du 4 août 1996, Code du bien-être au travail, Livre Ier, Titre 2 – Politique du bien-être et système dynamique de gestion des risques, Plan Global de Prévention, Plan Annuel d’Action, CPPT, SIPPT/SEPPT, Livre III – Lieux de travail, Livre III, Titre 3 – Prévention incendie, Livre III, Titre 6 – Signalisation de sécurité et de santé, Livre IV – Équipements de travail, Livre VI – Agents chimiques, Livre VIII – Ergonomie et TMS, Livre IX – Protections collectives et EPI. Ne cite pas d’articles et n’utilise pas de libellés approximatifs comme "Livre I Titre 2", "Livre III lieu de travail", "Livre III lieux de travail" ou "Livre IX protections collectives et EPI" sans majuscule ni tiret.
 6. Section 3 : les noms officiels français des références réglementaires belges peuvent rester en français, mais les explications autour doivent être en ${resolvedLanguageLabel}.
-7. Section 9 : produis un tableau Markdown avec des libellés de colonnes dans la langue demandée, équivalents à : Numéro | Activité ou tâche | Danger | Situation dangereuse | Risque ou dommage possible | Personnes exposées | Mesures existantes | Preuve des mesures existantes | Gravité | Justification Gravité | Probabilité | Justification Probabilité | Exposition | Justification Exposition | Score initial | Niveau de risque initial | Mesures complémentaires proposées | Type de mesure selon la hiérarchie de prévention | Responsable | Échéance | Score résiduel estimé | Justification du score résiduel | Moyen de contrôle ou preuve attendue | Priorité.
+7. Section 9 : produis un tableau Markdown avec exactement ces colonnes dans la langue cible : ${languageOption.riskTableColumns}.
 8. Limite la section 9 à maximum 8 risques. Si le contexte est service technique communal, atelier, maintenance, voirie ou espaces verts, couvre les risques les plus pertinents parmi : manutention manuelle ou régulière, machines/outillage électroportatif, projections, bruit, travail en hauteur, produits chimiques, incendie, glissades/chutes, circulation véhicules/piétons, interventions sur voirie, travail isolé, coactivité avec public ou sous-traitants, météo, rangement/stockage/rayonnages. Évite des scores très faibles pour travail en hauteur, produits chimiques, circulation véhicules/piétons, incendie, machines/outillage, manutention régulière, bruit et coactivité sauf justification claire ; le score doit rester cohérent avec Gravité x Probabilité x Exposition et ne doit pas classer un risque grave et fréquent en faible.
 9. Remplis les cellules avec des informations plausibles et prudentes. Si l’information manque, utilise dans la langue demandée une formule équivalente à "à vérifier sur le terrain" dans la cellule concernée plutôt que de laisser vide.
 10. Avant de finaliser le tableau, vérifie chaque score et niveau : ${riskScale}.
@@ -822,7 +909,7 @@ ${structure}
 16. Pour le type de mesure selon la hiérarchie de prévention, utilise uniquement des libellés dans la langue demandée équivalents à : suppression du danger, substitution, mesure technique, protection collective, mesure organisationnelle, information et formation, équipement de protection individuelle, surveillance, contrôle et réévaluation. N’écris pas "mesure à priorité", "conformité normale", "éducation sur le travail extérieur" ni "élimination du risque avéré" si le danger n’est pas réellement supprimé.
 17. Section 18 doit contenir exactement cette mention finale traduite, une seule fois :
 ${languageOption.finalMention}
-18. Relis avant réponse : aucune section vide, pas de mention finale doublée, pas de formulation absurde, anglaise ou interdite, pas de niveau de risque incohérent, pas de tableau rempli uniquement avec "À compléter" ou son équivalent traduit.
+18. Avant de répondre, vérifie que tous les titres sont dans la langue cible, que les 18 sections sont présentes, que le tableau principal contient de vrais risques, que le plan d’action contient de vraies actions, qu’aucune section entière n’est remplacée par "Information à compléter", "à vérifier" ou leur équivalent traduit, qu’il n’y a pas de mélange français/néerlandais/anglais/allemand et que les libellés des tableaux sont traduits.
 19. Garde une réponse concise pour éviter les timeouts.`;
 }
 
