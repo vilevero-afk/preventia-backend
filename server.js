@@ -17,10 +17,11 @@ const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:3000')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-const LANGUAGE_OPTIONS = {
+const LANGUAGE_CONFIGS = {
   fr: {
+    code: 'fr',
     label: 'Français',
-    title: '# Analyse de risques – Projet à valider',
+    title: 'Analyse de risques – Projet à valider',
     sections: [
       'Identification du document',
       'Contexte et objectif',
@@ -41,17 +42,25 @@ const LANGUAGE_OPTIONS = {
       'Conclusion',
       'Mention finale obligatoire',
     ],
+    riskLevels: {
+      low: 'Faible',
+      medium: 'Moyen',
+      high: 'Élevé',
+      critical: 'Critique',
+    },
     riskTableColumns:
-      'Numéro | Activité ou tâche | Danger | Situation dangereuse | Risque ou dommage possible | Personnes exposées | Mesures existantes | Preuve des mesures existantes | Gravité | Justification Gravité | Probabilité | Justification Probabilité | Exposition | Justification Exposition | Score initial | Niveau de risque initial | Mesures complémentaires proposées | Type de mesure selon la hiérarchie de prévention | Responsable | Échéance | Score résiduel estimé | Justification du score résiduel | Moyen de contrôle ou preuve attendue | Priorité',
+      'N° | Activité ou tâche | Danger | Risque | Personnes exposées | Mesures existantes | Preuves existantes | Gravité | Probabilité | Exposition | Score | Niveau | Mesures complémentaires | Type de mesure | Responsable | Échéance | Risque résiduel | Contrôle/preuve attendue | Priorité',
     actionTableColumns:
-      'Numéro d’action | Risque concerné | Mesure proposée | Objectif | Responsable | Service concerné | Échéance | Moyens nécessaires | Budget estimatif si possible | Indicateur de réalisation | Preuve attendue | Statut | Lien avec Plan Annuel d’Action ou Plan Global de Prévention',
+      'N° | Risque concerné | Mesure proposée | Objectif | Responsable | Échéance | Moyens nécessaires | Indicateur | Preuve attendue | Statut | Lien PAA/PGP',
     priorityLabels: 'action, risque concerné, responsable, échéance et preuve attendue',
+    forbiddenTerms: ['Risk assessment', 'Risicoanalyse', 'Gefährdungsbeurteilung'],
     finalMention:
       'Ce document est un projet à adapter à la situation réelle de l’entreprise et à valider par le conseiller en prévention, l’employeur et, le cas échéant, le service externe, le médecin du travail ou le CPPT. Il ne constitue pas à lui seul une preuve de conformité réglementaire.',
   },
   nl: {
+    code: 'nl',
     label: 'Nederlands',
-    title: '# Risicoanalyse – Ontwerp te valideren',
+    title: 'Risicoanalyse – Ontwerp te valideren',
     sections: [
       'Identificatie van het document',
       'Context en doelstelling',
@@ -72,17 +81,25 @@ const LANGUAGE_OPTIONS = {
       'Conclusie',
       'Validatievermelding',
     ],
+    riskLevels: {
+      low: 'Laag',
+      medium: 'Gemiddeld',
+      high: 'Hoog',
+      critical: 'Kritiek',
+    },
     riskTableColumns:
-      'Nr. | Activiteit | Gevaar | Risico | Blootgestelde personen | Bestaande maatregelen | Bestaand bewijs | Ernst | Motivering ernst | Waarschijnlijkheid | Motivering waarschijnlijkheid | Blootstelling | Motivering blootstelling | Score | Niveau | Aanvullende maatregelen | Type maatregel | Verantwoordelijke | Termijn | Restrisico | Controle/bewijs | Prioriteit',
+      'Nr. | Activiteit | Gevaar | Risico | Blootgestelde personen | Bestaande maatregelen | Bestaand bewijs | Ernst | Waarschijnlijkheid | Blootstelling | Score | Niveau | Aanvullende maatregelen | Type maatregel | Verantwoordelijke | Termijn | Restrisico | Controle/bewijs | Prioriteit',
     actionTableColumns:
       'Nr. | Betrokken risico | Voorgestelde maatregel | Doel | Verantwoordelijke | Termijn | Benodigde middelen | Indicator | Verwacht bewijs | Status | Link JAP/GPP',
     priorityLabels: 'actie, risico, verantwoordelijke, deadline en verwacht bewijs',
+    forbiddenTerms: ['Analyse de risques', 'Risk assessment', 'Gefährdungsbeurteilung'],
     finalMention:
       'Dit document is een ontwerp dat moet worden aangepast aan de werkelijke situatie van de onderneming en gevalideerd door de preventieadviseur, de werkgever en, indien van toepassing, de externe dienst, de arbeidsarts of het CPBW. Het vormt op zichzelf geen bewijs van reglementaire conformiteit.',
   },
   en: {
+    code: 'en',
     label: 'English',
-    title: '# Risk assessment – Draft for validation',
+    title: 'Risk assessment – Draft for validation',
     sections: [
       'Document identification',
       'Context and objective',
@@ -90,7 +107,7 @@ const LANGUAGE_OPTIONS = {
       'Scope of the assessment',
       'Information sources used or to be obtained',
       'Assumptions and limitations',
-      'Description of positions, tasks and exposed workers',
+      'Description of jobs, tasks and exposed workers',
       'Detailed hazard identification',
       'Main risk assessment table',
       'Residual risk assessment',
@@ -99,75 +116,63 @@ const LANGUAGE_OPTIONS = {
       'Link with the Global Prevention Plan and the Annual Action Plan',
       'Documents to create or update',
       'Stakeholders to consult or involve',
-      'Necessary appendices',
+      'Required appendices',
       'Conclusion',
       'Mandatory final statement',
     ],
+    riskLevels: {
+      low: 'Low',
+      medium: 'Medium',
+      high: 'High',
+      critical: 'Critical',
+    },
     riskTableColumns:
-      'No. | Activity or task | Hazard | Hazardous situation | Risk or possible harm | Exposed persons | Existing measures | Evidence of existing measures | Severity | Severity rationale | Probability | Probability rationale | Exposure | Exposure rationale | Initial score | Initial risk level | Additional proposed measures | Prevention hierarchy measure type | Responsible person | Deadline | Estimated residual score | Residual score rationale | Control method or expected evidence | Priority',
+      'No. | Activity or task | Hazard | Risk | Exposed persons | Existing measures | Existing evidence | Severity | Probability | Exposure | Score | Level | Additional measures | Type of measure | Responsible person | Deadline | Residual risk | Expected control/evidence | Priority',
     actionTableColumns:
-      'Action | Risk | Proposed measure | Objective | Responsible | Department concerned | Deadline | Required resources | Estimated budget if possible | Completion indicator | Expected evidence | Status | Link with Annual Action Plan or Global Prevention Plan',
+      'No. | Related risk | Proposed measure | Objective | Responsible person | Deadline | Required resources | Indicator | Expected evidence | Status | Link AAP/GPP',
     priorityLabels: 'action, risk, responsible, deadline and expected evidence',
+    forbiddenTerms: ['Analyse de risques', 'Risicoanalyse', 'Gefährdungsbeurteilung'],
     finalMention:
       'This document is a draft that must be adapted to the actual situation of the organisation and validated by the prevention advisor, the employer and, where applicable, the external service, the occupational physician or the health and safety committee. It does not constitute proof of regulatory compliance on its own.',
   },
   de: {
+    code: 'de',
     label: 'Deutsch',
-    title: '# Gefährdungsbeurteilung – Entwurf zur Validierung',
+    title: 'Gefährdungsbeurteilung – Entwurf zur Validierung',
     sections: [
-      'Identifikation des Dokuments',
+      'Dokumentidentifikation',
       'Kontext und Zielsetzung',
-      'Anwendbare belgische regulatorische Referenzen',
-      'Geltungsbereich der Analyse',
-      'Verwendete oder noch zu beschaffende Informationsquellen',
+      'Anwendbare belgische Rechtsvorschriften',
+      'Umfang der Beurteilung',
+      'Verwendete oder noch einzuholende Informationsquellen',
       'Annahmen und Grenzen',
-      'Beschreibung der Arbeitsplätze, Aufgaben und exponierten Arbeitnehmer',
-      'Detaillierte Ermittlung der Gefahren',
+      'Beschreibung der Arbeitsplätze, Tätigkeiten und exponierten Beschäftigten',
+      'Detaillierte Ermittlung der Gefährdungen',
       'Haupttabelle der Gefährdungsbeurteilung',
-      'Analyse der Restrisiken',
+      'Beurteilung der Restrisiken',
       'Handlungsprioritäten',
-      'Entwurf eines Aktionsplans',
+      'Entwurf eines Maßnahmenplans',
       'Verbindung zum Globalen Präventionsplan und zum Jährlichen Aktionsplan',
       'Zu erstellende oder zu aktualisierende Dokumente',
       'Zu konsultierende oder einzubeziehende Akteure',
       'Erforderliche Anhänge',
       'Schlussfolgerung',
-      'Verpflichtender Schlusshinweis',
+      'Verbindlicher Abschlusshinweis',
     ],
+    riskLevels: {
+      low: 'Niedrig',
+      medium: 'Mittel',
+      high: 'Hoch',
+      critical: 'Kritisch',
+    },
     riskTableColumns:
-      'Nr. | Tätigkeit oder Aufgabe | Gefahr | Gefährliche Situation | Risiko oder möglicher Schaden | Exponierte Personen | Bestehende Maßnahmen | Nachweis bestehender Maßnahmen | Schweregrad | Begründung Schweregrad | Wahrscheinlichkeit | Begründung Wahrscheinlichkeit | Exposition | Begründung Exposition | Ausgangsscore | Risikostufe | Zusätzliche Maßnahmen | Art der Maßnahme | Verantwortlicher | Frist | Restrisiko | Kontrolle/Nachweis | Priorität',
+      'Nr. | Tätigkeit oder Aufgabe | Gefährdung | Risiko | Exponierte Personen | Bestehende Maßnahmen | Vorhandene Nachweise | Schwere | Wahrscheinlichkeit | Exposition | Punktzahl | Niveau | Zusätzliche Maßnahmen | Art der Maßnahme | Verantwortliche Person | Frist | Restrisiko | Kontrolle/erwarteter Nachweis | Priorität',
     actionTableColumns:
-      'Aktion | Risiko | Vorgeschlagene Maßnahme | Ziel | Verantwortlicher | Betroffener Dienst | Frist | Erforderliche Mittel | Geschätztes Budget falls möglich | Umsetzungsindikator | Erwarteter Nachweis | Status | Verbindung zum Jährlichen Aktionsplan oder Globalen Präventionsplan',
+      'Nr. | Betroffenes Risiko | Vorgeschlagene Maßnahme | Ziel | Verantwortliche Person | Frist | Erforderliche Mittel | Indikator | Erwarteter Nachweis | Status | Bezug JAP/GPP',
     priorityLabels: 'Aktion, Risiko, Verantwortlicher, Frist und erwarteter Nachweis',
+    forbiddenTerms: ['Analyse de risques', 'Risicoanalyse', 'Risk assessment'],
     finalMention:
       'Dieses Dokument ist ein Entwurf, der an die tatsächliche Situation des Unternehmens angepasst und vom Präventionsberater, dem Arbeitgeber sowie gegebenenfalls vom externen Dienst, dem Arbeitsmediziner oder dem Ausschuss für Gefahrenverhütung und Schutz am Arbeitsplatz validiert werden muss. Es stellt für sich allein keinen Nachweis der regulatorischen Konformität dar.',
-  },
-};
-
-const RISK_LEVEL_LABELS = {
-  fr: {
-    low: 'Faible',
-    medium: 'Moyen',
-    high: 'Élevé',
-    critical: 'Critique',
-  },
-  nl: {
-    low: 'Laag',
-    medium: 'Gemiddeld',
-    high: 'Hoog',
-    critical: 'Kritiek',
-  },
-  en: {
-    low: 'Low',
-    medium: 'Medium',
-    high: 'High',
-    critical: 'Critical',
-  },
-  de: {
-    low: 'Niedrig',
-    medium: 'Mittel',
-    high: 'Hoch',
-    critical: 'Kritisch',
   },
 };
 
@@ -418,11 +423,11 @@ function validateGenerateDocumentPayload(documentType, formData) {
 
 function normalizeLanguage(language, languageLabel) {
   const normalizedLanguage = typeof language === 'string' ? language.trim().toLowerCase() : '';
-  const option = LANGUAGE_OPTIONS[normalizedLanguage] || LANGUAGE_OPTIONS.fr;
+  const option = LANGUAGE_CONFIGS[normalizedLanguage] || LANGUAGE_CONFIGS.fr;
   const normalizedLabel = typeof languageLabel === 'string' ? languageLabel.trim() : '';
 
   return {
-    language: LANGUAGE_OPTIONS[normalizedLanguage] ? normalizedLanguage : 'fr',
+    language: LANGUAGE_CONFIGS[normalizedLanguage] ? normalizedLanguage : 'fr',
     languageLabel: normalizedLabel === option.label ? normalizedLabel : option.label,
   };
 }
@@ -430,15 +435,15 @@ function normalizeLanguage(language, languageLabel) {
 function resolveTargetLanguage(language, languageLabel, formData) {
   const normalizedLanguage = typeof language === 'string' ? language.trim().toLowerCase() : '';
 
-  if (LANGUAGE_OPTIONS[normalizedLanguage]) {
+  if (LANGUAGE_CONFIGS[normalizedLanguage]) {
     return {
       code: normalizedLanguage,
-      label: LANGUAGE_OPTIONS[normalizedLanguage].label,
+      label: LANGUAGE_CONFIGS[normalizedLanguage].label,
     };
   }
 
   const detectedLanguage = detectDominantFormLanguage(formData);
-  const option = LANGUAGE_OPTIONS[detectedLanguage] || LANGUAGE_OPTIONS.fr;
+  const option = LANGUAGE_CONFIGS[detectedLanguage] || LANGUAGE_CONFIGS.fr;
 
   return {
     code: detectedLanguage,
@@ -511,7 +516,7 @@ function getRiskLevel(score, language = 'fr') {
     return null;
   }
 
-  const labels = RISK_LEVEL_LABELS[language] || RISK_LEVEL_LABELS.fr;
+  const labels = LANGUAGE_CONFIGS[language]?.riskLevels || LANGUAGE_CONFIGS.fr.riskLevels;
 
   if (score >= 1 && score <= 20) {
     return labels.low;
@@ -620,11 +625,12 @@ function identifyColumnRoles(headers) {
     budget: [],
     means: [],
   };
+  const tableLanguage = inferTableLanguage(headers);
 
   headers.forEach((header, index) => {
     const normalizedHeader = normalizeTableHeader(header);
 
-    if (normalizedHeader.includes('score')) {
+    if (normalizedHeader.includes('score') || normalizedHeader.includes('punktzahl')) {
       roles.score.push(index);
     }
 
@@ -637,7 +643,7 @@ function identifyColumnRoles(headers) {
     ) {
       roles.level.push({
         index,
-        language: getRiskLevelLanguage(normalizedHeader),
+        language: getRiskLevelLanguage(normalizedHeader, tableLanguage),
       });
     }
 
@@ -661,6 +667,40 @@ function identifyColumnRoles(headers) {
   return roles;
 }
 
+function inferTableLanguage(headers) {
+  const normalizedHeaders = headers.map(normalizeTableHeader).join(' | ');
+
+  if (
+    normalizedHeaders.includes('gefahrdung') ||
+    normalizedHeaders.includes('punktzahl') ||
+    normalizedHeaders.includes('verantwortliche person') ||
+    normalizedHeaders.includes('vorhandene nachweise')
+  ) {
+    return 'de';
+  }
+
+  if (
+    normalizedHeaders.includes('activiteit') ||
+    normalizedHeaders.includes('blootgestelde personen') ||
+    normalizedHeaders.includes('bestaand bewijs') ||
+    normalizedHeaders.includes('waarschijnlijkheid') ||
+    normalizedHeaders.includes('verantwoordelijke')
+  ) {
+    return 'nl';
+  }
+
+  if (
+    normalizedHeaders.includes('exposed persons') ||
+    normalizedHeaders.includes('existing evidence') ||
+    normalizedHeaders.includes('responsible person') ||
+    normalizedHeaders.includes('level')
+  ) {
+    return 'en';
+  }
+
+  return 'fr';
+}
+
 function normalizeRiskLevelCells(rowCells, columnRoles) {
   for (const levelColumn of columnRoles.level) {
     const levelIndex = levelColumn.index;
@@ -678,9 +718,13 @@ function normalizeRiskLevelCells(rowCells, columnRoles) {
   }
 }
 
-function getRiskLevelLanguage(normalizedHeader) {
+function getRiskLevelLanguage(normalizedHeader, tableLanguage = 'fr') {
   if (normalizedHeader.includes('level')) {
     return 'en';
+  }
+
+  if (normalizedHeader === 'niveau') {
+    return tableLanguage;
   }
 
   if (normalizedHeader.includes('risiconiveau')) {
@@ -870,17 +914,39 @@ function runInternalRiskTests() {
   assert.match(normalized, /\|\s*à prévoir\s*\|/);
   assert.match(normalized, /à estimer/);
 
+  const normalizedDutch = normalizeRiskLevels(`| Nr. | Activiteit | Score | Niveau |
+| --- | --- | --- | --- |
+| 1 | Onderhoud | 18 | Gemiddeld |
+| 2 | Onderhoud | 48 | Hoog |
+| 3 | Onderhoud | 60 | Gemiddeld |
+`);
+
+  assert.match(normalizedDutch, /\|\s*1\s*\|\s*Onderhoud\s*\|\s*18\s*\|\s*Laag\s*\|/);
+  assert.match(normalizedDutch, /\|\s*2\s*\|\s*Onderhoud\s*\|\s*48\s*\|\s*Gemiddeld\s*\|/);
+  assert.match(normalizedDutch, /\|\s*3\s*\|\s*Onderhoud\s*\|\s*60\s*\|\s*Hoog\s*\|/);
+
+  const normalizedGerman = normalizeRiskLevels(`| Nr. | Tätigkeit oder Aufgabe | Punktzahl | Niveau |
+| --- | --- | --- | --- |
+| 1 | Wartung | 18 | Mittel |
+| 2 | Wartung | 48 | Hoch |
+| 3 | Wartung | 60 | Mittel |
+`);
+
+  assert.match(normalizedGerman, /\|\s*1\s*\|\s*Wartung\s*\|\s*18\s*\|\s*Niedrig\s*\|/);
+  assert.match(normalizedGerman, /\|\s*2\s*\|\s*Wartung\s*\|\s*48\s*\|\s*Mittel\s*\|/);
+  assert.match(normalizedGerman, /\|\s*3\s*\|\s*Wartung\s*\|\s*60\s*\|\s*Hoch\s*\|/);
+
   console.info('Internal risk normalization checks passed.');
 }
 
 function buildUserPrompt(documentType, formData, language = 'fr', languageLabel = 'Français') {
-  const languageOption = LANGUAGE_OPTIONS[language] || LANGUAGE_OPTIONS.fr;
-  const resolvedLanguageLabel = languageOption.label || languageLabel;
+  const languageConfig = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+  const resolvedLanguageLabel = languageConfig.label || languageLabel;
   const riskScale = formatRiskScale(language);
   const structure = [
-    languageOption.title,
+    `# ${languageConfig.title}`,
     '',
-    ...languageOption.sections.map((sectionTitle, index) => `## ${index + 1}. ${sectionTitle}`),
+    ...languageConfig.sections.map((sectionTitle, index) => `## ${index + 1}. ${sectionTitle}`),
   ].join('\n');
 
   return `Type de document demandé : ${documentType}
@@ -894,27 +960,27 @@ Consignes opérationnelles :
 2. La langue cible est : ${resolvedLanguageLabel}. Tu dois rédiger l’intégralité du document dans cette langue. Si les réponses du formulaire sont majoritairement dans une autre langue, utilise la langue cible déterminée. Si la langue cible n’a pas été fournie mais que les réponses du formulaire sont dans une langue identifiable, réponds dans cette langue. Ne mélange jamais les langues dans les titres, tableaux, explications, priorités, plans d’action, mentions ou conclusions. Les noms officiels belges peuvent rester dans leur forme officielle si nécessaire, mais les explications doivent être dans la langue cible.
 3. Respecte exactement cette structure de 18 sections, dans cet ordre, avec ces titres traduits :
 ${structure}
-4. Avant de répondre, remplace toute formulation non professionnelle, incohérente, anglaise ou mal traduite. N’utilise jamais : "Retour au travail des piétons", "Retour au travail", "Exportation occasionnelle", "Exportation", "Fréquence des interventions dernières", "Conformité normale", "Accident register", "Moderate", "PDV requise pour EPI", "Préventeur interna", "Barrage aux risques chimiques", "Utlisation sécurisée", "Fréquence des presences", "€ pour reformation", "Fiches de donnée sécurité", "EPI audios", "État de l’atelier contrôle", "Mesure à priorité", "Risqués", "Utilisation d’équipements dangereuse sans précision", "Engagement renforcé", "interna", "Barrage aux risques", "Effectivité", "environnement de travail agitée", "environnement agitée", "Une perte auditive". Utilise des formulations professionnelles dans la langue demandée, équivalentes à : "circulation véhicules/piétons", "exposition occasionnelle", "fréquence d’intervention à vérifier sur le terrain", "conformité à vérifier", "registre des accidents/incidents", "modérée", "procédure de vérification des EPI", "préventeur interne ou conseiller en prévention interne", "maîtrise des risques chimiques", "utilisation sécurisée", "présence régulière des produits", "formation complémentaire à planifier", "fiches de données de sécurité", "EPI auditifs", "état de l’atelier contrôlé", "mesure organisationnelle", "mesure technique", "formation et information", "protection collective", "équipement de protection individuelle", "risques", "efficacité de la signalisation", "environnement de travail bruyant ou perturbé", "perte auditive".
+4. The entire document must be written in the target language. Do not mix languages. Use the translated headings, tables, risk levels and final statement from the language configuration. Do not use these non-target headings or terms: ${languageConfig.forbiddenTerms.join('; ')}.
 5. Section 3 : sélectionne maximum 8 références pertinentes parmi : Loi du 4 août 1996, Code du bien-être au travail, Livre Ier, Titre 2 – Politique du bien-être et système dynamique de gestion des risques, Plan Global de Prévention, Plan Annuel d’Action, CPPT, SIPPT/SEPPT, Livre III – Lieux de travail, Livre III, Titre 3 – Prévention incendie, Livre III, Titre 6 – Signalisation de sécurité et de santé, Livre IV – Équipements de travail, Livre VI – Agents chimiques, Livre VIII – Ergonomie et TMS, Livre IX – Protections collectives et EPI. Ne cite pas d’articles et n’utilise pas de libellés approximatifs comme "Livre I Titre 2", "Livre III lieu de travail", "Livre III lieux de travail" ou "Livre IX protections collectives et EPI" sans majuscule ni tiret.
 6. Section 3 : les noms officiels français des références réglementaires belges peuvent rester en français, mais les explications autour doivent être en ${resolvedLanguageLabel}.
-7. Section 9 : produis un tableau Markdown avec exactement ces colonnes dans la langue cible : ${languageOption.riskTableColumns}.
-8. Limite la section 9 à maximum 8 risques. Si le contexte est service technique communal, atelier, maintenance, voirie ou espaces verts, couvre les risques les plus pertinents parmi : manutention manuelle ou régulière, machines/outillage électroportatif, projections, bruit, travail en hauteur, produits chimiques, incendie, glissades/chutes, circulation véhicules/piétons, interventions sur voirie, travail isolé, coactivité avec public ou sous-traitants, météo, rangement/stockage/rayonnages. Évite des scores très faibles pour travail en hauteur, produits chimiques, circulation véhicules/piétons, incendie, machines/outillage, manutention régulière, bruit et coactivité sauf justification claire ; le score doit rester cohérent avec Gravité x Probabilité x Exposition et ne doit pas classer un risque grave et fréquent en faible.
+7. Section 9 : produis un tableau Markdown avec exactement ces colonnes dans la langue cible : ${languageConfig.riskTableColumns}.
+8. Section 9 must always contain 8 complete risk rows. Si le contexte est service technique communal, atelier, maintenance, voirie ou espaces verts, couvre les risques les plus pertinents parmi : manutention manuelle ou régulière, machines/outillage électroportatif, projections, bruit, travail en hauteur, produits chimiques, incendie, glissades/chutes, circulation véhicules/piétons, interventions sur voirie, travail isolé, coactivité avec public ou sous-traitants, météo, rangement/stockage/rayonnages. Évite des scores très faibles pour travail en hauteur, produits chimiques, circulation véhicules/piétons, incendie, machines/outillage, manutention régulière, bruit et coactivité sauf justification claire ; le score doit rester cohérent avec Gravité x Probabilité x Exposition et ne doit pas classer un risque grave et fréquent en faible.
 9. Remplis les cellules avec des informations plausibles et prudentes. Si l’information manque, utilise dans la langue demandée une formule équivalente à "à vérifier sur le terrain" dans la cellule concernée plutôt que de laisser vide.
 10. Avant de finaliser le tableau, vérifie chaque score et niveau : ${riskScale}.
-11. Section 8 : développe toujours 6 à 8 dangers détaillés et concrets, jamais une simple formule équivalente à "Dangers identifiés :" ni seulement une formule équivalente à "Information à compléter ou à valider sur le terrain.". Pour un service technique communal, inclure si pertinent : manutention manuelle, machines/outillage électroportatif, produits chimiques, circulation véhicules/piétons, bruit, travail en hauteur, glissades/chutes de plain-pied, incendie, coactivité avec citoyens ou sous-traitants, conditions météo, travail isolé.
-12. Section 11 : ne laisse jamais cette section vide. Produis au moins 4 priorités structurées. Chaque priorité doit contenir ${languageOption.priorityLabels}.
-13. Section 12 : produis un tableau Markdown de maximum 6 actions avec ces libellés dans la langue demandée : ${languageOption.actionTableColumns}.
-14. Section 14 : propose toujours 5 à 8 documents concrets. Pour un service technique communal, inclure si pertinent : inventaire des produits chimiques, fiches de données de sécurité, fiches d’instruction machines/outillage, registre des formations, registre des EPI, procédure travail isolé, procédure coactivité, check-list échelles/escabeaux, procédure signalisation voirie, registre accidents/incidents.
+11. Section 8 must always contain 6 to 8 concrete hazards, never only "Dangers identifiés", "Information à compléter ou à valider sur le terrain" or an equivalent. Pour un service technique communal, inclure si pertinent : manutention manuelle, machines/outillage électroportatif, produits chimiques, circulation véhicules/piétons, bruit, travail en hauteur, glissades/chutes de plain-pied, incendie, coactivité avec citoyens ou sous-traitants, conditions météo, travail isolé.
+12. Section 11 must always contain at least 4 structured priorities. Each priority must contain ${languageConfig.priorityLabels}.
+13. Section 12 must always contain at least 6 action plan items. Use this Markdown table header in the target language: ${languageConfig.actionTableColumns}.
+14. Section 14 must always contain 6 to 10 concrete documents. Section 15 must always contain 4 to 8 stakeholders. Section 16 must always contain 4 to 8 appendices. No full section may be replaced only by "to be completed", "à compléter", "te controleren", "zu prüfen" or equivalent.
 15. Relis les preuves attendues : elles doivent être vérifiables, professionnelles et cohérentes avec le risque et la mesure. Privilégie : rapport de contrôle, registre de formation, liste de présence, photos avant/après, inventaire mis à jour, FDS centralisées, rapport de visite terrain, PV ou avis du CPPT, registre accidents/incidents, check-list signée. Évite : suivi, constat, conformité normale, document disponible, rapport général.
 16. Pour le type de mesure selon la hiérarchie de prévention, utilise uniquement des libellés dans la langue demandée équivalents à : suppression du danger, substitution, mesure technique, protection collective, mesure organisationnelle, information et formation, équipement de protection individuelle, surveillance, contrôle et réévaluation. N’écris pas "mesure à priorité", "conformité normale", "éducation sur le travail extérieur" ni "élimination du risque avéré" si le danger n’est pas réellement supprimé.
 17. Section 18 doit contenir exactement cette mention finale traduite, une seule fois :
-${languageOption.finalMention}
-18. Avant de répondre, vérifie que tous les titres sont dans la langue cible, que les 18 sections sont présentes, que le tableau principal contient de vrais risques, que le plan d’action contient de vraies actions, qu’aucune section entière n’est remplacée par "Information à compléter", "à vérifier" ou leur équivalent traduit, qu’il n’y a pas de mélange français/néerlandais/anglais/allemand et que les libellés des tableaux sont traduits.
+${languageConfig.finalMention}
+18. Before answering, verify: all 18 sections are present; headings match the target language exactly; the risk table has complete rows; the action plan has complete rows; the final statement matches the target language; no heading from another language remains.
 19. Garde une réponse concise pour éviter les timeouts.`;
 }
 
 function formatRiskScale(language) {
-  const labels = RISK_LEVEL_LABELS[language] || RISK_LEVEL_LABELS.fr;
+  const labels = LANGUAGE_CONFIGS[language]?.riskLevels || LANGUAGE_CONFIGS.fr.riskLevels;
 
   return `1-20 ${labels.low}, 21-50 ${labels.medium}, 51-100 ${labels.high}, 101-125 ${labels.critical}`;
 }
