@@ -54,6 +54,11 @@ const LANGUAGE_CONFIGS = {
       'N° | Risque concerné | Mesure proposée | Objectif | Responsable | Échéance | Moyens nécessaires | Indicateur | Preuve attendue | Statut | Lien PAA/PGP',
     priorityLabels: 'action, risque concerné, responsable, échéance et preuve attendue',
     forbiddenTerms: ['Risk assessment', 'Risicoanalyse', 'Gefährdungsbeurteilung'],
+    missingInfo: 'Information à compléter ou à valider sur le terrain.',
+    draftSuffix: 'Projet à adapter et à valider',
+    secondaryTitle: 'Récapitulatif et suivi des actions',
+    gdprReminder:
+      'Limiter les données personnelles au strict nécessaire, éviter toute donnée médicale non indispensable et vérifier les règles RGPD applicables avant diffusion.',
     finalMention:
       'Ce document est un projet à adapter à la situation réelle de l’entreprise et à valider par le conseiller en prévention, l’employeur et, le cas échéant, le service externe, le médecin du travail ou le CPPT. Il ne constitue pas à lui seul une preuve de conformité réglementaire.',
   },
@@ -93,6 +98,11 @@ const LANGUAGE_CONFIGS = {
       'Nr. | Betrokken risico | Voorgestelde maatregel | Doel | Verantwoordelijke | Termijn | Benodigde middelen | Indicator | Verwacht bewijs | Status | Link JAP/GPP',
     priorityLabels: 'actie, risico, verantwoordelijke, deadline en verwacht bewijs',
     forbiddenTerms: ['Analyse de risques', 'Risk assessment', 'Gefährdungsbeurteilung'],
+    missingInfo: 'Informatie aan te vullen of te valideren tijdens het terreinbezoek.',
+    draftSuffix: 'Ontwerp aan te passen en te valideren',
+    secondaryTitle: 'Samenvatting en opvolging van acties',
+    gdprReminder:
+      'Beperk persoonsgegevens tot wat strikt noodzakelijk is, vermijd niet-noodzakelijke medische gegevens en controleer de toepasselijke AVG-regels vóór verspreiding.',
     finalMention:
       'Dit document is een ontwerp dat moet worden aangepast aan de werkelijke situatie van de onderneming en gevalideerd door de preventieadviseur, de werkgever en, indien van toepassing, de externe dienst, de arbeidsarts of het CPBW. Het vormt op zichzelf geen bewijs van reglementaire conformiteit.',
   },
@@ -132,6 +142,11 @@ const LANGUAGE_CONFIGS = {
       'No. | Related risk | Proposed measure | Objective | Responsible person | Deadline | Required resources | Indicator | Expected evidence | Status | Link AAP/GPP',
     priorityLabels: 'action, risk, responsible, deadline and expected evidence',
     forbiddenTerms: ['Analyse de risques', 'Risicoanalyse', 'Gefährdungsbeurteilung'],
+    missingInfo: 'Information to be completed or validated during the site visit.',
+    draftSuffix: 'Draft to be adapted and validated',
+    secondaryTitle: 'Action Summary and Follow-Up',
+    gdprReminder:
+      'Limit personal data to what is strictly necessary, avoid unnecessary medical data and check the applicable GDPR rules before distribution.',
     finalMention:
       'This document is a draft that must be adapted to the actual situation of the organisation and validated by the prevention advisor, the employer and, where applicable, the external service, the occupational physician or the health and safety committee. It does not constitute proof of regulatory compliance on its own.',
   },
@@ -171,6 +186,11 @@ const LANGUAGE_CONFIGS = {
       'Nr. | Betroffenes Risiko | Vorgeschlagene Maßnahme | Ziel | Verantwortliche Person | Frist | Erforderliche Mittel | Indikator | Erwarteter Nachweis | Status | Bezug JAP/GPP',
     priorityLabels: 'Aktion, Risiko, Verantwortlicher, Frist und erwarteter Nachweis',
     forbiddenTerms: ['Analyse de risques', 'Risicoanalyse', 'Risk assessment'],
+    missingInfo: 'Informationen sind vor Ort zu ergänzen oder zu validieren.',
+    draftSuffix: 'Entwurf zur Anpassung und Validierung',
+    secondaryTitle: 'Zusammenfassung und Nachverfolgung der Maßnahmen',
+    gdprReminder:
+      'Beschränken Sie personenbezogene Daten auf das unbedingt Erforderliche, vermeiden Sie nicht notwendige medizinische Daten und prüfen Sie vor der Weitergabe die anwendbaren DSGVO-Regeln.',
     finalMention:
       'Dieses Dokument ist ein Entwurf, der an die tatsächliche Situation des Unternehmens angepasst und vom Präventionsberater, dem Arbeitgeber sowie gegebenenfalls vom externen Dienst, dem Arbeitsmediziner oder dem Ausschuss für Gefahrenverhütung und Schutz am Arbeitsplatz validiert werden muss. Es stellt für sich allein keinen Nachweis der regulatorischen Konformität dar.',
   },
@@ -183,14 +203,14 @@ Tu aides à produire des projets d’analyses de risques et documents de préven
 Règles strictes :
 - Répondre uniquement en Markdown, sans JSON ni préambule.
 - Répondre exclusivement dans la langue demandée par le prompt utilisateur, avec un ton professionnel, sans anglicisme inutile et sans formulation familière, approximative ou non professionnelle.
-- Respecter exactement l’ordre des 18 sections demandées.
+- Respecter exactement l’ordre, les titres et les tableaux demandés par le template utilisateur.
 - Rester synthétique : environ 2500 à 3500 mots maximum.
 - Ne jamais affirmer qu’un document est juridiquement complet.
 - Ne jamais inventer d’articles légaux précis ; citer seulement la loi, le Code, les Livres ou Titres pertinents.
 - Exploiter tous les champs formData. La valeur "Non renseigné / à vérifier" est une information manquante à traiter comme point à vérifier, pas comme une raison de laisser une section vide.
 - Distinguer faits fournis, hypothèses prudentes, informations manquantes et points à valider lorsque c’est utile.
 - Ne jamais produire un tableau rempli uniquement avec "À compléter".
-- Ne jamais répéter la mention finale. Elle apparaît une seule fois, en section 18.
+- Ne jamais répéter la mention finale. Elle apparaît une seule fois, dans la dernière section demandée.
 - Relire la réponse avant sortie : corriger grammaire, accord, ton professionnel et cohérence métier ; remplacer toute formulation non professionnelle, incohérente, anglaise ou mal traduite.
 - Interdire les formulations absurdes, non professionnelles, anglaises ou hors contexte. Ne jamais écrire notamment : "risque vétérinaire", "clash de l’intensité du bruit", "outils violents", "registre des médicaments", "Cet projet", "Chemiste interne", "Suivi des consommateurs", "Formation de maintien correct", "Production de normes claires", "Assemblée de travailleurs formés", "Systèmes de fichier", "Chutes/slips", "véhicules/péda", "Média", "PRS des CPPT", "Risque critique tr", "Plan Global de Protection", "Retour au travail des piétons", "Retour au travail", "Exportation occasionnelle", "Exportation", "Fréquence des interventions dernières", "Conformité normale", "Utlisation sécurisée", "PDV requise pour EPI", "Fréquence d'interventions augm.", "Fréquence des presences", "Fréquence des presences des produits", "€ pour reformation", "Fiches de donnée sécurité", "EPI audios", "État de l’atelier contrôle", "Mesure à priorité", "Risqués", "Utilisation d’équipements dangereuse sans précision", "Engagement renforcé", "Utiliser régulièrement", "Accident register", "Moderate", "Préventeur interna", "interna", "Barrage aux risques chimiques", "Barrage aux risques", "Effectivité", "environnement de travail agitée", "environnement agitée" ou "Une perte auditive".
 - Employer un vocabulaire prévention adapté : machines et outillage électroportatif, machines bruyantes, registre des accidents/incidents, risque de chute de hauteur, exposition au bruit, exposition à des agents chimiques, circulation véhicules/piétons, glissades et chutes de plain-pied.
@@ -202,7 +222,7 @@ Règles strictes :
 Cotation : Risque = Gravité x Probabilité x Exposition.
 Gravité, Probabilité et Exposition sont cotées de 1 à 5. Niveau : 1 à 20 = Faible ; 21 à 50 = Moyen ; 51 à 100 = Élevé ; 101 à 125 = Critique. Les justifications G/P/E doivent être courtes. Avant de répondre, vérifie que chaque niveau correspond exactement au score selon la grille. Ne jamais classer 20, 36, 48 ou 27 comme Élevé/Critique, ni 100 comme Critique. Ne force jamais artificiellement un score élevé, mais ne sous-évalue pas les risques typiques d’un service technique communal lorsque l’exposition est régulière ou la gravité importante : travail en hauteur, produits chimiques, circulation véhicules/piétons, incendie, machines/outillage, manutention régulière, bruit, coactivité avec public ou sous-traitants. Évite les scores très faibles pour ces risques sauf justification claire et cohérente avec Gravité x Probabilité x Exposition ; ne classe pas un risque grave et fréquent en risque faible.
 
-Structure obligatoire par défaut en français si aucune autre langue valide n’est demandée :
+Structure obligatoire par défaut pour une analyse de risques en français si aucune autre langue valide n’est demandée :
 # Analyse de risques – Projet à valider
 
 ## 1. Identification du document
@@ -250,6 +270,678 @@ const REQUIRED_FORM_FIELDS = [
   'contraintesParticulieres',
   'informationsComplementaires',
 ];
+
+const SECONDARY_DOCUMENT_SEPARATOR = '<!-- preventia-secondary-document -->';
+
+const RISK_DOCUMENT_TYPES = [
+  'Analyse de risques générale',
+  'Analyse de risques ergonomie',
+  'Analyse de risques machines et équipements',
+  'Analyse de risques produits chimiques',
+  'Analyse de risques incendie et évacuation',
+  'Analyse de risques manutention manuelle',
+  'Analyse de risques travail en hauteur',
+  'Analyse de risques travail isolé',
+  'Analyse de risques psychosociaux',
+  'Analyse de risques maternité',
+  'Analyse de risques jeunes travailleurs',
+  'Analyse de risques intérimaires',
+];
+
+const NEW_DOCUMENT_DEFINITIONS = [
+  {
+    id: 'annual_action_plan',
+    family: 'annual_action_plan',
+    hasSecondaryDocument: false,
+    labels: {
+      fr: 'Plan annuel d’action',
+      nl: 'Jaaractieplan',
+      en: 'Annual Action Plan',
+      de: 'Jährlicher Aktionsplan',
+    },
+    requiredFieldGroups: [
+      ['secteurActivite', 'entreprise', 'organisation'],
+      ['siteLieuTravail', 'site', 'lieu'],
+      ['activitePoste', 'activite', 'descriptionActivite', 'objectifsPrevention'],
+    ],
+  },
+  {
+    id: 'five_year_global_prevention_plan',
+    family: 'five_year_global_prevention_plan',
+    hasSecondaryDocument: false,
+    labels: {
+      fr: 'Plan global de prévention sur 5 ans',
+      nl: 'Globaal preventieplan over 5 jaar',
+      en: 'Five-Year Global Prevention Plan',
+      de: 'Globaler Präventionsplan über 5 Jahre',
+    },
+    requiredFieldGroups: [
+      ['secteurActivite', 'entreprise', 'organisation'],
+      ['siteLieuTravail', 'site', 'lieu'],
+      ['activitePoste', 'activite', 'descriptionActivite', 'risquesPrioritaires'],
+    ],
+  },
+  {
+    id: 'safety_visit_report',
+    family: 'safety_visit_report',
+    hasSecondaryDocument: true,
+    labels: {
+      fr: 'Rapport de visite sécurité',
+      nl: 'Veiligheidsbezoekverslag',
+      en: 'Safety Visit Report',
+      de: 'Sicherheitsbegehungsbericht',
+    },
+    requiredFieldGroups: [
+      ['siteLieuTravail', 'site', 'lieuVisite', 'lieu'],
+      ['activitePoste', 'zonesVisitees', 'objetVisite', 'informationsComplementaires'],
+    ],
+  },
+  {
+    id: 'job_description_sheet',
+    family: 'job_description_sheet',
+    hasSecondaryDocument: false,
+    labels: {
+      fr: 'Fiche de poste',
+      nl: 'Functiefiche',
+      en: 'Job Description Sheet',
+      de: 'Stellenbeschreibung',
+    },
+    requiredFieldGroups: [
+      ['activitePoste', 'poste', 'fonction', 'jobTitle'],
+      ['secteurActivite', 'service', 'departement', 'department'],
+    ],
+  },
+  {
+    id: 'safety_instruction_sheet',
+    family: 'safety_instruction_sheet',
+    hasSecondaryDocument: false,
+    labels: {
+      fr: 'Fiche d’instruction sécurité',
+      nl: 'Veiligheidsinstructieblad',
+      en: 'Safety Instruction Sheet',
+      de: 'Sicherheitsanweisungsblatt',
+    },
+    requiredFieldGroups: [
+      ['activitePoste', 'activite', 'machine', 'situation', 'instructionSubject'],
+      ['machinesEquipements', 'equipement', 'equipment', 'informationsComplementaires'],
+    ],
+  },
+  {
+    id: 'accident_or_incident_report',
+    family: 'accident_or_incident_report',
+    hasSecondaryDocument: true,
+    labels: {
+      fr: 'Rapport d’accident ou d’incident',
+      nl: 'Ongevallen- of incidentenrapport',
+      en: 'Accident or Incident Report',
+      de: 'Unfall- oder Vorfallbericht',
+    },
+    requiredFieldGroups: [
+      ['accidentsIncidents', 'descriptionEvenement', 'incidentDescription', 'informationsComplementaires'],
+      ['siteLieuTravail', 'lieu', 'eventLocation'],
+    ],
+  },
+];
+
+const DOCUMENT_DEFINITIONS = [
+  ...RISK_DOCUMENT_TYPES.map((label) => ({
+    id: normalizeDocumentType(label),
+    family: 'risk_assessment',
+    hasSecondaryDocument: false,
+    labels: {
+      fr: label,
+      nl: LANGUAGE_CONFIGS.nl.title,
+      en: LANGUAGE_CONFIGS.en.title,
+      de: LANGUAGE_CONFIGS.de.title,
+    },
+    requiredFields: REQUIRED_FORM_FIELDS,
+  })),
+  ...NEW_DOCUMENT_DEFINITIONS,
+];
+
+const DOCUMENT_DEFINITION_BY_TYPE = new Map(
+  DOCUMENT_DEFINITIONS.flatMap((definition) =>
+    Object.values(definition.labels).map((label) => [normalizeDocumentType(label), definition]),
+  ),
+);
+
+const DOCUMENT_TEMPLATES = {
+  annual_action_plan: {
+    sections: {
+      fr: [
+        'Identification du document',
+        'Contexte',
+        'Sources utilisées',
+        'Objectifs de prévention pour l’année',
+        'Actions prioritaires',
+        'Tableau du plan annuel d’action',
+        'Ressources nécessaires',
+        'Budget estimatif',
+        'Indicateurs de suivi',
+        'Modalités de suivi',
+        'Points à valider',
+        'Conclusion',
+        'Mention de validation',
+      ],
+      nl: [
+        'Identificatie van het document',
+        'Context',
+        'Gebruikte bronnen',
+        'Preventiedoelstellingen voor het jaar',
+        'Prioritaire acties',
+        'Tabel van het jaaractieplan',
+        'Benodigde middelen',
+        'Budgetraming',
+        'Opvolgingsindicatoren',
+        'Opvolgingsmodaliteiten',
+        'Te valideren punten',
+        'Conclusie',
+        'Validatievermelding',
+      ],
+      en: [
+        'Document Identification',
+        'Context',
+        'Sources Used',
+        'Prevention Objectives for the Year',
+        'Priority Actions',
+        'Annual Action Plan Table',
+        'Required Resources',
+        'Estimated Budget',
+        'Follow-Up Indicators',
+        'Follow-Up Arrangements',
+        'Points to Validate',
+        'Conclusion',
+        'Validation Statement',
+      ],
+      de: [
+        'Dokumentidentifikation',
+        'Kontext',
+        'Verwendete Quellen',
+        'Präventionsziele für das Jahr',
+        'Prioritäre Maßnahmen',
+        'Tabelle des jährlichen Aktionsplans',
+        'Erforderliche Ressourcen',
+        'Geschätztes Budget',
+        'Nachverfolgungsindikatoren',
+        'Modalitäten der Nachverfolgung',
+        'Zu validierende Punkte',
+        'Schlussfolgerung',
+        'Validierungshinweis',
+      ],
+    },
+    tableColumns: {
+      fr: 'N° d’action | Risque / thème | Mesure prévue | Objectif | Responsable | Service concerné | Échéance | Moyens nécessaires | Budget estimatif | Indicateur de réalisation | Statut | Commentaire',
+      nl: 'Actienr. | Risico / thema | Geplande maatregel | Doel | Verantwoordelijke | Betrokken dienst | Termijn | Benodigde middelen | Budgetraming | Realisatie-indicator | Status | Opmerking',
+      en: 'Action No. | Risk / Theme | Planned Measure | Objective | Responsible Person | Department Concerned | Deadline | Required Resources | Estimated Budget | Completion Indicator | Status | Comment',
+      de: 'Maßnahmen-Nr. | Risiko / Thema | Geplante Maßnahme | Ziel | Verantwortliche Person | Betroffener Dienst | Frist | Erforderliche Mittel | Geschätztes Budget | Umsetzungsindikator | Status | Kommentar',
+    },
+  },
+  five_year_global_prevention_plan: {
+    sections: {
+      fr: [
+        'Identification du document',
+        'Introduction',
+        'Description de l’entreprise, du site ou du service',
+        'Méthodologie',
+        'Synthèse des risques prioritaires',
+        'Objectifs à 5 ans',
+        'Axes prioritaires',
+        'Mesures structurelles prévues',
+        'Planning pluriannuel',
+        'Responsabilités',
+        'Moyens humains, techniques et financiers',
+        'Indicateurs de suivi',
+        'Modalités d’évaluation annuelle',
+        'Lien avec les plans annuels d’action',
+        'Points à valider',
+        'Conclusion',
+        'Mention de validation',
+      ],
+      nl: [
+        'Identificatie van het document',
+        'Inleiding',
+        'Beschrijving van de onderneming, site of dienst',
+        'Methodologie',
+        'Samenvatting van de prioritaire risico’s',
+        'Doelstellingen over 5 jaar',
+        'Prioritaire assen',
+        'Geplande structurele maatregelen',
+        'Meerjarenplanning',
+        'Verantwoordelijkheden',
+        'Menselijke, technische en financiële middelen',
+        'Opvolgingsindicatoren',
+        'Modaliteiten voor jaarlijkse evaluatie',
+        'Verband met de jaaractieplannen',
+        'Te valideren punten',
+        'Conclusie',
+        'Validatievermelding',
+      ],
+      en: [
+        'Document Identification',
+        'Introduction',
+        'Company, Site or Department Description',
+        'Methodology',
+        'Summary of Priority Risks',
+        'Five-Year Objectives',
+        'Priority Areas',
+        'Planned Structural Measures',
+        'Multi-Year Schedule',
+        'Responsibilities',
+        'Human, Technical and Financial Resources',
+        'Follow-Up Indicators',
+        'Annual Evaluation Arrangements',
+        'Link with Annual Action Plans',
+        'Points to Validate',
+        'Conclusion',
+        'Validation Statement',
+      ],
+      de: [
+        'Dokumentidentifikation',
+        'Einleitung',
+        'Beschreibung des Unternehmens, Standorts oder Dienstes',
+        'Methodik',
+        'Zusammenfassung der prioritären Risiken',
+        'Ziele über 5 Jahre',
+        'Prioritäre Handlungsachsen',
+        'Geplante strukturelle Maßnahmen',
+        'Mehrjahresplanung',
+        'Verantwortlichkeiten',
+        'Personelle, technische und finanzielle Mittel',
+        'Nachverfolgungsindikatoren',
+        'Modalitäten der jährlichen Bewertung',
+        'Verbindung mit den jährlichen Aktionsplänen',
+        'Zu validierende Punkte',
+        'Schlussfolgerung',
+        'Validierungshinweis',
+      ],
+    },
+    tableColumns: {
+      fr: 'Année | Objectif | Mesure structurelle | Responsable | Moyens nécessaires | Budget estimatif | Indicateur | Lien PAA | Point de validation',
+      nl: 'Jaar | Doelstelling | Structurele maatregel | Verantwoordelijke | Benodigde middelen | Budgetraming | Indicator | Link JAP | Validatiepunt',
+      en: 'Year | Objective | Structural Measure | Responsible Person | Required Resources | Estimated Budget | Indicator | AAP Link | Validation Point',
+      de: 'Jahr | Ziel | Strukturelle Maßnahme | Verantwortliche Person | Erforderliche Mittel | Geschätztes Budget | Indikator | Bezug zum JAP | Validierungspunkt',
+    },
+  },
+  safety_visit_report: {
+    sections: {
+      fr: [
+        'Identification de la visite',
+        'Date, heure et lieu',
+        'Participants',
+        'Objet de la visite',
+        'Périmètre et zones visitées',
+        'Constats positifs',
+        'Écarts, anomalies ou non-conformités observés',
+        'Risques observés',
+        'Mesures immédiates déjà prises',
+        'Recommandations',
+        'Tableau d’actions',
+        'Responsables',
+        'Échéances',
+        'Preuves attendues',
+        'Suivi prévu',
+        'Conclusion',
+        'Points à valider',
+        'Mention de validation',
+      ],
+      nl: [
+        'Identificatie van het bezoek',
+        'Datum, uur en plaats',
+        'Deelnemers',
+        'Doel van het bezoek',
+        'Afbakening en bezochte zones',
+        'Positieve vaststellingen',
+        'Vastgestelde afwijkingen, anomalieën of non-conformiteiten',
+        'Vastgestelde risico’s',
+        'Reeds genomen onmiddellijke maatregelen',
+        'Aanbevelingen',
+        'Actietabel',
+        'Verantwoordelijken',
+        'Termijnen',
+        'Verwachte bewijzen',
+        'Geplande opvolging',
+        'Conclusie',
+        'Te valideren punten',
+        'Validatievermelding',
+      ],
+      en: [
+        'Visit Identification',
+        'Date, Time and Location',
+        'Participants',
+        'Purpose of the Visit',
+        'Scope and Areas Visited',
+        'Positive Findings',
+        'Observed Deviations, Anomalies or Non-Conformities',
+        'Observed Risks',
+        'Immediate Measures Already Taken',
+        'Recommendations',
+        'Action Table',
+        'Responsible Persons',
+        'Deadlines',
+        'Expected Evidence',
+        'Planned Follow-Up',
+        'Conclusion',
+        'Points to Validate',
+        'Validation Statement',
+      ],
+      de: [
+        'Identifikation der Begehung',
+        'Datum, Uhrzeit und Ort',
+        'Teilnehmende',
+        'Zweck der Begehung',
+        'Umfang und begangene Bereiche',
+        'Positive Feststellungen',
+        'Festgestellte Abweichungen, Auffälligkeiten oder Nichtkonformitäten',
+        'Beobachtete Risiken',
+        'Bereits getroffene Sofortmaßnahmen',
+        'Empfehlungen',
+        'Maßnahmentabelle',
+        'Verantwortliche',
+        'Fristen',
+        'Erwartete Nachweise',
+        'Geplante Nachverfolgung',
+        'Schlussfolgerung',
+        'Zu validierende Punkte',
+        'Validierungshinweis',
+      ],
+    },
+    tableColumns: {
+      fr: 'N° | Constat / risque | Mesure recommandée | Responsable | Échéance | Preuve de suivi | Priorité | Statut | Commentaire',
+      nl: 'Nr. | Vaststelling / risico | Aanbevolen maatregel | Verantwoordelijke | Termijn | Opvolgingsbewijs | Prioriteit | Status | Opmerking',
+      en: 'No. | Finding / Risk | Recommended Measure | Responsible Person | Deadline | Follow-Up Evidence | Priority | Status | Comment',
+      de: 'Nr. | Feststellung / Risiko | Empfohlene Maßnahme | Verantwortliche Person | Frist | Nachweis der Nachverfolgung | Priorität | Status | Kommentar',
+    },
+  },
+  job_description_sheet: {
+    sections: {
+      fr: [
+        'Identification du poste',
+        'Service concerné',
+        'Mission principale',
+        'Tâches principales',
+        'Environnement de travail',
+        'Équipements et outils utilisés',
+        'Produits utilisés le cas échéant',
+        'Compétences et aptitudes requises',
+        'Risques liés au poste',
+        'Mesures de prévention',
+        'EPI requis',
+        'Formations et habilitations',
+        'Consignes particulières',
+        'Surveillance de santé et points à vérifier',
+        'Restrictions ou adaptations éventuelles',
+        'Validation et diffusion',
+        'Mention de validation',
+      ],
+      nl: [
+        'Identificatie van de functie',
+        'Betrokken dienst',
+        'Hoofdopdracht',
+        'Belangrijkste taken',
+        'Werkomgeving',
+        'Gebruikte uitrusting en hulpmiddelen',
+        'Gebruikte producten indien van toepassing',
+        'Vereiste competenties en vaardigheden',
+        'Risico’s verbonden aan de functie',
+        'Preventiemaatregelen',
+        'Vereiste PBM',
+        'Opleidingen en bevoegdheden',
+        'Bijzondere instructies',
+        'Gezondheidstoezicht en te controleren punten',
+        'Eventuele beperkingen of aanpassingen',
+        'Validatie en verspreiding',
+        'Validatievermelding',
+      ],
+      en: [
+        'Job Identification',
+        'Department Concerned',
+        'Main Mission',
+        'Main Tasks',
+        'Work Environment',
+        'Equipment and Tools Used',
+        'Products Used Where Applicable',
+        'Required Skills and Aptitudes',
+        'Job-Related Risks',
+        'Prevention Measures',
+        'Required PPE',
+        'Training and Authorisations',
+        'Specific Instructions',
+        'Health Surveillance and Points to Check',
+        'Possible Restrictions or Adaptations',
+        'Validation and Distribution',
+        'Validation Statement',
+      ],
+      de: [
+        'Identifikation der Stelle',
+        'Betroffener Dienst',
+        'Hauptaufgabe',
+        'Wichtigste Tätigkeiten',
+        'Arbeitsumgebung',
+        'Verwendete Ausrüstung und Werkzeuge',
+        'Verwendete Produkte, falls zutreffend',
+        'Erforderliche Kompetenzen und Fähigkeiten',
+        'Stellenbezogene Risiken',
+        'Präventionsmaßnahmen',
+        'Erforderliche PSA',
+        'Schulungen und Befähigungen',
+        'Besondere Anweisungen',
+        'Gesundheitsüberwachung und zu prüfende Punkte',
+        'Mögliche Einschränkungen oder Anpassungen',
+        'Validierung und Verteilung',
+        'Validierungshinweis',
+      ],
+    },
+  },
+  safety_instruction_sheet: {
+    sections: {
+      fr: [
+        'Identification de l’activité, de la machine ou de la situation',
+        'Objectif de la consigne',
+        'Dangers principaux',
+        'Équipements de protection individuelle requis',
+        'Vérifications avant utilisation ou intervention',
+        'Consignes pendant l’activité',
+        'Consignes après l’activité',
+        'Interdictions',
+        'Conduite à tenir en cas d’anomalie',
+        'Conduite à tenir en cas d’accident, d’incendie ou d’urgence',
+        'Personnes de contact',
+        'Diffusion, formation et preuve de communication',
+        'Points à valider',
+        'Mention de validation',
+      ],
+      nl: [
+        'Identificatie van de activiteit, machine of situatie',
+        'Doel van de instructie',
+        'Belangrijkste gevaren',
+        'Vereiste persoonlijke beschermingsmiddelen',
+        'Controles vóór gebruik of interventie',
+        'Instructies tijdens de activiteit',
+        'Instructies na de activiteit',
+        'Verboden handelingen',
+        'Te volgen stappen bij een afwijking',
+        'Te volgen stappen bij ongeval, brand of noodsituatie',
+        'Contactpersonen',
+        'Verspreiding, opleiding en bewijs van communicatie',
+        'Te valideren punten',
+        'Validatievermelding',
+      ],
+      en: [
+        'Identification of the Activity, Machine or Situation',
+        'Purpose of the Instruction',
+        'Main Hazards',
+        'Required Personal Protective Equipment',
+        'Checks Before Use or Intervention',
+        'Instructions During the Activity',
+        'Instructions After the Activity',
+        'Prohibited Actions',
+        'Actions in Case of Anomaly',
+        'Actions in Case of Accident, Fire or Emergency',
+        'Contact Persons',
+        'Distribution, Training and Proof of Communication',
+        'Points to Validate',
+        'Validation Statement',
+      ],
+      de: [
+        'Identifikation der Tätigkeit, Maschine oder Situation',
+        'Ziel der Anweisung',
+        'Hauptgefahren',
+        'Erforderliche persönliche Schutzausrüstung',
+        'Prüfungen vor Benutzung oder Eingriff',
+        'Anweisungen während der Tätigkeit',
+        'Anweisungen nach der Tätigkeit',
+        'Verbote',
+        'Vorgehen bei Auffälligkeiten',
+        'Vorgehen bei Unfall, Brand oder Notfall',
+        'Kontaktpersonen',
+        'Verteilung, Schulung und Kommunikationsnachweis',
+        'Zu validierende Punkte',
+        'Validierungshinweis',
+      ],
+    },
+  },
+  accident_or_incident_report: {
+    sections: {
+      fr: [
+        'Identification du dossier',
+        'Date, heure et lieu',
+        'Type d’événement',
+        'Personnes concernées',
+        'Témoins',
+        'Description factuelle de l’événement',
+        'Conséquences observées',
+        'Mesures immédiates',
+        'Causes probables',
+        'Causes immédiates',
+        'Causes profondes ou organisationnelles',
+        'Actions correctives',
+        'Actions préventives',
+        'Responsables',
+        'Échéances',
+        'Suivi prévu',
+        'Documents et preuves',
+        'Déclarations et validations à vérifier',
+        'Conclusion',
+        'Mention de validation',
+      ],
+      nl: [
+        'Identificatie van het dossier',
+        'Datum, uur en plaats',
+        'Type gebeurtenis',
+        'Betrokken personen',
+        'Getuigen',
+        'Feitelijke beschrijving van de gebeurtenis',
+        'Vastgestelde gevolgen',
+        'Onmiddellijke maatregelen',
+        'Waarschijnlijke oorzaken',
+        'Directe oorzaken',
+        'Diepere of organisatorische oorzaken',
+        'Corrigerende acties',
+        'Preventieve acties',
+        'Verantwoordelijken',
+        'Termijnen',
+        'Geplande opvolging',
+        'Documenten en bewijzen',
+        'Te controleren aangiften en validaties',
+        'Conclusie',
+        'Validatievermelding',
+      ],
+      en: [
+        'File Identification',
+        'Date, Time and Location',
+        'Type of Event',
+        'Persons Concerned',
+        'Witnesses',
+        'Factual Description of the Event',
+        'Observed Consequences',
+        'Immediate Measures',
+        'Probable Causes',
+        'Immediate Causes',
+        'Root or Organisational Causes',
+        'Corrective Actions',
+        'Preventive Actions',
+        'Responsible Persons',
+        'Deadlines',
+        'Planned Follow-Up',
+        'Documents and Evidence',
+        'Declarations and Validations to Check',
+        'Conclusion',
+        'Validation Statement',
+      ],
+      de: [
+        'Identifikation der Akte',
+        'Datum, Uhrzeit und Ort',
+        'Art des Ereignisses',
+        'Betroffene Personen',
+        'Zeugen',
+        'Sachliche Beschreibung des Ereignisses',
+        'Festgestellte Folgen',
+        'Sofortmaßnahmen',
+        'Wahrscheinliche Ursachen',
+        'Unmittelbare Ursachen',
+        'Grundlegende oder organisatorische Ursachen',
+        'Korrekturmaßnahmen',
+        'Präventive Maßnahmen',
+        'Verantwortliche',
+        'Fristen',
+        'Geplante Nachverfolgung',
+        'Dokumente und Nachweise',
+        'Zu prüfende Meldungen und Validierungen',
+        'Schlussfolgerung',
+        'Validierungshinweis',
+      ],
+    },
+    tableColumns: {
+      fr: 'N° | Cause / constat | Action corrective ou préventive | Responsable | Échéance | Preuve attendue | Statut | Commentaire',
+      nl: 'Nr. | Oorzaak / vaststelling | Corrigerende of preventieve actie | Verantwoordelijke | Termijn | Verwacht bewijs | Status | Opmerking',
+      en: 'No. | Cause / Finding | Corrective or Preventive Action | Responsible Person | Deadline | Expected Evidence | Status | Comment',
+      de: 'Nr. | Ursache / Feststellung | Korrektur- oder Präventivmaßnahme | Verantwortliche Person | Frist | Erwarteter Nachweis | Status | Kommentar',
+    },
+  },
+};
+
+const PROMPT_LOCALIZATION = {
+  fr: {
+    secondaryInstruction: (title) =>
+      `Après le document principal, ajoute exactement la ligne ${SECONDARY_DOCUMENT_SEPARATOR}, puis un document complémentaire intitulé "# ${title}" contenant un tableau de suivi des actions dans la langue cible.`,
+    noSecondaryInstruction: 'Ne produis pas de document complémentaire séparé.',
+    annualRows: 'Le tableau des actions prioritaires doit contenir au moins 6 lignes réalistes.',
+    defaultRows: 'Le tableau d’actions ou de planning doit contenir au moins 4 lignes réalistes.',
+    columnsPrefix: 'Utilise exactement ces colonnes Markdown dans la langue cible',
+    flexibleStructure:
+      'Utilise des listes structurées ou des tableaux Markdown lorsque cela rend le document plus exploitable.',
+  },
+  nl: {
+    secondaryInstruction: (title) =>
+      `Voeg na het hoofddocument exact de regel ${SECONDARY_DOCUMENT_SEPARATOR} toe, gevolgd door een aanvullend document met de titel "# ${title}" en een actietabel voor opvolging in de doeltaal.`,
+    noSecondaryInstruction: 'Maak geen afzonderlijk aanvullend document.',
+    annualRows: 'De tabel met prioritaire acties moet minstens 6 realistische regels bevatten.',
+    defaultRows: 'De actie- of planningstabel moet minstens 4 realistische regels bevatten.',
+    columnsPrefix: 'Gebruik exact deze Markdown-kolommen in de doeltaal',
+    flexibleStructure:
+      'Gebruik gestructureerde lijsten of Markdown-tabellen wanneer dit het document bruikbaarder maakt.',
+  },
+  en: {
+    secondaryInstruction: (title) =>
+      `After the main document, add exactly the line ${SECONDARY_DOCUMENT_SEPARATOR}, then a complementary document titled "# ${title}" containing an action follow-up table in the target language.`,
+    noSecondaryInstruction: 'Do not produce a separate complementary document.',
+    annualRows: 'The priority actions table must contain at least 6 realistic rows.',
+    defaultRows: 'The action or schedule table must contain at least 4 realistic rows.',
+    columnsPrefix: 'Use exactly these Markdown columns in the target language',
+    flexibleStructure:
+      'Use structured lists or Markdown tables when this makes the document more usable.',
+  },
+  de: {
+    secondaryInstruction: (title) =>
+      `Fügen Sie nach dem Hauptdokument exakt die Zeile ${SECONDARY_DOCUMENT_SEPARATOR} hinzu, gefolgt von einem ergänzenden Dokument mit dem Titel "# ${title}" und einer Tabelle zur Maßnahmenverfolgung in der Zielsprache.`,
+    noSecondaryInstruction: 'Erstellen Sie kein separates ergänzendes Dokument.',
+    annualRows: 'Die Tabelle der prioritären Maßnahmen muss mindestens 6 realistische Zeilen enthalten.',
+    defaultRows: 'Die Maßnahmen- oder Planungstabelle muss mindestens 4 realistische Zeilen enthalten.',
+    columnsPrefix: 'Verwenden Sie exakt diese Markdown-Spalten in der Zielsprache',
+    flexibleStructure:
+      'Verwenden Sie strukturierte Listen oder Markdown-Tabellen, wenn dies das Dokument besser nutzbar macht.',
+  },
+};
 
 const app = express();
 
@@ -302,7 +994,7 @@ app.post('/api/generate-document', async (req, res, next) => {
     }
 
     const { documentType, formData, language, languageLabel } = req.body || {};
-    validateGenerateDocumentPayload(documentType, formData);
+    const documentDefinition = validateGenerateDocumentPayload(documentType, formData);
     const targetLanguage = resolveTargetLanguage(language, languageLabel, formData);
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
@@ -324,14 +1016,24 @@ app.post('/api/generate-document', async (req, res, next) => {
           content: [
             {
               type: 'input_text',
-              text: buildUserPrompt(documentType, formData, targetLanguage.code, targetLanguage.label),
+              text: buildUserPrompt(
+                documentType,
+                formData,
+                targetLanguage.code,
+                targetLanguage.label,
+                documentDefinition,
+              ),
             },
           ],
         },
       ],
     });
 
-    const document = normalizeRiskLevels(response.output_text?.trim());
+    const generatedDocument = processGeneratedDocument(
+      response.output_text?.trim(),
+      documentDefinition,
+    );
+    const { document, complementaryDocument } = generatedDocument;
 
     if (!document) {
       const error = new Error('La génération du document n’a pas produit de contenu.');
@@ -342,7 +1044,9 @@ app.post('/api/generate-document', async (req, res, next) => {
     res.json({
       success: true,
       source: 'ai_backend',
+      documentType: documentDefinition.labels[targetLanguage.code] || documentType,
       document,
+      ...(complementaryDocument ? { complementaryDocument } : {}),
     });
   } catch (error) {
     next(error);
@@ -410,15 +1114,59 @@ function validateGenerateDocumentPayload(documentType, formData) {
     throw error;
   }
 
-  const missingFields = REQUIRED_FORM_FIELDS.filter(
+  const documentDefinition = getDocumentDefinition(documentType);
+
+  if (!documentDefinition) {
+    const supportedTypes = DOCUMENT_DEFINITIONS.map((definition) => definition.labels.fr).join(', ');
+    const error = new Error(
+      `documentType inconnu: ${documentType}. Types supportés: ${supportedTypes}`,
+    );
+    error.status = 400;
+    error.expose = true;
+    throw error;
+  }
+
+  validateRequiredFields(documentDefinition, formData);
+
+  return documentDefinition;
+}
+
+function getDocumentDefinition(documentType) {
+  return DOCUMENT_DEFINITION_BY_TYPE.get(normalizeDocumentType(documentType));
+}
+
+function normalizeDocumentType(documentType) {
+  return String(documentType || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[’']/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function validateRequiredFields(documentDefinition, formData) {
+  const missingFields = (documentDefinition.requiredFields || []).filter(
     (field) => typeof formData[field] !== 'string',
   );
 
-  if (missingFields.length > 0) {
-    const error = new Error(`Champs formData manquants ou invalides: ${missingFields.join(', ')}`);
-    error.status = 400;
-    throw error;
+  const missingGroups = (documentDefinition.requiredFieldGroups || []).filter(
+    (group) => !group.some((field) => hasUsableStringValue(formData[field])),
+  );
+
+  if (missingFields.length === 0 && missingGroups.length === 0) {
+    return;
   }
+
+  const missingGroupLabels = missingGroups.map((group) => group.join(' ou '));
+  const missingLabels = [...missingFields, ...missingGroupLabels];
+  const error = new Error(`Champs formData manquants ou invalides: ${missingLabels.join(', ')}`);
+  error.status = 400;
+  throw error;
+}
+
+function hasUsableStringValue(value) {
+  return typeof value === 'string' && value.trim().length > 0;
 }
 
 function normalizeLanguage(language, languageLabel) {
@@ -535,6 +1283,26 @@ function getRiskLevel(score, language = 'fr') {
   }
 
   return null;
+}
+
+function processGeneratedDocument(outputText, documentDefinition) {
+  const normalizedOutput = normalizeRiskLevels(outputText || '');
+
+  if (!documentDefinition?.hasSecondaryDocument) {
+    return {
+      document: normalizedOutput.trim(),
+      complementaryDocument: null,
+    };
+  }
+
+  const [document, complementaryDocument] = normalizedOutput
+    .split(SECONDARY_DOCUMENT_SEPARATOR)
+    .map((part) => part.trim());
+
+  return {
+    document,
+    complementaryDocument: complementaryDocument || null,
+  };
 }
 
 function normalizeRiskLevels(markdownDocument) {
@@ -936,10 +1704,91 @@ function runInternalRiskTests() {
   assert.match(normalizedGerman, /\|\s*2\s*\|\s*Wartung\s*\|\s*48\s*\|\s*Mittel\s*\|/);
   assert.match(normalizedGerman, /\|\s*3\s*\|\s*Wartung\s*\|\s*60\s*\|\s*Hoch\s*\|/);
 
-  console.info('Internal risk normalization checks passed.');
+  runInternalDocumentTypeTests();
+
+  console.info('Internal risk normalization and document template checks passed.');
 }
 
-function buildUserPrompt(documentType, formData, language = 'fr', languageLabel = 'Français') {
+function runInternalDocumentTypeTests() {
+  const minimalFormData = {
+    secteurActivite: 'Service technique communal',
+    siteLieuTravail: 'Atelier central',
+    activitePoste: 'Maintenance, voirie et interventions techniques',
+    machinesEquipements: 'Outillage électroportatif, tondeuses, véhicules utilitaires',
+    accidentsIncidents: 'Incident de manutention sans incapacité',
+    informationsComplementaires: 'Présence de coactivité avec citoyens et sous-traitants.',
+  };
+
+  for (const definition of NEW_DOCUMENT_DEFINITIONS) {
+    assert.equal(
+      validateGenerateDocumentPayload(definition.labels.fr, minimalFormData),
+      definition,
+      `${definition.labels.fr} should validate with minimal adapted fields`,
+    );
+  }
+
+  const annualDefinition = getDocumentDefinition('Plan annuel d’action');
+  const expectedTitles = {
+    fr: 'Plan annuel d’action – Projet à adapter et à valider',
+    nl: 'Jaaractieplan – Ontwerp aan te passen en te valideren',
+    en: 'Annual Action Plan – Draft to be adapted and validated',
+    de: 'Jährlicher Aktionsplan – Entwurf zur Anpassung und Validierung',
+  };
+  const expectedFallbacks = {
+    fr: LANGUAGE_CONFIGS.fr.missingInfo,
+    nl: LANGUAGE_CONFIGS.nl.missingInfo,
+    en: LANGUAGE_CONFIGS.en.missingInfo,
+    de: LANGUAGE_CONFIGS.de.missingInfo,
+  };
+
+  for (const language of ['fr', 'nl', 'en', 'de']) {
+    const prompt = buildUserPrompt(
+      'Plan annuel d’action',
+      minimalFormData,
+      language,
+      LANGUAGE_CONFIGS[language].label,
+      annualDefinition,
+    );
+
+    assert.match(prompt, new RegExp(escapeRegExp(`# ${expectedTitles[language]}`)));
+    assert.match(prompt, new RegExp(escapeRegExp(expectedFallbacks[language])));
+  }
+
+  const safetyVisitDefinition = getDocumentDefinition('Rapport de visite sécurité');
+  const splitDocument = processGeneratedDocument(
+    `# Rapport principal\n\nContenu\n${SECONDARY_DOCUMENT_SEPARATOR}\n# ${LANGUAGE_CONFIGS.fr.secondaryTitle}\n\nSuivi`,
+    safetyVisitDefinition,
+  );
+
+  assert.equal(splitDocument.document, '# Rapport principal\n\nContenu');
+  assert.equal(splitDocument.complementaryDocument, `# ${LANGUAGE_CONFIGS.fr.secondaryTitle}\n\nSuivi`);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildUserPrompt(
+  documentType,
+  formData,
+  language = 'fr',
+  languageLabel = 'Français',
+  documentDefinition = getDocumentDefinition(documentType),
+) {
+  if (documentDefinition?.family === 'risk_assessment') {
+    return buildRiskUserPrompt(documentType, formData, language, languageLabel);
+  }
+
+  return buildPreventionDocumentPrompt(
+    documentType,
+    formData,
+    language,
+    languageLabel,
+    documentDefinition,
+  );
+}
+
+function buildRiskUserPrompt(documentType, formData, language = 'fr', languageLabel = 'Français') {
   const languageConfig = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
   const resolvedLanguageLabel = languageConfig.label || languageLabel;
   const riskScale = formatRiskScale(language);
@@ -976,7 +1825,77 @@ ${structure}
 17. Section 18 doit contenir exactement cette mention finale traduite, une seule fois :
 ${languageConfig.finalMention}
 18. Before answering, verify: all 18 sections are present; headings match the target language exactly; the risk table has complete rows; the action plan has complete rows; the final statement matches the target language; no heading from another language remains.
-19. Garde une réponse concise pour éviter les timeouts.`;
+19. Rappel RGPD dans la langue cible : ${languageConfig.gdprReminder}
+20. Garde une réponse concise pour éviter les timeouts.`;
+}
+
+function buildPreventionDocumentPrompt(
+  documentType,
+  formData,
+  language = 'fr',
+  languageLabel = 'Français',
+  documentDefinition,
+) {
+  const languageConfig = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+  const resolvedLanguageLabel = languageConfig.label || languageLabel;
+  const definition = documentDefinition || getDocumentDefinition(documentType);
+  const template = DOCUMENT_TEMPLATES[definition?.family];
+
+  if (!definition || !template) {
+    throw new Error(`Template interne introuvable pour documentType: ${documentType}`);
+  }
+
+  const title = `${definition.labels[language] || definition.labels.fr} – ${languageConfig.draftSuffix}`;
+  const sections = template.sections[language] || template.sections.fr;
+  const structure = [`# ${title}`, '', ...sections.map((sectionTitle, index) => `## ${index + 1}. ${sectionTitle}`)]
+    .join('\n');
+  const tableInstruction = buildTemplateTableInstruction(template, language, definition.family);
+  const promptMessages = PROMPT_LOCALIZATION[language] || PROMPT_LOCALIZATION.fr;
+  const secondaryInstruction = definition.hasSecondaryDocument
+    ? promptMessages.secondaryInstruction(languageConfig.secondaryTitle)
+    : promptMessages.noSecondaryInstruction;
+
+  return `Type de document demandé : ${documentType}
+Famille de template : ${definition.family}
+Langue cible déterminée par le backend : ${language} (${resolvedLanguageLabel})
+
+Données formData à exploiter :
+${JSON.stringify(formData, null, 2)}
+
+Structure obligatoire du document principal :
+${structure}
+
+Consignes opérationnelles :
+1. Rédige l’intégralité du document en ${resolvedLanguageLabel}, y compris titres, tableaux, libellés, notes, points d’attention, avertissements et conclusion. Ne laisse aucun texte fixe en français dans un document néerlandais, anglais ou allemand.
+2. Présente le document comme un projet professionnel belge de prévention au travail, à adapter et à valider. Ne prétends jamais qu’il est juridiquement complet ou validé.
+3. Exploite toutes les données reçues comme faits fournis. Si une donnée manque ou reste incertaine, écris exactement cette formulation dans la langue cible : ${languageConfig.missingInfo}
+4. Ne laisse aucune section vide. Si les informations sont limitées, donne des hypothèses prudentes, des points de validation et des actions réalistes plutôt qu’un remplissage pauvre.
+5. Maintiens une logique belge bien-être au travail : employeur, ligne hiérarchique, conseiller en prévention, SIPPT/SEPPT, CPPT, travailleurs, sous-traitants si pertinent, Code belge du bien-être au travail, Plan Global de Prévention et Plan Annuel d’Action.
+6. Conserve la prudence RGPD : ${languageConfig.gdprReminder}
+7. Ne cite pas d’articles légaux précis. Cite uniquement des références générales pertinentes comme la loi du 4 août 1996, le Code du bien-être au travail, les Livres ou Titres utiles, le PGP, le PAA, le SIPPT/SEPPT et le CPPT.
+8. ${tableInstruction}
+9. Pour chaque action proposée, indique au minimum une mesure concrète, un responsable, une échéance ou une formule de validation terrain, et une preuve attendue exploitable.
+10. ${secondaryInstruction}
+11. La dernière section du document principal doit conclure clairement que le document est un projet à adapter à la situation réelle et à valider par les acteurs compétents.
+12. Termine le document principal par cette mention finale traduite, une seule fois :
+${languageConfig.finalMention}
+13. Avant de répondre, vérifie que tous les titres correspondent à la langue cible, que les tableaux sont en Markdown, qu’aucun libellé fixe français ne reste dans un document NL/EN/DE, et qu’aucune section n’est vide.
+14. Garde une réponse concise pour éviter les timeouts.`;
+}
+
+function buildTemplateTableInstruction(template, language, family) {
+  const columns = template.tableColumns?.[language];
+  const promptMessages = PROMPT_LOCALIZATION[language] || PROMPT_LOCALIZATION.fr;
+
+  if (!columns) {
+    return promptMessages.flexibleStructure;
+  }
+
+  const rowInstruction = family === 'annual_action_plan'
+    ? promptMessages.annualRows
+    : promptMessages.defaultRows;
+
+  return `${rowInstruction} ${promptMessages.columnsPrefix}: ${columns}.`;
 }
 
 function formatRiskScale(language) {
