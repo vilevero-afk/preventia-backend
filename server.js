@@ -31,6 +31,7 @@ const LANGUAGE_CONFIGS = {
       'Hypothèses et limites',
       'Description des postes, tâches et travailleurs exposés',
       'Identification détaillée des dangers',
+      'Méthode de cotation utilisée',
       'Tableau principal d’analyse des risques',
       'Analyse des risques résiduels',
       'Priorités d’action',
@@ -55,7 +56,7 @@ const LANGUAGE_CONFIGS = {
     actionTableColumns:
       'N° | Type d’action | Risque ou point concerné | Mesure proposée | Objectif | Responsable | Échéance | Preuve attendue | Priorité | Statut',
     hazardTableColumns:
-      'Danger | Scénario plausible | Zone ou tâche concernée | Personnes exposées | Facteurs aggravants | Mesures existantes connues | Preuves à vérifier | Points bloquants avant validation',
+      'Danger | Scénario plausible | Zone ou tâche concernée | Personnes exposées | Facteurs aggravants | Mesures existantes connues | Preuves à vérifier | Ce que le conseiller doit faire | Où documenter la preuve | Points bloquants avant validation',
     completenessTableColumns:
       'Élément évalué | Statut | Commentaire | Action nécessaire | Priorité',
     documentStatuses:
@@ -63,7 +64,7 @@ const LANGUAGE_CONFIGS = {
     completenessStatuses:
       'Présent; Partiel; Absent; À vérifier; Bloquant avant validation',
     stopLevels:
-      'Suppression / substitution; Technique collective; Organisationnelle; Protection individuelle',
+      'Suppression / substitution; Mesure technique collective; Mesure organisationnelle; Protection individuelle',
     provisionalScoreText:
       'Score provisoire à confirmer après vérification terrain. La gravité est estimée sur base des conséquences plausibles, la probabilité sur base des incidents ou mesures existantes connues, et l’exposition sur base de la fréquence déclarée. Les scores doivent être validés par observation terrain et preuves documentaires.',
     referenceToCheck: 'Référence à vérifier.',
@@ -90,6 +91,7 @@ const LANGUAGE_CONFIGS = {
       'Hypothesen en beperkingen',
       'Beschrijving van functies, taken en blootgestelde werknemers',
       'Gedetailleerde identificatie van gevaren',
+      'Gebruikte beoordelingsmethode',
       'Hoofdtabel van de risicoanalyse',
       'Analyse van restrisico’s',
       'Actieprioriteiten',
@@ -114,7 +116,7 @@ const LANGUAGE_CONFIGS = {
     actionTableColumns:
       'Nr. | Type actie | Betrokken risico of punt | Voorgestelde maatregel | Doel | Verantwoordelijke | Termijn | Verwacht bewijs | Prioriteit | Status',
     hazardTableColumns:
-      'Gevaar | Waarschijnlijk scenario | Betrokken zone of taak | Blootgestelde personen | Verergerende factoren | Bekende bestaande maatregelen | Te controleren bewijzen | Blokkerende punten vóór validatie',
+      'Gevaar | Waarschijnlijk scenario | Betrokken zone of taak | Blootgestelde personen | Verergerende factoren | Bekende bestaande maatregelen | Te controleren bewijzen | Wat de preventieadviseur moet doen | Waar het bewijs te documenteren | Blokkerende punten vóór validatie',
     completenessTableColumns:
       'Beoordeeld element | Status | Opmerking | Noodzakelijke actie | Prioriteit',
     documentStatuses:
@@ -149,6 +151,7 @@ const LANGUAGE_CONFIGS = {
       'Assumptions and limitations',
       'Description of jobs, tasks and exposed workers',
       'Detailed hazard identification',
+      'Risk scoring method used',
       'Main risk assessment table',
       'Residual risk assessment',
       'Action priorities',
@@ -173,7 +176,7 @@ const LANGUAGE_CONFIGS = {
     actionTableColumns:
       'No. | Action type | Related risk or point | Proposed measure | Objective | Responsible person | Deadline | Expected evidence | Priority | Status',
     hazardTableColumns:
-      'Hazard | Plausible scenario | Area or task concerned | Exposed persons | Aggravating factors | Known existing measures | Evidence to be checked | Blocking points before validation',
+      'Hazard | Plausible scenario | Area or task concerned | Exposed persons | Aggravating factors | Known existing measures | Evidence to be checked | What the prevention advisor must do | Where to document the evidence | Blocking points before validation',
     completenessTableColumns:
       'Assessed element | Status | Comment | Required action | Priority',
     documentStatuses:
@@ -208,6 +211,7 @@ const LANGUAGE_CONFIGS = {
       'Annahmen und Grenzen',
       'Beschreibung der Arbeitsplätze, Tätigkeiten und exponierten Beschäftigten',
       'Detaillierte Ermittlung der Gefährdungen',
+      'Verwendete Bewertungsmethode',
       'Haupttabelle der Gefährdungsbeurteilung',
       'Beurteilung der Restrisiken',
       'Handlungsprioritäten',
@@ -232,7 +236,7 @@ const LANGUAGE_CONFIGS = {
     actionTableColumns:
       'Nr. | Maßnahmentyp | Betroffenes Risiko oder Punkt | Vorgeschlagene Maßnahme | Ziel | Verantwortliche Person | Frist | Erwarteter Nachweis | Priorität | Status',
     hazardTableColumns:
-      'Gefährdung | Plausibles Szenario | Betroffener Bereich oder Aufgabe | Exponierte Personen | Erschwerende Faktoren | Bekannte bestehende Maßnahmen | Zu prüfende Nachweise | Blockierende Punkte vor Validierung',
+      'Gefährdung | Plausibles Szenario | Betroffener Bereich oder Aufgabe | Exponierte Personen | Erschwerende Faktoren | Bekannte bestehende Maßnahmen | Zu prüfende Nachweise | Was der Präventionsberater tun muss | Wo der Nachweis zu dokumentieren ist | Blockierende Punkte vor Validierung',
     completenessTableColumns:
       'Bewertetes Element | Status | Kommentar | Erforderliche Maßnahme | Priorität',
     documentStatuses:
@@ -276,13 +280,13 @@ Règles strictes :
 - Relire la réponse avant sortie : corriger grammaire, accord, ton professionnel et cohérence métier ; remplacer toute formulation non professionnelle, incohérente, anglaise ou mal traduite.
 - Interdire les formulations absurdes, non professionnelles, anglaises ou hors contexte. Ne jamais écrire notamment : "risque vétérinaire", "clash de l’intensité du bruit", "outils violents", "registre des médicaments", "Cet projet", "Chemiste interne", "Suivi des consommateurs", "Formation de maintien correct", "Production de normes claires", "Assemblée de travailleurs formés", "Systèmes de fichier", "Chutes/slips", "véhicules/péda", "Média", "PRS des CPPT", "Risque critique tr", "Plan Global de Protection", "Retour au travail des piétons", "Retour au travail", "Exportation occasionnelle", "Exportation", "Fréquence des interventions dernières", "Conformité normale", "Utlisation sécurisée", "PDV requise pour EPI", "Fréquence d'interventions augm.", "Fréquence des presences", "Fréquence des presences des produits", "€ pour reformation", "Fiches de donnée sécurité", "EPI audios", "État de l’atelier contrôle", "Mesure à priorité", "Risqués", "Utilisation d’équipements dangereuse sans précision", "Engagement renforcé", "Utiliser régulièrement", "Accident register", "Moderate", "Préventeur interna", "interna", "Barrage aux risques chimiques", "Barrage aux risques", "Effectivité", "environnement de travail agitée", "environnement agitée" ou "Une perte auditive".
 - Employer un vocabulaire prévention adapté : machines et outillage électroportatif, machines bruyantes, registre des accidents/incidents, risque de chute de hauteur, exposition au bruit, exposition à des agents chimiques, circulation véhicules/piétons, glissades et chutes de plain-pied.
-- Remplacer les formulations faibles ou interdites par : "circulation véhicules/piétons", "exposition occasionnelle", "fréquence d’intervention à vérifier sur le terrain", "conformité à vérifier", "registre des accidents/incidents", "modérée", "procédure de vérification des EPI", "préventeur interne ou conseiller en prévention interne", "maîtrise des risques chimiques", "utilisation sécurisée", "présence régulière des produits", "formation complémentaire à planifier", "fiches de données de sécurité", "EPI auditifs", "état de l’atelier contrôlé", "mesure organisationnelle", "mesure technique", "formation et information", "protection collective", "équipement de protection individuelle", "risques", "responsable produits chimiques", "magasinier", "suivi des travailleurs exposés", "registre de consultation des FDS", "formation manutention et gestes/postures", "critères de prévention formalisés", "taux de travailleurs formés", "inventaire documentaire structuré", "PV ou avis du CPPT", "Risque critique si score 101 à 125 uniquement", "Plan Global de Prévention", "efficacité de la signalisation", "environnement de travail bruyant ou perturbé", "perte auditive".
+- Remplacer les formulations faibles ou interdites par : "circulation véhicules/piétons", "exposition occasionnelle", "fréquence d’intervention à vérifier sur le terrain", "conformité à vérifier", "registre des accidents/incidents", "modérée", "procédure de vérification des EPI", "préventeur interne ou conseiller en prévention interne", "maîtrise des risques chimiques", "utilisation sécurisée", "présence régulière des produits", "formation complémentaire à planifier", "fiches de données de sécurité", "EPI auditifs", "état de l’atelier contrôlé", "mesure organisationnelle", "mesure technique", "formation et information", "protection collective", "équipement de protection individuelle", "risques", "responsable produits chimiques", "magasinier", "suivi des travailleurs exposés", "registre de consultation des FDS", "formation manutention et gestes/postures", "critères de prévention formalisés", "taux de travailleurs formés", "inventaire documentaire structuré", "PV ou avis du CPPT", "Risque critique si score 61 à 125 uniquement", "Plan Global de Prévention", "efficacité de la signalisation", "environnement de travail bruyant ou perturbé", "perte auditive".
 - Utiliser exactement ces libellés réglementaires quand ils sont pertinents : "Livre Ier, Titre 2 – Politique du bien-être et système dynamique de gestion des risques", "Livre III – Lieux de travail", "Livre III, Titre 3 – Prévention incendie", "Livre III, Titre 6 – Signalisation de sécurité et de santé", "Livre IV – Équipements de travail", "Livre VI – Agents chimiques", "Livre VIII – Ergonomie et TMS", "Livre IX – Protections collectives et EPI". Ne pas écrire "Livre I Titre 2", "Livre III lieu de travail", "Livre III lieux de travail" ou "Livre IX protections collectives et EPI" sans majuscule ni tiret.
 - Vérifier que chaque preuve attendue correspond au risque, à la mesure proposée et au contexte de prévention belge. Privilégier des preuves concrètes : rapport de contrôle, registre de formation, liste de présence, photos avant/après, inventaire mis à jour, FDS centralisées, rapport de visite terrain, PV ou avis du CPPT, registre accidents/incidents, check-list signée. Éviter les preuves vagues : suivi, constat, conformité normale, document disponible, rapport général.
 - Le type de mesure selon la hiérarchie de prévention doit utiliser un libellé parmi : suppression du danger, substitution, mesure technique, protection collective, mesure organisationnelle, information et formation, équipement de protection individuelle, surveillance, contrôle et réévaluation. Ne pas écrire "mesure à priorité", "conformité normale", "éducation sur le travail extérieur" ni "élimination du risque avéré" si le danger n’est pas réellement supprimé.
 
 Cotation : Risque = Gravité x Probabilité x Exposition.
-Gravité, Probabilité et Exposition sont cotées de 1 à 5. Niveau : 1 à 20 = Faible ; 21 à 50 = Moyen ; 51 à 100 = Élevé ; 101 à 125 = Critique. Les justifications G/P/E doivent être courtes. Avant de répondre, vérifie que chaque niveau correspond exactement au score selon la grille. Ne jamais classer 20, 36, 48 ou 27 comme Élevé/Critique, ni 100 comme Critique. Ne force jamais artificiellement un score élevé, mais ne sous-évalue pas les risques typiques d’un service technique communal lorsque l’exposition est régulière ou la gravité importante : travail en hauteur, produits chimiques, circulation véhicules/piétons, incendie, machines/outillage, manutention régulière, bruit, coactivité avec public ou sous-traitants. Évite les scores très faibles pour ces risques sauf justification claire et cohérente avec Gravité x Probabilité x Exposition ; ne classe pas un risque grave et fréquent en risque faible.
+Gravité, Probabilité et Exposition sont cotées de 1 à 5. Niveau : 1 à 10 = Faible ; 11 à 30 = Moyen ; 31 à 60 = Élevé ; 61 à 125 = Critique. Les justifications G/P/E doivent être courtes. Avant de répondre, vérifie que chaque niveau correspond exactement au score selon la grille. Ne jamais classer 10 comme Moyen, 30 comme Élevé, 60 comme Critique, ni 36 ou 48 comme Moyen. Ne force jamais artificiellement un score élevé, mais ne sous-évalue pas les risques typiques d’un service technique communal lorsque l’exposition est régulière ou la gravité importante : travail en hauteur, produits chimiques, circulation véhicules/piétons, incendie, machines/outillage, manutention régulière, bruit, coactivité avec public ou sous-traitants. Évite les scores très faibles pour ces risques sauf justification claire et cohérente avec Gravité x Probabilité x Exposition ; ne classe pas un risque grave et fréquent en risque faible.
 
 Structure obligatoire par défaut pour une analyse de risques en français si aucune autre langue valide n’est demandée :
 # Analyse de risques – Projet à valider
@@ -295,31 +299,33 @@ Structure obligatoire par défaut pour une analyse de risques en français si au
 ## 6. Hypothèses et limites
 ## 7. Description des postes, tâches et travailleurs exposés
 ## 8. Identification détaillée des dangers
-## 9. Tableau principal d’analyse des risques
-## 10. Analyse des risques résiduels
-## 11. Priorités d’action
-## 12. Projet de plan d’action
-## 13. Lien avec le Plan Global de Prévention et le Plan Annuel d’Action
-## 14. Documents à créer ou mettre à jour
-## 15. Acteurs à consulter ou à impliquer
-## 16. Annexes nécessaires
-## 17. Évaluation de complétude de l’analyse
-## 18. Validabilité de l’analyse et conditions avant validation
-## 19. Conclusion
-## 20. Mention finale obligatoire
+## 9. Méthode de cotation utilisée
+## 10. Tableau principal d’analyse des risques
+## 11. Analyse des risques résiduels
+## 12. Priorités d’action
+## 13. Projet de plan d’action
+## 14. Lien avec le Plan Global de Prévention et le Plan Annuel d’Action
+## 15. Documents à créer ou mettre à jour
+## 16. Acteurs à consulter ou à impliquer
+## 17. Annexes nécessaires
+## 18. Évaluation de complétude de l’analyse
+## 19. Validabilité de l’analyse et conditions avant validation
+## 20. Conclusion
+## 21. Mention finale obligatoire
 
 Contraintes de sortie :
 - Section 3 : tableau Markdown de maximum 8 références avec colonnes équivalentes à "Référence ou domaine réglementaire", "Pourquoi c’est applicable", "Conséquence pratique pour l’analyse ou les actions", dans la langue demandée.
 - Section 8 : tableau Markdown ou liste structurée obligatoire avec danger, scénario plausible, zone ou tâche, personnes exposées, facteurs aggravants, mesures existantes connues, preuves à vérifier et points bloquants avant validation.
-- Section 9 : tableau Markdown de maximum 8 risques concrets. Chaque risque coté doit inclure justification gravité, justification probabilité, justification exposition, éléments observés ou déclarés, éléments à confirmer, score provisoire ou confirmé et impact sur le risque résiduel. Ne pas dépasser 8 lignes de risques.
-- Section 11 : ne jamais laisser vide. Toujours produire au moins 4 priorités structurées avec Priorité 1 actions urgentes ou risques les plus élevés, Priorité 2 risques élevés ou moyens significatifs, Priorité 3 risques moyens, Priorité 4 amélioration continue. Chaque priorité contient explicitement : action, risque concerné, responsable, échéance et preuve attendue.
-- Section 12 : tableau Markdown de maximum 8 actions distinguant les actions de maîtrise du risque et les actions de validation de l’analyse.
-- Section 14 : toujours 5 à 8 documents concrets à créer ou mettre à jour, jamais une simple mention "Information à compléter ou à valider sur le terrain".
-- Sections 5, 7, 8, 14 et 15 doivent contenir du contenu exploitable, pas seulement un titre. Section 8 : toujours produire 6 à 8 dangers détaillés, concrets et contextualisés. Ne jamais afficher seulement "Information à compléter ou à valider sur le terrain." ni seulement "Dangers identifiés :". Pour un service technique communal, inclure si pertinent : manutention manuelle, machines/outillage électroportatif, produits chimiques, circulation véhicules/piétons, bruit, travail en hauteur, glissades/chutes de plain-pied, incendie, coactivité avec citoyens ou sous-traitants, conditions météo, travail isolé.
-- Section 17 : tableau obligatoire d’évaluation de complétude. Évaluer les éléments métier demandés par le prompt utilisateur avec un statut précis.
-- Section 18 : indiquer le statut du document, ce qui est déjà exploitable, ce qui manque pour validation, les points bloquants et les actions de validation.
-- Section 19 : conclure clairement si le document est un projet ou une analyse exploitable sous réserve, s’il est complet, s’il peut alimenter le PGP/PAA, être présenté au CPPT, être utilisé en audit et quelles conditions minimales sont requises avant validation.
-- Par défaut en français, la section 20 doit contenir exactement cette mention, une seule fois :
+- Section 9 : expliquer la formule, les échelles, les seuils et l’interprétation de la cotation.
+- Section 10 : tableau Markdown de maximum 8 risques concrets. Chaque risque coté doit inclure justification gravité, justification probabilité, justification exposition, éléments observés ou déclarés, éléments à confirmer, score provisoire ou confirmé et impact sur le risque résiduel. Ne pas dépasser 8 lignes de risques.
+- Section 12 : ne jamais laisser vide. Toujours produire au moins 4 priorités structurées avec Priorité 1 actions urgentes ou risques les plus élevés, Priorité 2 risques élevés ou moyens significatifs, Priorité 3 risques moyens, Priorité 4 amélioration continue. Chaque priorité contient explicitement : action, risque concerné, responsable, échéance et preuve attendue.
+- Section 13 : tableau Markdown de maximum 8 actions distinguant les actions de maîtrise du risque et les actions de validation de l’analyse.
+- Section 15 : toujours 5 à 8 documents concrets à créer ou mettre à jour, jamais une simple mention "Information à compléter ou à valider sur le terrain".
+- Sections 5, 7, 8, 15 et 16 doivent contenir du contenu exploitable, pas seulement un titre. Section 8 : toujours produire 6 à 8 dangers détaillés, concrets et contextualisés. Ne jamais afficher seulement "Information à compléter ou à valider sur le terrain." ni seulement "Dangers identifiés :". Pour un service technique communal, inclure si pertinent : manutention manuelle, machines/outillage électroportatif, produits chimiques, circulation véhicules/piétons, bruit, travail en hauteur, glissades/chutes de plain-pied, incendie, coactivité avec citoyens ou sous-traitants, conditions météo, travail isolé.
+- Section 18 : tableau obligatoire d’évaluation de complétude. Évaluer les éléments métier demandés par le prompt utilisateur avec un statut précis.
+- Section 19 : indiquer le statut du document, ce qui est déjà exploitable, ce qui manque pour validation, les points bloquants et les actions de validation.
+- Section 20 : conclure clairement si le document est un projet ou une analyse exploitable sous réserve, s’il est complet, s’il peut alimenter le PGP/PAA, être présenté au CPPT, être utilisé en audit et quelles conditions minimales sont requises avant validation.
+- Par défaut en français, la section 21 doit contenir exactement cette mention, une seule fois :
 Ce document est un projet à adapter à la situation réelle de l’entreprise et à valider par le conseiller en prévention, l’employeur et, le cas échéant, le service externe, le médecin du travail ou le CPPT. Il ne constitue pas à lui seul une preuve de conformité réglementaire.`;
 
 const REQUIRED_FORM_FIELDS = [
@@ -1364,19 +1370,19 @@ function getRiskLevel(score, language = 'fr') {
 
   const labels = LANGUAGE_CONFIGS[language]?.riskLevels || LANGUAGE_CONFIGS.fr.riskLevels;
 
-  if (score >= 1 && score <= 20) {
+  if (score >= 1 && score <= 10) {
     return labels.low;
   }
 
-  if (score >= 21 && score <= 50) {
+  if (score >= 11 && score <= 30) {
     return labels.medium;
   }
 
-  if (score >= 51 && score <= 100) {
+  if (score >= 31 && score <= 60) {
     return labels.high;
   }
 
-  if (score >= 101 && score <= 125) {
+  if (score >= 61 && score <= 125) {
     return labels.critical;
   }
 
@@ -1751,13 +1757,14 @@ function formatMarkdownRow(cells) {
 
 function runInternalRiskTests() {
   const cases = [
-    [18, 'Faible'],
-    [20, 'Faible'],
-    [21, 'Moyen'],
-    [48, 'Moyen'],
+    [10, 'Faible'],
+    [11, 'Moyen'],
+    [30, 'Moyen'],
+    [31, 'Élevé'],
+    [48, 'Élevé'],
     [60, 'Élevé'],
-    [100, 'Élevé'],
-    [101, 'Critique'],
+    [61, 'Critique'],
+    [100, 'Critique'],
   ];
 
   for (const [score, expected] of cases) {
@@ -1766,15 +1773,15 @@ function runInternalRiskTests() {
 
   const normalized = normalizeRiskLevels(`| Score initial | Niveau de risque initial | Moyens nécessaires | Budget estimatif si possible |
 | --- | --- | --- | --- |
-| 18 | Moyen | €500 | Information à compléter |
-| 48 | Élevé | Utlisation sécurisée | PDV requise pour EPI |
-| 60 | Moyen | Fréquence d'interventions augm. | € pour reformation |
+| 10 | Moyen | €500 | Information à compléter |
+| 30 | Élevé | Utlisation sécurisée | PDV requise pour EPI |
+| 31 | Moyen | Fréquence d'interventions augm. | € pour reformation |
 | 30 | Moyen | à compléter | Information à compléter |
 `);
 
-  assert.match(normalized, /\|\s*18\s*\|\s*Faible\s*\|/);
-  assert.match(normalized, /\|\s*48\s*\|\s*Moyen\s*\|/);
-  assert.match(normalized, /\|\s*60\s*\|\s*Élevé\s*\|/);
+  assert.match(normalized, /\|\s*10\s*\|\s*Faible\s*\|/);
+  assert.match(normalized, /\|\s*30\s*\|\s*Moyen\s*\|/);
+  assert.match(normalized, /\|\s*31\s*\|\s*Élevé\s*\|/);
   assert.match(normalized, /Utilisation sécurisée/);
   assert.match(normalized, /procédure de vérification des EPI requise/);
   assert.match(normalized, /\|\s*à prévoir\s*\|/);
@@ -1782,25 +1789,25 @@ function runInternalRiskTests() {
 
   const normalizedDutch = normalizeRiskLevels(`| Nr. | Activiteit | Score | Niveau |
 | --- | --- | --- | --- |
-| 1 | Onderhoud | 18 | Gemiddeld |
-| 2 | Onderhoud | 48 | Hoog |
-| 3 | Onderhoud | 60 | Gemiddeld |
+| 1 | Onderhoud | 10 | Gemiddeld |
+| 2 | Onderhoud | 30 | Hoog |
+| 3 | Onderhoud | 31 | Gemiddeld |
 `);
 
-  assert.match(normalizedDutch, /\|\s*1\s*\|\s*Onderhoud\s*\|\s*18\s*\|\s*Laag\s*\|/);
-  assert.match(normalizedDutch, /\|\s*2\s*\|\s*Onderhoud\s*\|\s*48\s*\|\s*Gemiddeld\s*\|/);
-  assert.match(normalizedDutch, /\|\s*3\s*\|\s*Onderhoud\s*\|\s*60\s*\|\s*Hoog\s*\|/);
+  assert.match(normalizedDutch, /\|\s*1\s*\|\s*Onderhoud\s*\|\s*10\s*\|\s*Laag\s*\|/);
+  assert.match(normalizedDutch, /\|\s*2\s*\|\s*Onderhoud\s*\|\s*30\s*\|\s*Gemiddeld\s*\|/);
+  assert.match(normalizedDutch, /\|\s*3\s*\|\s*Onderhoud\s*\|\s*31\s*\|\s*Hoog\s*\|/);
 
   const normalizedGerman = normalizeRiskLevels(`| Nr. | Tätigkeit oder Aufgabe | Punktzahl | Niveau |
 | --- | --- | --- | --- |
-| 1 | Wartung | 18 | Mittel |
-| 2 | Wartung | 48 | Hoch |
-| 3 | Wartung | 60 | Mittel |
+| 1 | Wartung | 10 | Mittel |
+| 2 | Wartung | 30 | Hoch |
+| 3 | Wartung | 31 | Mittel |
 `);
 
-  assert.match(normalizedGerman, /\|\s*1\s*\|\s*Wartung\s*\|\s*18\s*\|\s*Niedrig\s*\|/);
-  assert.match(normalizedGerman, /\|\s*2\s*\|\s*Wartung\s*\|\s*48\s*\|\s*Mittel\s*\|/);
-  assert.match(normalizedGerman, /\|\s*3\s*\|\s*Wartung\s*\|\s*60\s*\|\s*Hoch\s*\|/);
+  assert.match(normalizedGerman, /\|\s*1\s*\|\s*Wartung\s*\|\s*10\s*\|\s*Niedrig\s*\|/);
+  assert.match(normalizedGerman, /\|\s*2\s*\|\s*Wartung\s*\|\s*30\s*\|\s*Mittel\s*\|/);
+  assert.match(normalizedGerman, /\|\s*3\s*\|\s*Wartung\s*\|\s*31\s*\|\s*Hoch\s*\|/);
 
   runInternalDocumentTypeTests();
   runRiskPromptQualityTests();
@@ -1894,13 +1901,19 @@ function runRiskPromptQualityTests() {
     const prompt = buildUserPrompt(documentType, formData, language, config.label);
 
     assert.match(prompt, new RegExp(escapeRegExp(`## 8. ${config.sections[7]}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(`## 17. ${config.sections[16]}`)));
+    assert.match(prompt, new RegExp(escapeRegExp(`## 9. ${config.sections[8]}`)));
     assert.match(prompt, new RegExp(escapeRegExp(`## 18. ${config.sections[17]}`)));
+    assert.match(prompt, new RegExp(escapeRegExp(`## 19. ${config.sections[18]}`)));
     assert.match(prompt, new RegExp(escapeRegExp(config.hazardTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(config.completenessTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(config.actionTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(config.documentStatuses.split('; ')[0])));
     assert.match(prompt, new RegExp(escapeRegExp(config.provisionalScoreText)));
+    assert.match(prompt, /Score =|Scoremethode|Risk scoring method used|Bewertungsmethode/);
+    assert.match(prompt, /\[À VÉRIFIER SUR LE TERRAIN\]|\[TO BE CHECKED ON SITE\]|\[TER PLAATSE TE CONTROLEREN\]|\[VOR ORT ZU PRÜFEN\]/);
+    assert.match(prompt, /1-10/);
+    assert.match(prompt, /61-125/);
+    assert.match(prompt, /provisional residual score|restrisico|Restrisiken|risque résiduel/);
     assert.match(prompt, /score justifications are present/);
     assert.doesNotMatch(prompt, /all 18 sections/);
   }
@@ -1935,6 +1948,9 @@ function buildRiskUserPrompt(documentType, formData, language = 'fr', languageLa
   const resolvedLanguageLabel = languageConfig.label || languageLabel;
   const riskScale = formatRiskScale(language);
   const completenessElements = buildCompletenessElements(language);
+  const scoringMethodInstruction = buildRiskScoringMethodInstruction(language);
+  const businessBlockInstruction = buildBusinessBlockInstruction(language);
+  const actionTypeInstruction = buildActionTypeInstruction(language);
   const specializationInstruction = buildRiskSpecializationInstruction(documentType);
   const structure = [
     `# ${languageConfig.title}`,
@@ -1956,27 +1972,30 @@ ${structure}
 4. The entire document must be written in the target language. Do not mix languages. Use the translated headings, tables, risk levels and final statement from the language configuration. Do not use these non-target headings or terms: ${languageConfig.forbiddenTerms.join('; ')}.
 5. Section 3 : sélectionne maximum 8 références pertinentes parmi : Loi du 4 août 1996, Code du bien-être au travail, Livre Ier, Titre 2 – Politique du bien-être et système dynamique de gestion des risques, Plan Global de Prévention, Plan Annuel d’Action, CPPT, SIPPT/SEPPT, Livre III – Lieux de travail, Livre III, Titre 3 – Prévention incendie, Livre III, Titre 6 – Signalisation de sécurité et de santé, Livre IV – Équipements de travail, Livre VI – Agents chimiques, Livre VIII – Ergonomie et TMS, Livre IX – Protections collectives et EPI. Ne cite pas d’articles. Si une référence exacte est incertaine, écris dans la langue cible : ${languageConfig.referenceToCheck}
 6. Section 3 : les noms officiels français des références réglementaires belges peuvent rester en français, mais les explications autour doivent être en ${resolvedLanguageLabel}.
-7. Section 8 must always contain 6 to 8 concrete hazards in a Markdown table with exactly these columns: ${languageConfig.hazardTableColumns}. Never write only "Dangers identifiés", "Information à compléter ou à valider sur le terrain" or an equivalent. For each hazard, state a plausible scenario, evidence to check and blocking points before validation.
-8. Section 9 : produis un tableau Markdown avec exactement ces colonnes dans la langue cible : ${languageConfig.riskTableColumns}.
-9. Section 9 must always contain 8 complete risk rows. Each row must justify severity, probability and exposure, distinguish observed or declared elements from elements to be confirmed, state whether the score is provisional or confirmed, and explain the impact on residual risk. If data are insufficient, use this wording in the target language inside the relevant cells: ${languageConfig.provisionalScoreText}
-10. Avant de finaliser le tableau, vérifie chaque score et niveau : ${riskScale}. Le score doit rester cohérent avec Gravité x Probabilité x Exposition.
-11. Si des informations existent, produire une analyse provisoire exploitable. Si des informations manquent, préciser exactement ce qui manque, pourquoi c’est important, quelle preuve est attendue et qui doit vérifier. Le fallback simple ${languageConfig.missingInfo} ne peut jamais être utilisé seul, sauf absence totale d’information exploitable, et doit alors être accompagné d’une action de validation concrète.
-12. Hiérarchie STOP obligatoire : pour chaque mesure complémentaire importante, utiliser un niveau parmi : ${languageConfig.stopLevels}. Ne jamais proposer uniquement une protection individuelle si une mesure de suppression, substitution, technique collective ou organisationnelle est plus appropriée.
-13. Section 11 must always contain at least 4 structured priorities. Each priority must contain ${languageConfig.priorityLabels}.
-14. Section 12 must always contain 6 to 8 action plan items, with both action types represented: actions to control the risk and actions to validate the assessment. Use this Markdown table header in the target language: ${languageConfig.actionTableColumns}.
-15. Section 14 must always contain 6 to 10 concrete documents. Section 15 must always contain 4 to 8 stakeholders, including workers, line management, prevention advisor, employer, CPPT when present, external service and occupational physician when relevant. Section 16 must always contain 4 to 8 appendices. No full section may be replaced only by "to be completed", "à compléter", "te controleren", "zu prüfen" or equivalent.
-16. Section 17 must contain a Markdown table with exactly these columns: ${languageConfig.completenessTableColumns}. Evaluate every mandatory element, using only these status labels: ${languageConfig.completenessStatuses}. Mandatory elements to evaluate: ${completenessElements}.
-17. Section 18 must contain five explicit subparts in the target language: document status; what is already usable; what is missing for validation; blocking points before validation; validation actions. The document status must be exactly one of: ${languageConfig.documentStatuses}.
-18. Section 18 must clearly say the assessment is not final if any of these are missing or unconfirmed: site visit, documentary evidence, worker consultation, CPPT consultation when a CPPT exists, SDS, inspection/control reports, score justifications, proof of existing measures, external service opinion or occupational physician opinion when relevant.
-19. Section 19 conclusion must answer clearly: is this a risk assessment or a preparatory draft; is it complete; can it feed the PGP; can it feed the PAA; can it be presented to the CPPT; can it be used in an audit; what are the minimum conditions before validation. Never write that it is finalized if it is not.
-20. Relis les preuves attendues : elles doivent être vérifiables, professionnelles et cohérentes avec le risque et la mesure. Privilégie : rapport de contrôle, registre de formation, liste de présence, photos avant/après, inventaire mis à jour, FDS centralisées, rapport de visite terrain, PV ou avis du CPPT, registre accidents/incidents, check-list signée. Évite : suivi, constat, conformité normale, document disponible, rapport général.
-21. Conformité belge et prudence juridique : mentionner les références belges pertinentes sans inventer d’articles ; ne jamais affirmer une conformité si les preuves ne sont pas présentes ; distinguer obligation légale, bonne pratique et point à vérifier.
-22. Spécialisation obligatoire selon le type d’analyse demandé : ${specializationInstruction}
-23. Section ${languageConfig.sections.length} doit contenir exactement cette mention finale traduite, une seule fois :
+7. Section 8 must always contain 6 to 8 concrete hazards in a Markdown table with exactly these columns: ${languageConfig.hazardTableColumns}. Never write only "Dangers identifiés", "Information à compléter ou à valider sur le terrain" or an equivalent. For each hazard, state a plausible scenario, evidence to check, what the prevention advisor must do, where the proof must be documented and whether the point blocks validation.
+8. Section 9 must be titled exactly "${languageConfig.sections[8]}" and must explain the formula, scales, thresholds and interpretation. Use this content in the target language: ${scoringMethodInstruction}
+9. Section 10 : produis un tableau Markdown avec exactement ces colonnes dans la langue cible : ${languageConfig.riskTableColumns}.
+10. Section 10 must always contain 8 complete risk rows. Each row must justify severity, probability and exposure, distinguish observed or declared elements from elements to be confirmed, state whether the score is provisional or confirmed, and explain the impact on residual risk. If data are insufficient, use this wording in the target language inside the relevant cells: ${languageConfig.provisionalScoreText}
+11. Section 11 must never leave residual scores empty. For each major risk, provide at least a provisional residual score, explain why the score decreases or not, identify which measure conditions the reduction and state which evidence is needed to confirm it. If measures are not implemented, state that the residual risk is provisional and cannot be considered controlled until measures and expected evidence are validated.
+12. Avant de finaliser le tableau, vérifie chaque score et niveau : ${riskScale}. Le score doit rester cohérent avec Gravité x Probabilité x Exposition.
+13. Si des informations existent, produire une analyse provisoire exploitable. Si des informations manquent, préciser exactement ce qui manque, pourquoi c’est important, quelle preuve est attendue, qui doit vérifier, comment vérifier, où documenter la preuve et si le point bloque la validation. Le fallback simple ${languageConfig.missingInfo} ne peut jamais être utilisé seul.
+14. Blocs métier : ${businessBlockInstruction} Utilise ces blocs uniquement lorsqu’ils aident réellement le conseiller en prévention. Un bloc doit contenir les sous-parties utiles : what can already be deduced, remaining hypothesis, what to verify, how to verify, where to document, expected evidence and impact on validation. Close each block with "FIN DU BLOC" only for French; use the equivalent target-language closing wording for other languages.
+15. Hiérarchie STOP obligatoire : pour chaque mesure complémentaire importante, utiliser un niveau parmi : ${languageConfig.stopLevels}. Ne jamais proposer uniquement une protection individuelle si une mesure de suppression, substitution, technique collective ou organisationnelle est plus appropriée.
+16. Section 12 must always contain at least 4 structured priorities. Each priority must contain ${languageConfig.priorityLabels}.
+17. Section 13 must always contain 6 to 8 action plan items, with both action types represented: ${actionTypeInstruction}. Use this Markdown table header in the target language: ${languageConfig.actionTableColumns}.
+18. Section 15 must always contain 6 to 10 concrete documents. Section 16 must always contain 4 to 8 stakeholders, including workers, line management, prevention advisor, employer, CPPT when present, external service and occupational physician when relevant. Section 17 must always contain 4 to 8 appendices. No full section may be replaced only by "to be completed", "à compléter", "te controleren", "zu prüfen" or equivalent.
+19. Section 18 must contain a Markdown table with exactly these columns: ${languageConfig.completenessTableColumns}. Evaluate every mandatory element, using only these status labels: ${languageConfig.completenessStatuses}. Mandatory elements to evaluate: ${completenessElements}.
+20. Section 19 must contain six explicit subparts in the target language: document status; what is already usable; what is missing; blocking points; minimum actions before validation; actors who must validate. The document status must be exactly one of: ${languageConfig.documentStatuses}.
+21. Section 19 must clearly say the assessment is not final if any of these are missing or unconfirmed: site visit, documentary evidence, worker consultation, CPPT consultation when a CPPT exists, SDS, inspection/control reports, score justifications, proof of existing measures, external service opinion or occupational physician opinion when relevant.
+22. Section 20 conclusion must answer clearly: is this a risk assessment or a preparatory draft; is it complete; can it feed the PGP; can it feed the PAA; can it be presented to the CPPT; can it be used in an audit; what are the minimum conditions before validation. Never write that it is finalized or compliant if it is not supported by evidence.
+23. Relis les preuves attendues : elles doivent être vérifiables, professionnelles et cohérentes avec le risque et la mesure. Privilégie : rapport de contrôle, registre de formation, liste de présence, photos avant/après, inventaire mis à jour, FDS centralisées, rapport de visite terrain, PV ou avis du CPPT, registre accidents/incidents, check-list signée. Évite : suivi, constat, conformité normale, document disponible, rapport général.
+24. Conformité belge et prudence juridique : mentionner les références belges pertinentes sans inventer d’articles ; ne jamais affirmer une conformité si les preuves ne sont pas présentes ; distinguer obligation légale, bonne pratique et point à vérifier.
+25. Spécialisation obligatoire selon le type d’analyse demandé : ${specializationInstruction}
+26. Section ${languageConfig.sections.length} doit contenir exactement cette mention finale traduite, une seule fois :
 ${languageConfig.finalMention}
-24. Before answering, verify: all ${languageConfig.sections.length} sections are present; headings match the target language exactly; detailed hazard identification is filled; completeness assessment is present; validability section is present; action plan contains risk-control actions and validation actions; score justifications are present; the document status is explicit; there is no unjustified compliance conclusion; no heading from another language remains.
-25. Rappel RGPD dans la langue cible : ${languageConfig.gdprReminder}
-26. Garde une réponse concise pour éviter les timeouts.`;
+27. Before answering, verify: all ${languageConfig.sections.length} sections are present; headings match the target language exactly; scoring method is present; detailed hazard identification is filled; provisional residual scores are present; STOP hierarchy is present; completeness assessment is present; validability section is present; action plan contains risk-control actions and validation actions; score justifications are present; the document status is explicit; there is no unjustified compliance conclusion; no heading from another language remains.
+28. Rappel RGPD dans la langue cible : ${languageConfig.gdprReminder}
+29. Garde une réponse concise pour éviter les timeouts.`;
 }
 
 function buildCompletenessElements(language) {
@@ -2118,6 +2137,47 @@ function buildCompletenessElements(language) {
   return (elements[language] || elements.fr).join('; ');
 }
 
+function buildRiskScoringMethodInstruction(language) {
+  const instructions = {
+    fr:
+      'Score = Gravité × Probabilité × Exposition. Gravité : 1 dommage mineur, 2 blessure légère ou inconfort, 3 blessure avec arrêt ou atteinte significative, 4 blessure grave, incapacité importante ou exposition dangereuse, 5 décès, invalidité majeure ou événement catastrophique. Probabilité : 1 très improbable, 2 peu probable, 3 possible, 4 probable, 5 très probable. Exposition : 1 exceptionnelle, 2 occasionnelle, 3 régulière, 4 fréquente, 5 permanente ou plusieurs fois par jour. Seuils : 1-10 faible, 11-30 moyen, 31-60 élevé, 61-125 critique. Cette cotation est une aide à la priorisation. Elle doit être confirmée par observation terrain, preuves documentaires et validation des acteurs compétents.',
+    nl:
+      'Score = Ernst × Waarschijnlijkheid × Blootstelling. Ernst: 1 geringe schade, 2 lichte verwonding of ongemak, 3 verwonding met werkverlet of significante aantasting, 4 ernstige verwonding, belangrijke arbeidsongeschiktheid of gevaarlijke blootstelling, 5 overlijden, zware invaliditeit of catastrofale gebeurtenis. Waarschijnlijkheid: 1 zeer onwaarschijnlijk, 2 onwaarschijnlijk, 3 mogelijk, 4 waarschijnlijk, 5 zeer waarschijnlijk. Blootstelling: 1 uitzonderlijk, 2 occasioneel, 3 regelmatig, 4 frequent, 5 permanent of meerdere keren per dag. Drempels: 1-10 laag, 11-30 gemiddeld, 31-60 hoog, 61-125 kritiek. Deze score is een hulpmiddel voor prioritering. Ze moet worden bevestigd door terreinobservatie, documentaire bewijzen en validatie door de bevoegde actoren.',
+    en:
+      'Score = Severity × Probability × Exposure. Severity: 1 minor damage, 2 minor injury or discomfort, 3 injury with absence from work or significant harm, 4 serious injury, major incapacity or hazardous exposure, 5 death, major disability or catastrophic event. Probability: 1 very unlikely, 2 unlikely, 3 possible, 4 likely, 5 very likely. Exposure: 1 exceptional, 2 occasional, 3 regular, 4 frequent, 5 permanent or several times per day. Thresholds: 1-10 low, 11-30 medium, 31-60 high, 61-125 critical. This scoring is an aid for prioritisation. It must be confirmed by field observation, documentary evidence and validation by the competent stakeholders.',
+    de:
+      'Bewertung = Schwere × Wahrscheinlichkeit × Exposition. Schwere: 1 geringfügiger Schaden, 2 leichte Verletzung oder Unbehagen, 3 Verletzung mit Arbeitsausfall oder erheblicher Beeinträchtigung, 4 schwere Verletzung, erhebliche Arbeitsunfähigkeit oder gefährliche Exposition, 5 Tod, schwere Invalidität oder katastrophales Ereignis. Wahrscheinlichkeit: 1 sehr unwahrscheinlich, 2 unwahrscheinlich, 3 möglich, 4 wahrscheinlich, 5 sehr wahrscheinlich. Exposition: 1 außergewöhnlich, 2 gelegentlich, 3 regelmäßig, 4 häufig, 5 dauerhaft oder mehrmals täglich. Schwellenwerte: 1-10 niedrig, 11-30 mittel, 31-60 hoch, 61-125 kritisch. Diese Bewertung dient der Priorisierung. Sie muss durch Vor-Ort-Beobachtung, dokumentierte Nachweise und Validierung durch die zuständigen Akteure bestätigt werden.',
+  };
+
+  return instructions[language] || instructions.fr;
+}
+
+function buildBusinessBlockInstruction(language) {
+  const labels = {
+    fr:
+      '[EXPLOITABLE], [À VÉRIFIER SUR LE TERRAIN], [À COMPLÉTER AVANT VALIDATION], [POINT BLOQUANT AVANT VALIDATION], [PREUVE ATTENDUE], [AVIS SPÉCIALISÉ REQUIS]',
+    nl:
+      '[BRUIKBAAR], [TER PLAATSE TE CONTROLEREN], [AAN TE VULLEN VÓÓR VALIDATIE], [BLOKKEREND PUNT VÓÓR VALIDATIE], [VERWACHT BEWIJS], [SPECIALISTISCH ADVIES VEREIST]',
+    en:
+      '[USABLE NOW], [TO BE CHECKED ON SITE], [TO BE COMPLETED BEFORE VALIDATION], [BLOCKING POINT BEFORE VALIDATION], [EXPECTED EVIDENCE], [SPECIALIST ADVICE REQUIRED]',
+    de:
+      '[JETZT NUTZBAR], [VOR ORT ZU PRÜFEN], [VOR DER VALIDIERUNG ZU ERGÄNZEN], [BLOCKIERENDER PUNKT VOR DER VALIDIERUNG], [ERWARTETER NACHWEIS], [FACHLICHE STELLUNGNAHME ERFORDERLICH]',
+  };
+
+  return `available labels are ${labels[language] || labels.fr}.`;
+}
+
+function buildActionTypeInstruction(language) {
+  const instructions = {
+    fr: 'Maîtrise du risque ; Validation de l’analyse',
+    nl: 'Risicobeheersing ; Validatie van de analyse',
+    en: 'Risk control ; Assessment validation',
+    de: 'Risikobeherrschung ; Validierung der Beurteilung',
+  };
+
+  return instructions[language] || instructions.fr;
+}
+
 function buildRiskSpecializationInstruction(documentType) {
   const normalized = normalizeDocumentType(documentType);
   const rules = [
@@ -2254,5 +2314,5 @@ function buildTemplateTableInstruction(template, language, family) {
 function formatRiskScale(language) {
   const labels = LANGUAGE_CONFIGS[language]?.riskLevels || LANGUAGE_CONFIGS.fr.riskLevels;
 
-  return `1-20 ${labels.low}, 21-50 ${labels.medium}, 51-100 ${labels.high}, 101-125 ${labels.critical}`;
+  return `1-10 ${labels.low}, 11-30 ${labels.medium}, 31-60 ${labels.high}, 61-125 ${labels.critical}`;
 }
