@@ -30,8 +30,8 @@ const LANGUAGE_CONFIGS = {
       'Sources d’information utilisées ou à obtenir',
       'Hypothèses et limites',
       'Description des postes, tâches et travailleurs exposés',
-      'Identification détaillée des dangers',
       'Méthode de cotation utilisée',
+      'Identification détaillée des dangers',
       'Tableau principal d’analyse des risques',
       'Analyse des risques résiduels',
       'Priorités d’action',
@@ -40,8 +40,8 @@ const LANGUAGE_CONFIGS = {
       'Documents à créer ou mettre à jour',
       'Acteurs à consulter ou à impliquer',
       'Annexes nécessaires',
-      'Évaluation de complétude de l’analyse',
       'Validabilité de l’analyse et conditions avant validation',
+      'Évaluation de complétude de l’analyse',
       'Conclusion',
       'Mention finale obligatoire',
     ],
@@ -52,7 +52,9 @@ const LANGUAGE_CONFIGS = {
       critical: 'Critique',
     },
     riskTableColumns:
-      'N° | Activité ou tâche | Danger | Risque | Personnes exposées | Mesures existantes | Preuves existantes | Gravité | Justification gravité | Probabilité | Justification probabilité | Exposition | Justification exposition | Éléments observés ou déclarés | Éléments à confirmer | Score | Score provisoire ou confirmé | Niveau | Impact sur le risque résiduel | Mesures complémentaires | Niveau STOP | Responsable | Échéance | Contrôle/preuve attendue | Priorité',
+      'N° | Activité ou tâche | Danger | Risque | Personnes exposées | Mesures existantes | Preuves existantes | Gravité | Justification gravité | Probabilité | Justification probabilité | Exposition | Justification exposition | Éléments observés ou déclarés | Éléments à confirmer | Score initial | Niveau initial | Mesures complémentaires | Niveau STOP | Score résiduel provisoire | Niveau résiduel | Responsable | Échéance | Contrôle / preuve attendue | Priorité',
+    residualTableColumns:
+      'Risque principal | Score initial | Score résiduel provisoire | Condition de réduction | Preuve nécessaire | Statut',
     actionTableColumns:
       'N° | Type d’action | Risque ou point concerné | Mesure proposée | Objectif | Responsable | Échéance | Preuve attendue | Priorité | Statut',
     hazardTableColumns:
@@ -67,6 +69,8 @@ const LANGUAGE_CONFIGS = {
       'Suppression / substitution; Mesure technique collective; Mesure organisationnelle; Protection individuelle',
     provisionalScoreText:
       'Score provisoire à confirmer après vérification terrain. La gravité est estimée sur base des conséquences plausibles, la probabilité sur base des incidents ou mesures existantes connues, et l’exposition sur base de la fréquence déclarée. Les scores doivent être validés par observation terrain et preuves documentaires.',
+    advisorHelpBlockTitle: 'Bloc d’aide au conseiller',
+    advisorHelpBlockClose: 'FIN DU BLOC',
     referenceToCheck: 'Référence à vérifier.',
     priorityLabels: 'action, risque concerné, responsable, échéance et preuve attendue',
     forbiddenTerms: ['Risk assessment', 'Risicoanalyse', 'Gefährdungsbeurteilung'],
@@ -85,23 +89,23 @@ const LANGUAGE_CONFIGS = {
     sections: [
       'Identificatie van het document',
       'Context en doelstelling',
-      'Toepasselijke Belgische regelgeving',
+      'Toepasselijke Belgische regelgevende referenties',
       'Afbakening van de analyse',
-      'Gebruikte of te verkrijgen informatiebronnen',
+      'Gebruikte of nog te verkrijgen informatiebronnen',
       'Hypothesen en beperkingen',
       'Beschrijving van functies, taken en blootgestelde werknemers',
-      'Gedetailleerde identificatie van gevaren',
       'Gebruikte beoordelingsmethode',
+      'Gedetailleerde identificatie van de gevaren',
       'Hoofdtabel van de risicoanalyse',
-      'Analyse van restrisico’s',
-      'Actieprioriteiten',
-      'Ontwerp van actieplan',
+      'Analyse van de restrisico’s',
+      'Prioritaire acties',
+      'Ontwerpactieplan',
       'Verband met het Globaal Preventieplan en het Jaaractieplan',
-      'Documenten op te stellen of bij te werken',
+      'Documenten die moeten worden opgesteld of bijgewerkt',
       'Te raadplegen of te betrekken actoren',
       'Noodzakelijke bijlagen',
-      'Beoordeling van de volledigheid van de analyse',
       'Valideerbaarheid van de analyse en voorwaarden vóór validatie',
+      'Beoordeling van de volledigheid van de analyse',
       'Conclusie',
       'Validatievermelding',
     ],
@@ -112,7 +116,9 @@ const LANGUAGE_CONFIGS = {
       critical: 'Kritiek',
     },
     riskTableColumns:
-      'Nr. | Activiteit | Gevaar | Risico | Blootgestelde personen | Bestaande maatregelen | Bestaand bewijs | Ernst | Motivering ernst | Waarschijnlijkheid | Motivering waarschijnlijkheid | Blootstelling | Motivering blootstelling | Geobserveerde of verklaarde elementen | Te bevestigen elementen | Score | Voorlopige of bevestigde score | Niveau | Impact op het restrisico | Aanvullende maatregelen | STOP-niveau | Verantwoordelijke | Termijn | Controle/verwacht bewijs | Prioriteit',
+      'Nr. | Activiteit of taak | Gevaar | Risico | Blootgestelde personen | Bestaande maatregelen | Bestaande bewijzen | Ernst | Motivering ernst | Waarschijnlijkheid | Motivering waarschijnlijkheid | Blootstelling | Motivering blootstelling | Vastgestelde of verklaarde elementen | Te bevestigen elementen | Initiële score | Initieel niveau | Aanvullende maatregelen | STOP-niveau | Voorlopige restrisicoscore | Restrisiconiveau | Verantwoordelijke | Termijn | Controle / verwacht bewijs | Prioriteit',
+    residualTableColumns:
+      'Belangrijkste risico | Initiële score | Voorlopige restrisicoscore | Voorwaarde voor vermindering | Vereist bewijs | Status',
     actionTableColumns:
       'Nr. | Type actie | Betrokken risico of punt | Voorgestelde maatregel | Doel | Verantwoordelijke | Termijn | Verwacht bewijs | Prioriteit | Status',
     hazardTableColumns:
@@ -127,6 +133,8 @@ const LANGUAGE_CONFIGS = {
       'Eliminatie / substitutie; Collectieve technische maatregel; Organisatorische maatregel; Persoonlijke bescherming',
     provisionalScoreText:
       'Voorlopige score te bevestigen na terreincontrole. De ernst wordt ingeschat op basis van plausibele gevolgen, de waarschijnlijkheid op basis van bekende incidenten of bestaande maatregelen, en de blootstelling op basis van de aangegeven frequentie. De scores moeten worden gevalideerd door terreinobservatie en documentaire bewijzen.',
+    advisorHelpBlockTitle: 'Hulpblok voor de preventieadviseur',
+    advisorHelpBlockClose: 'EINDE VAN HET BLOK',
     referenceToCheck: 'Referentie te controleren.',
     priorityLabels: 'actie, risico, verantwoordelijke, deadline en verwacht bewijs',
     forbiddenTerms: ['Analyse de risques', 'Risk assessment', 'Gefährdungsbeurteilung'],
@@ -150,20 +158,20 @@ const LANGUAGE_CONFIGS = {
       'Information sources used or to be obtained',
       'Assumptions and limitations',
       'Description of jobs, tasks and exposed workers',
-      'Detailed hazard identification',
       'Risk scoring method used',
+      'Detailed identification of hazards',
       'Main risk assessment table',
-      'Residual risk assessment',
+      'Residual risk analysis',
       'Action priorities',
       'Draft action plan',
       'Link with the Global Prevention Plan and the Annual Action Plan',
       'Documents to create or update',
-      'Stakeholders to consult or involve',
+      'Actors to consult or involve',
       'Required appendices',
-      'Completeness assessment of the risk assessment',
       'Validability of the assessment and conditions before validation',
+      'Completeness assessment of the risk assessment',
       'Conclusion',
-      'Mandatory final statement',
+      'Validation statement',
     ],
     riskLevels: {
       low: 'Low',
@@ -172,7 +180,9 @@ const LANGUAGE_CONFIGS = {
       critical: 'Critical',
     },
     riskTableColumns:
-      'No. | Activity or task | Hazard | Risk | Exposed persons | Existing measures | Existing evidence | Severity | Severity justification | Probability | Probability justification | Exposure | Exposure justification | Observed or declared elements | Elements to be confirmed | Score | Provisional or confirmed score | Level | Impact on residual risk | Additional measures | STOP level | Responsible person | Deadline | Expected control/evidence | Priority',
+      'No. | Activity or task | Hazard | Risk | Exposed persons | Existing measures | Existing evidence | Severity | Severity justification | Probability | Probability justification | Exposure | Exposure justification | Observed or declared elements | Elements to be confirmed | Initial score | Initial level | Additional measures | STOP level | Provisional residual score | Residual level | Responsible person | Deadline | Control / expected evidence | Priority',
+    residualTableColumns:
+      'Main risk | Initial score | Provisional residual score | Reduction condition | Required evidence | Status',
     actionTableColumns:
       'No. | Action type | Related risk or point | Proposed measure | Objective | Responsible person | Deadline | Expected evidence | Priority | Status',
     hazardTableColumns:
@@ -187,6 +197,8 @@ const LANGUAGE_CONFIGS = {
       'Elimination / substitution; Collective technical measure; Organisational measure; Personal protection',
     provisionalScoreText:
       'Provisional score to be confirmed after field verification. Severity is estimated based on plausible consequences, probability based on known incidents or existing measures, and exposure based on the declared frequency. The scores must be validated through field observation and documentary evidence.',
+    advisorHelpBlockTitle: 'Prevention Advisor Help Block',
+    advisorHelpBlockClose: 'END OF BLOCK',
     referenceToCheck: 'Reference to be checked.',
     priorityLabels: 'action, risk, responsible, deadline and expected evidence',
     forbiddenTerms: ['Analyse de risques', 'Risicoanalyse', 'Gefährdungsbeurteilung'],
@@ -205,25 +217,25 @@ const LANGUAGE_CONFIGS = {
     sections: [
       'Dokumentidentifikation',
       'Kontext und Zielsetzung',
-      'Anwendbare belgische Rechtsvorschriften',
+      'Anwendbare belgische regulatorische Referenzen',
       'Umfang der Beurteilung',
-      'Verwendete oder noch einzuholende Informationsquellen',
-      'Annahmen und Grenzen',
+      'Verwendete oder noch zu beschaffende Informationsquellen',
+      'Annahmen und Einschränkungen',
       'Beschreibung der Arbeitsplätze, Tätigkeiten und exponierten Beschäftigten',
-      'Detaillierte Ermittlung der Gefährdungen',
       'Verwendete Bewertungsmethode',
+      'Detaillierte Identifikation der Gefährdungen',
       'Haupttabelle der Gefährdungsbeurteilung',
-      'Beurteilung der Restrisiken',
+      'Analyse der Restrisiken',
       'Handlungsprioritäten',
-      'Entwurf eines Maßnahmenplans',
-      'Verbindung zum Globalen Präventionsplan und zum Jährlichen Aktionsplan',
+      'Entwurf des Maßnahmenplans',
+      'Verbindung mit dem Globalen Präventionsplan und dem Jährlichen Aktionsplan',
       'Zu erstellende oder zu aktualisierende Dokumente',
       'Zu konsultierende oder einzubeziehende Akteure',
       'Erforderliche Anhänge',
-      'Bewertung der Vollständigkeit der Beurteilung',
       'Validierbarkeit der Beurteilung und Bedingungen vor der Validierung',
+      'Bewertung der Vollständigkeit der Beurteilung',
       'Schlussfolgerung',
-      'Verbindlicher Abschlusshinweis',
+      'Validierungshinweis',
     ],
     riskLevels: {
       low: 'Niedrig',
@@ -232,7 +244,9 @@ const LANGUAGE_CONFIGS = {
       critical: 'Kritisch',
     },
     riskTableColumns:
-      'Nr. | Tätigkeit oder Aufgabe | Gefährdung | Risiko | Exponierte Personen | Bestehende Maßnahmen | Vorhandene Nachweise | Schwere | Begründung der Schwere | Wahrscheinlichkeit | Begründung der Wahrscheinlichkeit | Exposition | Begründung der Exposition | Beobachtete oder angegebene Elemente | Zu bestätigende Elemente | Punktzahl | Vorläufige oder bestätigte Bewertung | Niveau | Auswirkung auf das Restrisiko | Zusätzliche Maßnahmen | STOP-Ebene | Verantwortliche Person | Frist | Kontrolle/erwarteter Nachweis | Priorität',
+      'Nr. | Tätigkeit oder Aufgabe | Gefährdung | Risiko | Exponierte Personen | Bestehende Maßnahmen | Bestehende Nachweise | Schwere | Begründung der Schwere | Wahrscheinlichkeit | Begründung der Wahrscheinlichkeit | Exposition | Begründung der Exposition | Beobachtete oder angegebene Elemente | Zu bestätigende Elemente | Ausgangsbewertung | Ausgangsniveau | Zusätzliche Maßnahmen | STOP-Ebene | Vorläufige Restrisikobewertung | Restrisikoniveau | Verantwortliche Person | Frist | Kontrolle / erwarteter Nachweis | Priorität',
+    residualTableColumns:
+      'Hauptrisiko | Ausgangsbewertung | Vorläufige Restrisikobewertung | Bedingung für die Reduzierung | Erforderlicher Nachweis | Status',
     actionTableColumns:
       'Nr. | Maßnahmentyp | Betroffenes Risiko oder Punkt | Vorgeschlagene Maßnahme | Ziel | Verantwortliche Person | Frist | Erwarteter Nachweis | Priorität | Status',
     hazardTableColumns:
@@ -247,6 +261,8 @@ const LANGUAGE_CONFIGS = {
       'Beseitigung / Substitution; Kollektive technische Maßnahme; Organisatorische Maßnahme; Persönlicher Schutz',
     provisionalScoreText:
       'Vorläufige Bewertung, die nach Vor-Ort-Überprüfung zu bestätigen ist. Die Schwere wird anhand plausibler Folgen, die Wahrscheinlichkeit anhand bekannter Vorfälle oder vorhandener Maßnahmen und die Exposition anhand der angegebenen Häufigkeit eingeschätzt. Die Bewertungen müssen durch Vor-Ort-Beobachtung und dokumentierte Nachweise validiert werden.',
+    advisorHelpBlockTitle: 'Hilfsblock für den Präventionsberater',
+    advisorHelpBlockClose: 'ENDE DES BLOCKS',
     referenceToCheck: 'Referenz zu prüfen.',
     priorityLabels: 'Aktion, Risiko, Verantwortlicher, Frist und erwarteter Nachweis',
     forbiddenTerms: ['Analyse de risques', 'Risicoanalyse', 'Risk assessment'],
@@ -298,8 +314,8 @@ Structure obligatoire par défaut pour une analyse de risques en français si au
 ## 5. Sources d’information utilisées ou à obtenir
 ## 6. Hypothèses et limites
 ## 7. Description des postes, tâches et travailleurs exposés
-## 8. Identification détaillée des dangers
-## 9. Méthode de cotation utilisée
+## 8. Méthode de cotation utilisée
+## 9. Identification détaillée des dangers
 ## 10. Tableau principal d’analyse des risques
 ## 11. Analyse des risques résiduels
 ## 12. Priorités d’action
@@ -308,22 +324,24 @@ Structure obligatoire par défaut pour une analyse de risques en français si au
 ## 15. Documents à créer ou mettre à jour
 ## 16. Acteurs à consulter ou à impliquer
 ## 17. Annexes nécessaires
-## 18. Évaluation de complétude de l’analyse
-## 19. Validabilité de l’analyse et conditions avant validation
+## 18. Validabilité de l’analyse et conditions avant validation
+## 19. Évaluation de complétude de l’analyse
 ## 20. Conclusion
 ## 21. Mention finale obligatoire
 
 Contraintes de sortie :
 - Section 3 : tableau Markdown de maximum 8 références avec colonnes équivalentes à "Référence ou domaine réglementaire", "Pourquoi c’est applicable", "Conséquence pratique pour l’analyse ou les actions", dans la langue demandée.
-- Section 8 : tableau Markdown ou liste structurée obligatoire avec danger, scénario plausible, zone ou tâche, personnes exposées, facteurs aggravants, mesures existantes connues, preuves à vérifier et points bloquants avant validation.
-- Section 9 : expliquer la formule, les échelles, les seuils et l’interprétation de la cotation.
-- Section 10 : tableau Markdown de maximum 8 risques concrets. Chaque risque coté doit inclure justification gravité, justification probabilité, justification exposition, éléments observés ou déclarés, éléments à confirmer, score provisoire ou confirmé et impact sur le risque résiduel. Ne pas dépasser 8 lignes de risques.
+- Section 8 : expliquer la formule, les échelles, les seuils et l’interprétation de la cotation.
+- Section 9 : tableau Markdown ou liste structurée obligatoire avec danger, scénario plausible, zone ou tâche, personnes exposées, facteurs aggravants, mesures existantes connues, preuves à vérifier et points bloquants avant validation.
+- Section 10 : tableau principal Markdown de maximum 8 risques concrets. Chaque risque coté doit inclure score initial, niveau initial, niveau STOP, score résiduel provisoire, niveau résiduel et preuve attendue. Ne jamais déplacer ce tableau en section 11.
+- Section 11 : synthèse des risques résiduels uniquement, sans reprendre le tableau principal complet.
 - Section 12 : ne jamais laisser vide. Toujours produire au moins 4 priorités structurées avec Priorité 1 actions urgentes ou risques les plus élevés, Priorité 2 risques élevés ou moyens significatifs, Priorité 3 risques moyens, Priorité 4 amélioration continue. Chaque priorité contient explicitement : action, risque concerné, responsable, échéance et preuve attendue.
 - Section 13 : tableau Markdown de maximum 8 actions distinguant les actions de maîtrise du risque et les actions de validation de l’analyse.
+- Section 14 : expliquer uniquement le lien PGP/PAA, sans y placer le tableau complet du plan d’action.
 - Section 15 : toujours 5 à 8 documents concrets à créer ou mettre à jour, jamais une simple mention "Information à compléter ou à valider sur le terrain".
-- Sections 5, 7, 8, 15 et 16 doivent contenir du contenu exploitable, pas seulement un titre. Section 8 : toujours produire 6 à 8 dangers détaillés, concrets et contextualisés. Ne jamais afficher seulement "Information à compléter ou à valider sur le terrain." ni seulement "Dangers identifiés :". Pour un service technique communal, inclure si pertinent : manutention manuelle, machines/outillage électroportatif, produits chimiques, circulation véhicules/piétons, bruit, travail en hauteur, glissades/chutes de plain-pied, incendie, coactivité avec citoyens ou sous-traitants, conditions météo, travail isolé.
-- Section 18 : tableau obligatoire d’évaluation de complétude. Évaluer les éléments métier demandés par le prompt utilisateur avec un statut précis.
-- Section 19 : indiquer le statut du document, ce qui est déjà exploitable, ce qui manque pour validation, les points bloquants et les actions de validation.
+- Sections 5, 7, 9, 15 et 16 doivent contenir du contenu exploitable, pas seulement un titre. Section 9 : toujours produire 6 à 8 dangers détaillés, concrets et contextualisés. Ne jamais afficher seulement "Information à compléter ou à valider sur le terrain." ni seulement "Dangers identifiés :". Pour un service technique communal, inclure si pertinent : manutention manuelle, machines/outillage électroportatif, produits chimiques, circulation véhicules/piétons, bruit, travail en hauteur, glissades/chutes de plain-pied, incendie, coactivité avec citoyens ou sous-traitants, conditions météo, travail isolé.
+- Section 18 : indiquer le statut du document, ce qui est déjà exploitable, ce qui manque pour validation, les points bloquants, les actions minimales avant validation, les acteurs devant valider et un avis clair sur la validabilité en l’état.
+- Section 19 : tableau obligatoire d’évaluation de complétude. Évaluer les éléments métier demandés par le prompt utilisateur avec un statut précis.
 - Section 20 : conclure clairement si le document est un projet ou une analyse exploitable sous réserve, s’il est complet, s’il peut alimenter le PGP/PAA, être présenté au CPPT, être utilisé en audit et quelles conditions minimales sont requises avant validation.
 - Par défaut en français, la section 21 doit contenir exactement cette mention, une seule fois :
 Ce document est un projet à adapter à la situation réelle de l’entreprise et à valider par le conseiller en prévention, l’employeur et, le cas échéant, le service externe, le médecin du travail ou le CPPT. Il ne constitue pas à lui seul une preuve de conformité réglementaire.`;
@@ -1502,7 +1520,12 @@ function identifyColumnRoles(headers) {
   headers.forEach((header, index) => {
     const normalizedHeader = normalizeTableHeader(header);
 
-    if (normalizedHeader.includes('score') || normalizedHeader.includes('punktzahl')) {
+    if (
+      normalizedHeader.includes('score') ||
+      normalizedHeader.includes('punktzahl') ||
+      normalizedHeader.includes('ausgangsbewertung') ||
+      normalizedHeader.includes('restrisikobewertung')
+    ) {
       roles.score.push(index);
     }
 
@@ -1545,6 +1568,8 @@ function inferTableLanguage(headers) {
   if (
     normalizedHeaders.includes('gefahrdung') ||
     normalizedHeaders.includes('punktzahl') ||
+    normalizedHeaders.includes('ausgangsbewertung') ||
+    normalizedHeaders.includes('restrisikobewertung') ||
     normalizedHeaders.includes('verantwortliche person') ||
     normalizedHeaders.includes('vorhandene nachweise')
   ) {
@@ -1595,7 +1620,7 @@ function getRiskLevelLanguage(normalizedHeader, tableLanguage = 'fr') {
     return 'en';
   }
 
-  if (normalizedHeader === 'niveau') {
+  if (normalizedHeader.includes('niveau')) {
     return tableLanguage;
   }
 
@@ -1887,14 +1912,9 @@ function runRiskPromptQualityTests() {
     informationsComplementaires:
       'FDS incomplètes, visite terrain à confirmer, rapports de contrôle non joints.',
   };
-  const cases = [
-    ['Analyse de risques incendie et évacuation', 'fr'],
-    ['Analyse de risques machines et équipements', 'fr'],
-    ['Analyse de risques produits chimiques', 'fr'],
-    ['Analyse de risques générale', 'en'],
-    ['Analyse de risques générale', 'nl'],
-    ['Analyse de risques générale', 'de'],
-  ];
+  const cases = RISK_DOCUMENT_TYPES.flatMap((documentType) =>
+    ['fr', 'nl', 'en', 'de'].map((language) => [documentType, language]),
+  );
 
   for (const [documentType, language] of cases) {
     const config = LANGUAGE_CONFIGS[language];
@@ -1905,15 +1925,23 @@ function runRiskPromptQualityTests() {
     assert.match(prompt, new RegExp(escapeRegExp(`## 18. ${config.sections[17]}`)));
     assert.match(prompt, new RegExp(escapeRegExp(`## 19. ${config.sections[18]}`)));
     assert.match(prompt, new RegExp(escapeRegExp(config.hazardTableColumns)));
+    assert.match(prompt, new RegExp(escapeRegExp(config.riskTableColumns)));
+    assert.match(prompt, new RegExp(escapeRegExp(config.residualTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(config.completenessTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(config.actionTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(config.documentStatuses.split('; ')[0])));
     assert.match(prompt, new RegExp(escapeRegExp(config.provisionalScoreText)));
+    assert.match(prompt, new RegExp(escapeRegExp(config.advisorHelpBlockTitle)));
+    assert.match(prompt, new RegExp(escapeRegExp(config.advisorHelpBlockClose)));
     assert.match(prompt, /Score =|Scoremethode|Risk scoring method used|Bewertungsmethode/);
     assert.match(prompt, /\[À VÉRIFIER SUR LE TERRAIN\]|\[TO BE CHECKED ON SITE\]|\[TER PLAATSE TE CONTROLEREN\]|\[VOR ORT ZU PRÜFEN\]/);
     assert.match(prompt, /1-10/);
     assert.match(prompt, /61-125/);
     assert.match(prompt, /provisional residual score|restrisico|Restrisiken|risque résiduel/);
+    assert.match(prompt, /STOP|stop/i);
+    assert.match(prompt, /section 10 contains the complete main table/);
+    assert.match(prompt, /section 11 is only a synthetic residual analysis/);
+    assert.match(prompt, /documents, actors and annexes are correctly separated/);
     assert.match(prompt, /score justifications are present/);
     assert.doesNotMatch(prompt, /all 18 sections/);
   }
@@ -1950,6 +1978,7 @@ function buildRiskUserPrompt(documentType, formData, language = 'fr', languageLa
   const completenessElements = buildCompletenessElements(language);
   const scoringMethodInstruction = buildRiskScoringMethodInstruction(language);
   const businessBlockInstruction = buildBusinessBlockInstruction(language);
+  const advisorHelpBlockInstruction = buildAdvisorHelpBlockInstruction(language);
   const actionTypeInstruction = buildActionTypeInstruction(language);
   const specializationInstruction = buildRiskSpecializationInstruction(documentType);
   const structure = [
@@ -1972,30 +2001,31 @@ ${structure}
 4. The entire document must be written in the target language. Do not mix languages. Use the translated headings, tables, risk levels and final statement from the language configuration. Do not use these non-target headings or terms: ${languageConfig.forbiddenTerms.join('; ')}.
 5. Section 3 : sélectionne maximum 8 références pertinentes parmi : Loi du 4 août 1996, Code du bien-être au travail, Livre Ier, Titre 2 – Politique du bien-être et système dynamique de gestion des risques, Plan Global de Prévention, Plan Annuel d’Action, CPPT, SIPPT/SEPPT, Livre III – Lieux de travail, Livre III, Titre 3 – Prévention incendie, Livre III, Titre 6 – Signalisation de sécurité et de santé, Livre IV – Équipements de travail, Livre VI – Agents chimiques, Livre VIII – Ergonomie et TMS, Livre IX – Protections collectives et EPI. Ne cite pas d’articles. Si une référence exacte est incertaine, écris dans la langue cible : ${languageConfig.referenceToCheck}
 6. Section 3 : les noms officiels français des références réglementaires belges peuvent rester en français, mais les explications autour doivent être en ${resolvedLanguageLabel}.
-7. Section 8 must always contain 6 to 8 concrete hazards in a Markdown table with exactly these columns: ${languageConfig.hazardTableColumns}. Never write only "Dangers identifiés", "Information à compléter ou à valider sur le terrain" or an equivalent. For each hazard, state a plausible scenario, evidence to check, what the prevention advisor must do, where the proof must be documented and whether the point blocks validation.
-8. Section 9 must be titled exactly "${languageConfig.sections[8]}" and must explain the formula, scales, thresholds and interpretation. Use this content in the target language: ${scoringMethodInstruction}
-9. Section 10 : produis un tableau Markdown avec exactement ces colonnes dans la langue cible : ${languageConfig.riskTableColumns}.
-10. Section 10 must always contain 8 complete risk rows. Each row must justify severity, probability and exposure, distinguish observed or declared elements from elements to be confirmed, state whether the score is provisional or confirmed, and explain the impact on residual risk. If data are insufficient, use this wording in the target language inside the relevant cells: ${languageConfig.provisionalScoreText}
-11. Section 11 must never leave residual scores empty. For each major risk, provide at least a provisional residual score, explain why the score decreases or not, identify which measure conditions the reduction and state which evidence is needed to confirm it. If measures are not implemented, state that the residual risk is provisional and cannot be considered controlled until measures and expected evidence are validated.
+7. Section 8 must be titled exactly "${languageConfig.sections[7]}" and must explain the formula, scales, thresholds and interpretation. Use this content in the target language: ${scoringMethodInstruction}
+8. Section 9 must always contain 6 to 8 concrete hazards in a Markdown table with exactly these columns: ${languageConfig.hazardTableColumns}. Never write only "Dangers identifiés", "Information à compléter ou à valider sur le terrain" or an equivalent. For each hazard, state a plausible scenario, evidence to check, what the prevention advisor must do, where the proof must be documented and whether the point blocks validation.
+9. Section 10 must be titled exactly "${languageConfig.sections[9]}". It must contain the main detailed risk assessment table and nothing may replace it with a placeholder. Use exactly these columns in the target language: ${languageConfig.riskTableColumns}.
+10. Section 10 must always contain 8 complete risk rows. Each row must justify severity, probability and exposure, distinguish observed or declared elements from elements to be confirmed, include an initial score, initial level, additional measures, STOP level, provisional residual score, residual level, responsible person, deadline and control / expected evidence. If data are insufficient, produce a useful provisional assessment in the relevant cells and use this wording only as supporting text, never as the whole section: ${languageConfig.provisionalScoreText}
+11. Section 11 must be titled exactly "${languageConfig.sections[10]}" and must not contain the full main table from section 10. It must contain a synthetic residual risk analysis: risks still significant after measures, high or critical residual risks, conditions required to confirm residual scores, evidence to collect and blocking points before validation. If you use a table, use this compact header only: ${languageConfig.residualTableColumns}.
 12. Avant de finaliser le tableau, vérifie chaque score et niveau : ${riskScale}. Le score doit rester cohérent avec Gravité x Probabilité x Exposition.
 13. Si des informations existent, produire une analyse provisoire exploitable. Si des informations manquent, préciser exactement ce qui manque, pourquoi c’est important, quelle preuve est attendue, qui doit vérifier, comment vérifier, où documenter la preuve et si le point bloque la validation. Le fallback simple ${languageConfig.missingInfo} ne peut jamais être utilisé seul.
-14. Blocs métier : ${businessBlockInstruction} Utilise ces blocs uniquement lorsqu’ils aident réellement le conseiller en prévention. Un bloc doit contenir les sous-parties utiles : what can already be deduced, remaining hypothesis, what to verify, how to verify, where to document, expected evidence and impact on validation. Close each block with "FIN DU BLOC" only for French; use the equivalent target-language closing wording for other languages.
+14. Blocs d’aide au conseiller obligatoires lorsque l’analyse repose sur une hypothèse, une preuve manquante, une cotation provisoire, un risque résiduel non confirmé ou un point bloquant. Titre du bloc : "${languageConfig.advisorHelpBlockTitle}". ${businessBlockInstruction} ${advisorHelpBlockInstruction} Termine chaque bloc par "${languageConfig.advisorHelpBlockClose}". Les blocs doivent rester courts et directement actionnables pour le conseiller en prévention.
 15. Hiérarchie STOP obligatoire : pour chaque mesure complémentaire importante, utiliser un niveau parmi : ${languageConfig.stopLevels}. Ne jamais proposer uniquement une protection individuelle si une mesure de suppression, substitution, technique collective ou organisationnelle est plus appropriée.
 16. Section 12 must always contain at least 4 structured priorities. Each priority must contain ${languageConfig.priorityLabels}.
-17. Section 13 must always contain 6 to 8 action plan items, with both action types represented: ${actionTypeInstruction}. Use this Markdown table header in the target language: ${languageConfig.actionTableColumns}.
-18. Section 15 must always contain 6 to 10 concrete documents. Section 16 must always contain 4 to 8 stakeholders, including workers, line management, prevention advisor, employer, CPPT when present, external service and occupational physician when relevant. Section 17 must always contain 4 to 8 appendices. No full section may be replaced only by "to be completed", "à compléter", "te controleren", "zu prüfen" or equivalent.
-19. Section 18 must contain a Markdown table with exactly these columns: ${languageConfig.completenessTableColumns}. Evaluate every mandatory element, using only these status labels: ${languageConfig.completenessStatuses}. Mandatory elements to evaluate: ${completenessElements}.
-20. Section 19 must contain six explicit subparts in the target language: document status; what is already usable; what is missing; blocking points; minimum actions before validation; actors who must validate. The document status must be exactly one of: ${languageConfig.documentStatuses}.
-21. Section 19 must clearly say the assessment is not final if any of these are missing or unconfirmed: site visit, documentary evidence, worker consultation, CPPT consultation when a CPPT exists, SDS, inspection/control reports, score justifications, proof of existing measures, external service opinion or occupational physician opinion when relevant.
-22. Section 20 conclusion must answer clearly: is this a risk assessment or a preparatory draft; is it complete; can it feed the PGP; can it feed the PAA; can it be presented to the CPPT; can it be used in an audit; what are the minimum conditions before validation. Never write that it is finalized or compliant if it is not supported by evidence.
-23. Relis les preuves attendues : elles doivent être vérifiables, professionnelles et cohérentes avec le risque et la mesure. Privilégie : rapport de contrôle, registre de formation, liste de présence, photos avant/après, inventaire mis à jour, FDS centralisées, rapport de visite terrain, PV ou avis du CPPT, registre accidents/incidents, check-list signée. Évite : suivi, constat, conformité normale, document disponible, rapport général.
-24. Conformité belge et prudence juridique : mentionner les références belges pertinentes sans inventer d’articles ; ne jamais affirmer une conformité si les preuves ne sont pas présentes ; distinguer obligation légale, bonne pratique et point à vérifier.
-25. Spécialisation obligatoire selon le type d’analyse demandé : ${specializationInstruction}
-26. Section ${languageConfig.sections.length} doit contenir exactement cette mention finale traduite, une seule fois :
+17. Section 13 must always contain 6 to 8 action plan items, with both action types represented: ${actionTypeInstruction}. Use this Markdown table header in the target language: ${languageConfig.actionTableColumns}. Do not place this action plan table in section 14.
+18. Section 14 must explain only which urgent actions feed the Annual Action Plan, which structural actions feed the Global Prevention Plan, how CPPT follow-up is ensured and how validation actions are integrated. Do not include the complete action plan table in this section.
+19. Section 15 must contain only documents to create or update, such as SDS, procedures, registers, instructions, plans, hot-work permits, reports and checklists. Section 16 must contain only people or services to consult or involve, including workers, line management, prevention advisor, employer, CPPT when present, external service and occupational physician when relevant. Section 17 must contain only annexes, such as photos, inspection reports, plans, SDS, CPPT minutes, registers and proof. Never shift these contents into the wrong section.
+20. Section 18 must contain six explicit subparts in the target language: document status; what is already usable; what is missing; blocking points; minimum actions before validation; actors who must validate. It must also include a clear opinion on whether the document is validable as it stands. The document status must be exactly one of: ${languageConfig.documentStatuses}.
+21. Section 18 must clearly say the assessment is not final if any of these are missing or unconfirmed: site visit, documentary evidence, worker consultation, CPPT consultation when a CPPT exists, SDS, inspection/control reports, score justifications, proof of existing measures, external service opinion or occupational physician opinion when relevant.
+22. Section 19 must contain a Markdown table with exactly these columns: ${languageConfig.completenessTableColumns}. Evaluate every mandatory element, using only these status labels: ${languageConfig.completenessStatuses}. Mandatory elements to evaluate: ${completenessElements}.
+23. Section 20 conclusion must be a written conclusion, not a table or list transferred from another section. It must answer clearly: is this a risk assessment or a preparatory draft; is it complete; can it feed the PGP; can it feed the PAA; can it be presented to the CPPT; can it be used in an audit; what are the minimum conditions before validation. Never write that it is finalized or compliant if it is not supported by evidence. Do not include annexes, actors, the completeness table, the main table or the action plan in the conclusion.
+24. Relis les preuves attendues : elles doivent être vérifiables, professionnelles et cohérentes avec le risque et la mesure. Privilégie : rapport de contrôle, registre de formation, liste de présence, photos avant/après, inventaire mis à jour, FDS centralisées, rapport de visite terrain, PV ou avis du CPPT, registre accidents/incidents, check-list signée. Évite : suivi, constat, conformité normale, document disponible, rapport général.
+25. Conformité belge et prudence juridique : mentionner les références belges pertinentes sans inventer d’articles ; ne jamais affirmer une conformité si les preuves ne sont pas présentes ; distinguer obligation légale, bonne pratique et point à vérifier.
+26. Spécialisation obligatoire selon le type d’analyse demandé : ${specializationInstruction}
+27. Section ${languageConfig.sections.length} doit contenir exactement cette mention finale traduite, une seule fois :
 ${languageConfig.finalMention}
-27. Before answering, verify: all ${languageConfig.sections.length} sections are present; headings match the target language exactly; scoring method is present; detailed hazard identification is filled; provisional residual scores are present; STOP hierarchy is present; completeness assessment is present; validability section is present; action plan contains risk-control actions and validation actions; score justifications are present; the document status is explicit; there is no unjustified compliance conclusion; no heading from another language remains.
-28. Rappel RGPD dans la langue cible : ${languageConfig.gdprReminder}
-29. Garde une réponse concise pour éviter les timeouts.`;
+28. Before answering, perform a strict mental verification: all ${languageConfig.sections.length} sections are present and in the requested order; headings match the target language exactly; section 10 contains the complete main table; section 11 is only a synthetic residual analysis; documents, actors and annexes are correctly separated; validability and completeness both exist as separate sections; the conclusion is a real written conclusion; no section is empty; no section contains content belonging to another section; scoring method is present; detailed hazard identification is filled; provisional residual scores are present; STOP hierarchy is present; action plan contains risk-control actions and validation actions; score justifications are present; the document status is explicit; there is no unjustified compliance conclusion; no heading from another language remains.
+29. Rappel RGPD dans la langue cible : ${languageConfig.gdprReminder}
+30. Garde une réponse concise pour éviter les timeouts.`;
 }
 
 function buildCompletenessElements(language) {
@@ -2165,6 +2195,21 @@ function buildBusinessBlockInstruction(language) {
   };
 
   return `available labels are ${labels[language] || labels.fr}.`;
+}
+
+function buildAdvisorHelpBlockInstruction(language) {
+  const instructions = {
+    fr:
+      'Chaque bloc doit contenir uniquement les sous-parties utiles parmi : ce qui est déjà exploitable, hypothèse restante, vérification à réaliser, méthode de vérification, lieu de documentation, preuve attendue, responsable de validation et impact sur la validabilité.',
+    nl:
+      'Elk blok bevat alleen de nuttige onderdelen uit: wat al bruikbaar is, resterende hypothese, uit te voeren controle, controlemethode, plaats van documentatie, verwacht bewijs, verantwoordelijke voor validatie en impact op de valideerbaarheid.',
+    en:
+      'Each block must contain only the useful subparts among: what is already usable, remaining assumption, check to perform, verification method, documentation location, expected evidence, validation owner and impact on validability.',
+    de:
+      'Jeder Block enthält nur die nützlichen Unterteile aus: bereits nutzbare Elemente, verbleibende Annahme, durchzuführende Prüfung, Prüfmethode, Dokumentationsort, erwarteter Nachweis, Validierungsverantwortlicher und Auswirkung auf die Validierbarkeit.',
+  };
+
+  return instructions[language] || instructions.fr;
 }
 
 function buildActionTypeInstruction(language) {
