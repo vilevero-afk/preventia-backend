@@ -1492,7 +1492,9 @@ function normalizeGeneratedDocument(outputText, documentDefinition, language = '
   const structuredData = parseRiskAssessmentStructuredOutput(outputText || '', language);
   const validatedData = validateRiskAssessmentStructuredData(structuredData, language);
 
-  return removeStandaloneMarkdownSeparators(normalizeKnownPhrases(renderRiskAssessmentMarkdown(validatedData, language)));
+  return removeMarkdownSeparatorRows(
+    removeStandaloneMarkdownSeparators(normalizeKnownPhrases(renderRiskAssessmentMarkdown(validatedData, language))),
+  );
 }
 
 async function generateStructuredRiskAssessmentInParts({
@@ -1524,8 +1526,10 @@ async function generateStructuredRiskAssessmentInParts({
 
   const structuredData = assembleStructuredRiskAssessmentBlocks(generatedBlocks, languageCode);
   const validatedData = validateRiskAssessmentStructuredData(structuredData, languageCode);
-  const document = removeStandaloneMarkdownSeparators(
-    normalizeKnownPhrases(renderRiskAssessmentMarkdown(validatedData, languageCode)),
+  const document = removeMarkdownSeparatorRows(
+    removeStandaloneMarkdownSeparators(
+      normalizeKnownPhrases(renderRiskAssessmentMarkdown(validatedData, languageCode)),
+    ),
   );
 
   console.info('Renderer markdown OK');
@@ -1545,13 +1549,19 @@ async function generateStructuredRiskAssessmentBlock({
   languageCode,
   languageLabel,
 }) {
-  console.info(`Bloc ${block.label} demandé`);
+  if (block.key === 'C') {
+    console.info('Bloc C demandé avec schéma risks simplifié');
+  } else {
+    console.info(`Bloc ${block.label} demandé`);
+  }
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const response = await openai.responses.create({
+    const request = {
       model: OPENAI_MODEL,
       max_output_tokens: Math.min(OPENAI_MAX_OUTPUT_TOKENS, attempt === 1 ? 3500 : 2200),
-      instructions: SYSTEM_PROMPT,
+      instructions: block.key === 'C'
+        ? `${SYSTEM_PROMPT}\n\nTu dois répondre uniquement avec un objet JSON valide.`
+        : SYSTEM_PROMPT,
       input: [
         {
           role: 'user',
@@ -1570,24 +1580,50 @@ async function generateStructuredRiskAssessmentBlock({
           ],
         },
       ],
-    });
+    };
+    const response = await createOpenAiResponseWithOptionalJsonFormat(openai, request, block.key === 'C');
 
     const parsed = safeParseAiJson(response.output_text);
 
     if (parsed.ok && parsed.data && typeof parsed.data === 'object' && !Array.isArray(parsed.data)) {
+      const data = block.key === 'C'
+        ? transformSimplifiedRiskBlockC(parsed.data, languageCode)
+        : parsed.data;
       console.info(`Bloc ${block.label} parsing OK`, { attempt });
-      return parsed.data;
+      return data;
     }
 
-    console.warn(`Bloc ${block.label} parsing KO`, {
+    console.warn(`Bloc ${block.label} parsing KO tentative ${attempt}`, {
       attempt,
       error: parsed.ok ? 'Le bloc JSON doit être un objet.' : parsed.error,
       preview: parsed.preview,
     });
   }
 
-  console.warn(`Bloc ${block.label} fallback minimal utilisé`);
-  return buildFallbackRiskAssessmentBlock(block.key, languageCode);
+  if (block.key === 'C') {
+    console.warn('Bloc C fallback utile généré');
+  } else {
+    console.warn(`Bloc ${block.label} fallback minimal utilisé`);
+  }
+  return buildFallbackRiskAssessmentBlock(block.key, languageCode, formData, documentType);
+}
+
+async function createOpenAiResponseWithOptionalJsonFormat(openai, request, useJsonFormat = false) {
+  if (!useJsonFormat) {
+    return openai.responses.create(request);
+  }
+
+  try {
+    return await openai.responses.create({
+      ...request,
+      response_format: { type: 'json_object' },
+    });
+  } catch (error) {
+    console.warn('Bloc C response_format JSON indisponible, retry sans response_format', {
+      message: error.message,
+    });
+    return openai.responses.create(request);
+  }
 }
 
 function safeParseAiJson(rawContent) {
@@ -1708,6 +1744,10 @@ function validateRiskAssessmentStructuredData(data, language = 'fr') {
       ...ensureObject(row),
       stopLevel: normalizeStructuredStopLevel(ensureObject(row).stopLevel, language),
     }));
+  cleanRiskAssessmentBlockCFields(validated, language);
+  console.info('Nombre de risques dans bloc C final', {
+    count: validated.mainRiskAssessment.initialAssessment.length,
+  });
 
   if (looksLikeMarkdownTable(validated.conclusion)) {
     validated.conclusion = '';
@@ -1789,6 +1829,58 @@ function buildEmptyFollowUpRiskRow(number, placeholder) {
     blockingPoint: placeholder,
     externalAdvice: placeholder,
   };
+}
+
+function cleanRiskAssessmentBlockCFields(data, language = 'fr') {
+  data.mainRiskAssessment.initialAssessment = ensureArray(data.mainRiskAssessment.initialAssessment)
+    .slice(0, 8)
+    .map((row, index) => cleanRiskBlockRow(row, language, cleanRiskNumber(ensureObject(row).number, index + 1)));
+  data.mainRiskAssessment.measuresFollowUpValidation = ensureArray(data.mainRiskAssessment.measuresFollowUpValidation)
+    .slice(0, 8)
+    .map((row, index) => {
+      const cleaned = cleanRiskBlockRow(row, language, cleanRiskNumber(ensureObject(row).number, index + 1));
+      return {
+        ...cleaned,
+        stopLevel: normalizeStructuredStopLevel(cleaned.stopLevel, language),
+      };
+    });
+  data.residualRiskAnalysis = ensureArray(data.residualRiskAnalysis)
+    .slice(0, 8)
+    .map((row) => cleanRiskBlockRow(row, language));
+}
+
+function cleanRiskBlockRow(row, language = 'fr', number = null) {
+  const cleaned = Object.entries(ensureObject(row)).reduce((result, [key, value]) => ({
+    ...result,
+    [key]: sanitizeCompactRiskValue(value, language),
+  }), {});
+
+  if (number !== null) {
+    cleaned.number = sanitizeCompactRiskValue(number, language, 24);
+  }
+
+  return cleaned;
+}
+
+function sanitizeCompactRiskValue(value, language = 'fr', maxLength = 180) {
+  const cleaned = sanitizeMarkdownCell(value, language)
+    .replace(/---+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return truncateTextAtWord(cleaned, maxLength);
+}
+
+function truncateTextAtWord(value, maxLength = 180) {
+  if (typeof value !== 'string' || value.length <= maxLength) {
+    return value;
+  }
+
+  const truncated = value.slice(0, maxLength + 1);
+  const lastSpace = truncated.lastIndexOf(' ');
+  const cutIndex = lastSpace >= Math.floor(maxLength * 0.65) ? lastSpace : maxLength;
+
+  return `${value.slice(0, cutIndex).trim()}...`;
 }
 
 function renderRiskAssessmentMarkdown(data, language = 'fr') {
@@ -2637,6 +2729,24 @@ function removeStandaloneMarkdownSeparators(document) {
     .join('\n');
 }
 
+function removeMarkdownSeparatorRows(document) {
+  if (typeof document !== 'string') {
+    return document;
+  }
+
+  return document
+    .split('\n')
+    .filter((line) => {
+      if (!isMarkdownTableRow(line)) {
+        return true;
+      }
+
+      const cells = splitMarkdownRow(line.trim());
+      return !isMarkdownTableSeparator(cells);
+    })
+    .join('\n');
+}
+
 function isStandaloneMarkdownSeparator(line) {
   if (typeof line !== 'string') {
     return false;
@@ -3118,6 +3228,60 @@ function runInternalRiskTests() {
     1,
     'Final validation statement should appear once in risk assessments',
   );
+
+  const blockCSchema = getRiskAssessmentBlockDefinitions().find((block) => block.key === 'C').schema;
+  assert.deepEqual(Object.keys(blockCSchema), ['risks']);
+  assert.equal(blockCSchema.risks[0].initial.task, '');
+  assert.equal(blockCSchema.risks[0].followUp.stopLevel, '');
+  assert.equal(blockCSchema.risks[0].residual.mainRisk, '');
+
+  const transformedBlockC = transformSimplifiedRiskBlockC({
+    risks: [
+      {
+        number: '7',
+        initial: {
+          task: 'Recharge batteries',
+          hazard: 'Échauffement batterie',
+          initialScore: '36',
+        },
+        followUp: {
+          additionalMeasure: 'Isoler la zone',
+          stopLevel: 'Critique',
+          residualScore: '9',
+        },
+        residual: {
+          mainRisk: 'Incendie batterie',
+        },
+      },
+    ],
+  }, 'fr');
+  assert.equal(transformedBlockC.mainRiskAssessment.initialAssessment[0].number, '7');
+  assert.equal(transformedBlockC.mainRiskAssessment.measuresFollowUpValidation[0].number, '7');
+  assert.equal(
+    transformedBlockC.mainRiskAssessment.measuresFollowUpValidation[0].stopLevel,
+    'Organisationnelle',
+  );
+  assert.equal(transformedBlockC.residualRiskAnalysis[0].initialScore, '36');
+
+  const fallbackFireFormData = {
+    activitePoste: 'Stockage et recharge dans un atelier',
+    produitsDangereux: 'Solvants inflammables et batteries lithium-ion',
+    machinesEquipements: 'Chargeurs de batteries et armoires de stockage',
+    travailleursExposes: 'Agents, visiteurs et intérimaires',
+    accidentsIncidents: 'Départ de feu évité',
+    mesuresExistantes: 'Extincteurs et consignes affichées',
+    contraintesParticulieres: 'Issues parfois encombrées',
+  };
+  const fallbackFireBlockC = buildFallbackRiskAssessmentBlock(
+    'C',
+    'fr',
+    fallbackFireFormData,
+    'Analyse de risques incendie et évacuation',
+  );
+  assert.equal(fallbackFireBlockC.mainRiskAssessment.initialAssessment.length, 6);
+  assert.match(fallbackFireBlockC.mainRiskAssessment.initialAssessment[0].hazard, /Incendie lié aux produits inflammables/);
+  assert.equal(fallbackFireBlockC.mainRiskAssessment.measuresFollowUpValidation[0].stopLevel, 'Organisationnelle');
+  assert.equal(fallbackFireBlockC.residualRiskAnalysis.length, 6);
 
   const normalizedDutch = normalizeRiskLevels(`| Nr. | Activiteit | Score | Niveau |
 | --- | --- | --- | --- |
@@ -3717,17 +3881,8 @@ function getRiskAssessmentBlockDefinitions() {
       key: 'C',
       label: 'C',
       title: 'Analyse des risques',
-      fields: [
-        'mainRiskAssessment',
-        'residualRiskAnalysis',
-      ],
-      schema: {
-        mainRiskAssessment: pickObjectKeys(schema.mainRiskAssessment, [
-          'initialAssessment',
-          'measuresFollowUpValidation',
-        ]),
-        residualRiskAnalysis: schema.residualRiskAnalysis,
-      },
+      fields: ['risks'],
+      schema: getSimplifiedRiskBlockCSchema(),
     },
     {
       key: 'D',
@@ -3761,6 +3916,58 @@ function getRiskAssessmentBlockDefinitions() {
   ];
 }
 
+function getSimplifiedRiskBlockCSchema() {
+  return {
+    risks: [
+      {
+        number: '1',
+        initial: {
+          task: '',
+          hazard: '',
+          hazardousSituationOrScenario: '',
+          possibleRiskOrHarm: '',
+          exposed: '',
+          existingMeasures: '',
+          existingEvidence: '',
+          observedOrDeclaredElements: '',
+          elementsToConfirm: '',
+          severity: '',
+          probability: '',
+          exposure: '',
+          scoringJustification: '',
+          initialScore: '',
+          initialLevel: '',
+        },
+        followUp: {
+          additionalMeasure: '',
+          stopLevel: '',
+          responsible: '',
+          deadline: '',
+          residualScore: '',
+          residualLevel: '',
+          residualScoreJustification: '',
+          expectedEvidence: '',
+          photoToInsert: '',
+          annexToAttach: '',
+          priority: '',
+          blockingPoint: '',
+          externalAdvice: '',
+        },
+        residual: {
+          mainRisk: '',
+          initialScore: '',
+          residualScore: '',
+          reductionCondition: '',
+          requiredEvidence: '',
+          standardStatus: '',
+          blockingPoint: '',
+          externalAdvice: '',
+        },
+      },
+    ],
+  };
+}
+
 function pickObjectKeys(value, keys) {
   return keys.reduce((result, key) => ({
     ...result,
@@ -3792,6 +3999,23 @@ function buildRiskAssessmentBlockPrompt({
 - actorsToConsult : max 8
 - blockingPointsBeforeValidation : max 8`
     : 'Longueur attendue : reste concis, vise 6 à 8 lignes maximum dans les listes de risques, actions, annexes et acteurs.';
+  const blockCInstructions = block.key === 'C'
+    ? `
+Règles strictes bloc C :
+- Génère uniquement {"risks":[...]} selon le schéma fourni.
+- Génère 6 risques par défaut.
+- Génère maximum 8 risques si le formulaire contient beaucoup d'informations.
+- Chaque risque contient obligatoirement initial, followUp et residual.
+- Ne génère jamais trois tableaux séparés dans le JSON.
+- Toutes les valeurs doivent être des chaînes simples.
+- Pas de tableau dans les champs texte.
+- Pas de guillemets non échappés dans les valeurs.
+- Pas de retour ligne dans les valeurs.
+- Phrases courtes et cellules compactes.
+- N'écris aucune longue explication dans ce bloc.
+- followUp.stopLevel doit utiliser uniquement : ${getAllowedStopLevels(languageCode).join('; ')}
+- Si tu hésites sur le STOP, écris : ${getDefaultStopLevel(languageCode)}`
+    : '';
 
   return `Type de document demandé : ${documentType}
 Langue cible : ${languageCode} (${languageConfig.label || languageLabel})
@@ -3819,7 +4043,54 @@ Règles utiles :
 - STOP autorisé uniquement dans measuresFollowUpValidation[].stopLevel : ${getAllowedStopLevels(languageCode).join('; ')}
 - N’utilise jamais ces valeurs dans stopLevel : ${getForbiddenRiskLevelValues().join('; ')}
 - validationStatement, si demandé dans ce bloc, doit reprendre exactement : ${languageConfig.finalMention}
+${blockCInstructions}
 ${tableLimits}`;
+}
+
+function transformSimplifiedRiskBlockC(blockC, language = 'fr') {
+  const placeholder = getLanguagePlaceholder(language);
+  const risks = ensureArray(ensureObject(blockC).risks)
+    .slice(0, 8)
+    .map((risk, index) => {
+      const riskObject = ensureObject(risk);
+      const number = cleanRiskNumber(riskObject.number, index + 1);
+      const initial = ensureObject(riskObject.initial);
+      const followUp = ensureObject(riskObject.followUp);
+      const residual = ensureObject(riskObject.residual);
+
+      return {
+        number,
+        initial: {
+          ...buildEmptyInitialRiskRow(number, placeholder),
+          ...initial,
+          number,
+        },
+        followUp: {
+          ...buildEmptyFollowUpRiskRow(number, placeholder),
+          ...followUp,
+          number,
+          stopLevel: normalizeStructuredStopLevel(followUp.stopLevel, language),
+        },
+        residual: {
+          mainRisk: residual.mainRisk || initial.hazard || initial.possibleRiskOrHarm || number,
+          initialScore: residual.initialScore || initial.initialScore || placeholder,
+          residualScore: residual.residualScore || followUp.residualScore || placeholder,
+          reductionCondition: residual.reductionCondition || followUp.additionalMeasure || placeholder,
+          requiredEvidence: residual.requiredEvidence || followUp.expectedEvidence || placeholder,
+          standardStatus: residual.standardStatus || placeholder,
+          blockingPoint: residual.blockingPoint || followUp.blockingPoint || placeholder,
+          externalAdvice: residual.externalAdvice || followUp.externalAdvice || placeholder,
+        },
+      };
+    });
+
+  return {
+    mainRiskAssessment: {
+      initialAssessment: risks.map((risk) => risk.initial),
+      measuresFollowUpValidation: risks.map((risk) => risk.followUp),
+    },
+    residualRiskAnalysis: risks.map((risk) => risk.residual),
+  };
 }
 
 function assembleStructuredRiskAssessmentBlocks(blocks, language = 'fr') {
@@ -3849,7 +4120,7 @@ function assembleFallbackStructuredRiskAssessment(parts, language = 'fr') {
   };
 }
 
-function buildFallbackRiskAssessmentBlock(blockKey, language = 'fr') {
+function buildFallbackRiskAssessmentBlock(blockKey, language = 'fr', formData = {}, documentType = '') {
   const placeholder = getLanguagePlaceholder(language);
   const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
   const scoringMethodText = buildRiskScoringMethodInstruction(language);
@@ -3963,25 +4234,7 @@ function buildFallbackRiskAssessmentBlock(blockKey, language = 'fr') {
   }
 
   if (blockKey === 'C') {
-    return {
-      mainRiskAssessment: {
-        initialAssessment: defaultRows.map((number) => buildEmptyInitialRiskRow(number, placeholder)),
-        measuresFollowUpValidation: defaultRows.map((number) => ({
-          ...buildEmptyFollowUpRiskRow(number, placeholder),
-          stopLevel: getDefaultStopLevel(language),
-        })),
-      },
-      residualRiskAnalysis: defaultRows.map((number) => ({
-        mainRisk: number,
-        initialScore: placeholder,
-        residualScore: placeholder,
-        reductionCondition: placeholder,
-        requiredEvidence: placeholder,
-        standardStatus: placeholder,
-        blockingPoint: placeholder,
-        externalAdvice: placeholder,
-      })),
-    };
+    return buildUsefulFallbackRiskBlockC(language, formData, documentType);
   }
 
   return {
@@ -4050,6 +4303,132 @@ function buildFallbackRiskAssessmentBlock(blockKey, language = 'fr') {
     })),
     conclusion: placeholder,
     validationStatement: config.finalMention,
+  };
+}
+
+function buildUsefulFallbackRiskBlockC(language = 'fr', formData = {}, documentType = '') {
+  const isFireAssessment = /incendie|evacuation|évacuation|fire/i.test(`${documentType} ${JSON.stringify(formData || {})}`);
+  const sourceContext = buildFallbackRiskSourceContext(formData, language);
+  const risks = isFireAssessment
+    ? [
+      'Incendie lié aux produits inflammables',
+      'Incendie lié à la charge de batteries',
+      'Obstruction des issues de secours',
+      'Accessibilité des moyens d’extinction',
+      'Propagation par porte coupe-feu ou compartimentage',
+      'Évacuation des travailleurs, visiteurs ou intérimaires',
+    ]
+    : buildGenericFallbackRiskNames(formData);
+
+  const simplifiedBlock = {
+    risks: risks.slice(0, 8).map((riskName, index) =>
+      buildFallbackSimplifiedRisk(String(index + 1), riskName, sourceContext, language),
+    ),
+  };
+
+  return transformSimplifiedRiskBlockC(simplifiedBlock, language);
+}
+
+function buildFallbackRiskSourceContext(formData = {}, language = 'fr') {
+  const placeholder = getLanguagePlaceholder(language);
+  const pick = (key) => sanitizeCompactRiskValue(formData?.[key], language, 120);
+
+  return {
+    activity: pick('activitePoste'),
+    products: pick('produitsDangereux'),
+    equipment: pick('machinesEquipements'),
+    exposed: pick('travailleursExposes'),
+    incidents: pick('accidentsIncidents'),
+    measures: pick('mesuresExistantes'),
+    constraints: pick('contraintesParticulieres'),
+    placeholder,
+  };
+}
+
+function buildGenericFallbackRiskNames(formData = {}) {
+  const risks = [];
+
+  if (hasUsableStringValue(formData.produitsDangereux)) {
+    risks.push('Exposition aux produits dangereux');
+  }
+
+  if (hasUsableStringValue(formData.machinesEquipements)) {
+    risks.push('Utilisation de machines ou équipements');
+  }
+
+  risks.push('Activité du poste à valider sur le terrain');
+
+  if (hasUsableStringValue(formData.travailleursExposes)) {
+    risks.push('Exposition des travailleurs concernés');
+  }
+
+  if (hasUsableStringValue(formData.accidentsIncidents)) {
+    risks.push('Risque lié aux accidents ou incidents déclarés');
+  }
+
+  risks.push('Efficacité des mesures existantes');
+  risks.push('Contraintes particulières de l’activité');
+  risks.push('Preuves et validations manquantes');
+
+  return [...new Set(risks)].slice(0, 6);
+}
+
+function buildFallbackSimplifiedRisk(number, riskName, context, language = 'fr') {
+  const stopLevel = getDefaultStopLevel(language);
+  const task = context.activity || context.placeholder;
+  const exposed = context.exposed || 'Travailleurs, visiteurs ou intervenants à confirmer';
+  const existingMeasures = context.measures || 'Mesures existantes à vérifier sur site';
+  const elementsToConfirm = [
+    context.products && `Produits: ${context.products}`,
+    context.equipment && `Équipements: ${context.equipment}`,
+    context.incidents && `Incidents: ${context.incidents}`,
+    context.constraints && `Contraintes: ${context.constraints}`,
+  ].filter(Boolean).join('. ') || 'Visite terrain et preuves à obtenir';
+
+  return {
+    number,
+    initial: {
+      task,
+      hazard: riskName,
+      hazardousSituationOrScenario: `Situation à confirmer: ${riskName}`,
+      possibleRiskOrHarm: 'Atteinte à la santé ou à la sécurité',
+      exposed,
+      existingMeasures,
+      existingEvidence: 'Preuves à collecter avant validation',
+      observedOrDeclaredElements: elementsToConfirm,
+      elementsToConfirm: 'Contrôle terrain, photos et documents',
+      severity: '3',
+      probability: '3',
+      exposure: '3',
+      scoringJustification: 'Cotation prudente faute de preuves complètes',
+      initialScore: '27',
+      initialLevel: 'Moyen',
+    },
+    followUp: {
+      additionalMeasure: `Vérifier et documenter ${riskName}`,
+      stopLevel,
+      responsible: 'SIPPT / responsable de site',
+      deadline: 'À planifier',
+      residualScore: '9',
+      residualLevel: 'Faible',
+      residualScoreJustification: 'Réduction après preuve et mesure validée',
+      expectedEvidence: 'Photo, rapport de contrôle ou preuve de formation',
+      photoToInsert: `Photo liée au risque ${number}`,
+      annexToAttach: 'Preuve documentaire à joindre',
+      priority: 'À traiter avant validation',
+      blockingPoint: 'Oui',
+      externalAdvice: 'À déterminer',
+    },
+    residual: {
+      mainRisk: riskName,
+      initialScore: '27',
+      residualScore: '9',
+      reductionCondition: 'Mesure vérifiée, preuve disponible et validation réalisée',
+      requiredEvidence: 'Photo datée et preuve documentaire',
+      standardStatus: 'À vérifier',
+      blockingPoint: 'Oui',
+      externalAdvice: 'À déterminer',
+    },
   };
 }
 
