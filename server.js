@@ -107,7 +107,7 @@ const LANGUAGE_CONFIGS = {
       'Beschrijving van functies, taken en blootgestelde werknemers',
       'Fotoplan',
       'Gedetailleerde identificatie van de gevaren',
-      'Gebruikte beoordelingsmethode',
+      'Beoordelingsmethode',
       'Hoofdtabel van de risicoanalyse',
       'Analyse van de restrisico’s',
       'Prioritaire acties',
@@ -181,7 +181,7 @@ const LANGUAGE_CONFIGS = {
       'Description of jobs, tasks and exposed workers',
       'Photo plan',
       'Detailed identification of hazards',
-      'Risk scoring method',
+      'Scoring method',
       'Main risk assessment table',
       'Residual risk analysis',
       'Action priorities',
@@ -255,7 +255,7 @@ const LANGUAGE_CONFIGS = {
       'Beschreibung der Arbeitsplätze, Tätigkeiten und exponierten Beschäftigten',
       'Fotoplan',
       'Detaillierte Identifikation der Gefährdungen',
-      'Verwendete Bewertungsmethode',
+      'Bewertungsmethode',
       'Haupttabelle der Gefährdungsbeurteilung',
       'Analyse der Restrisiken',
       'Handlungsprioritäten',
@@ -264,7 +264,7 @@ const LANGUAGE_CONFIGS = {
       'Zu erstellende oder zu aktualisierende Dokumente',
       'Zu konsultierende oder einzubeziehende Akteure',
       'Erforderliche Anhänge',
-      'Grenzen der Tätigkeit des Präventionsberaters Niveau 3',
+      'Grenzen der Mitwirkung des Präventionsberaters Niveau 3',
       'Blockierende Punkte vor der Validierung',
       'Schlussfolgerung',
       'Validierungshinweis',
@@ -1497,8 +1497,44 @@ function normalizeRiskLevels(markdownDocument) {
 }
 
 function normalizeRiskAssessmentFinalOutput(document, language = 'fr') {
-  return ensureFinalMentionOnce(
-    normalizeRiskAssessmentSection12Spacing(removeStandaloneMarkdownSeparators(document), language),
+  const withoutSeparators = removeStandaloneMarkdownSeparators(document);
+  const withAlignedHeadings = alignRiskAssessmentHeadings(withoutSeparators, language);
+  const withSection12 = normalizeRiskAssessmentSection12(withAlignedHeadings, language);
+  const withRequiredSections = ensureRiskAssessmentRequiredSections(withSection12, language);
+
+  return ensureFinalMentionOnce(withRequiredSections, language);
+}
+
+function alignRiskAssessmentHeadings(document, language = 'fr') {
+  const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+
+  if (typeof document !== 'string') {
+    return document;
+  }
+
+  return document
+    .split('\n')
+    .map((line) => {
+      const headingMatch = line.match(/^##\s+(\d{1,2})\.\s+.+$/);
+
+      if (!headingMatch) {
+        return line;
+      }
+
+      const sectionNumber = Number(headingMatch[1]);
+      const expectedTitle = config.sections[sectionNumber - 1];
+
+      return expectedTitle ? `## ${sectionNumber}. ${expectedTitle}` : line;
+    })
+    .join('\n');
+}
+
+function normalizeRiskAssessmentSection12(document, language = 'fr') {
+  return normalizeRiskAssessmentStopLevels(
+    normalizeRiskAssessmentSection12Tables(
+      normalizeRiskAssessmentSection12Spacing(document, language),
+      language,
+    ),
     language,
   );
 }
@@ -1511,6 +1547,14 @@ function normalizeRiskAssessmentSection12Spacing(document, language = 'fr') {
   }
 
   let normalized = document
+    .replace(
+      new RegExp(`###\\s+12\\.1\\s+[^\\n]+`, 'g'),
+      `### 12.1 ${config.riskInitialSubsectionTitle}`,
+    )
+    .replace(
+      new RegExp(`###\\s+12\\.2\\s+[^\\n]+`, 'g'),
+      `### 12.2 ${config.riskFollowUpSubsectionTitle}`,
+    )
     .replace(
       new RegExp(`\\n(?=###\\s+12\\.1\\s+${escapeRegExp(config.riskInitialSubsectionTitle)})`, 'g'),
       '\n\n',
@@ -1534,6 +1578,211 @@ function normalizeRiskAssessmentSection12Spacing(document, language = 'fr') {
   }
 
   return normalized;
+}
+
+function normalizeRiskAssessmentSection12Tables(document, language = 'fr') {
+  const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+
+  if (typeof document !== 'string') {
+    return document;
+  }
+
+  const section121Heading = `### 12.1 ${config.riskInitialSubsectionTitle}`;
+  const section122Heading = `### 12.2 ${config.riskFollowUpSubsectionTitle}`;
+  let normalized = replaceFirstTableHeaderAfterHeading(
+    document,
+    section121Heading,
+    config.riskInitialTableColumns,
+  );
+
+  normalized = replaceFirstTableHeaderAfterHeading(
+    normalized,
+    section122Heading,
+    config.riskFollowUpTableColumns,
+  );
+
+  return normalized;
+}
+
+function replaceFirstTableHeaderAfterHeading(document, heading, expectedColumns) {
+  const headingIndex = document.indexOf(heading);
+
+  if (headingIndex === -1) {
+    return document;
+  }
+
+  const afterHeadingIndex = headingIndex + heading.length;
+  const before = document.slice(0, afterHeadingIndex);
+  const after = document.slice(afterHeadingIndex);
+  const tableHeaderMatch = after.match(/\n\|[^\n]+\|/);
+
+  if (!tableHeaderMatch || tableHeaderMatch.index === undefined) {
+    return document;
+  }
+
+  const headerStart = tableHeaderMatch.index;
+  const headerEnd = headerStart + tableHeaderMatch[0].length;
+  const expectedHeader = `\n| ${expectedColumns} |`;
+  const expectedSeparator = `\n| ${expectedColumns
+    .split('|')
+    .map(() => '---')
+    .join(' | ')} |`;
+  const afterHeader = after.slice(headerEnd);
+  const separatorMatch = afterHeader.match(/^\n\|[\s:|-]+\|/);
+
+  if (separatorMatch) {
+    return `${before}${after.slice(0, headerStart)}${expectedHeader}${expectedSeparator}${afterHeader.slice(separatorMatch[0].length)}`;
+  }
+
+  return `${before}${after.slice(0, headerStart)}${expectedHeader}${expectedSeparator}${after.slice(headerEnd)}`;
+}
+
+function normalizeRiskAssessmentStopLevels(document, language = 'fr') {
+  const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+  const defaultStopLevel = config.stopLevels.split(';').map((value) => value.trim())[2] || config.stopLevels.split(';')[0];
+  const riskLevelValues = Object.values(config.riskLevels).map(normalizeTableHeader);
+  const lines = document.split('\n');
+  const output = [];
+
+  for (let index = 0; index < lines.length; ) {
+    const line = lines[index];
+    const nextLine = lines[index + 1];
+
+    if (isMarkdownTableRow(line) && isMarkdownTableRow(nextLine) && isMarkdownTableSeparator(splitMarkdownRow(nextLine))) {
+      const tableLines = [line, nextLine];
+      index += 2;
+
+      while (index < lines.length && isMarkdownTableRow(lines[index])) {
+        tableLines.push(lines[index]);
+        index += 1;
+      }
+
+      output.push(...normalizeStopLevelTableBlock(tableLines, riskLevelValues, defaultStopLevel));
+      continue;
+    }
+
+    output.push(line);
+    index += 1;
+  }
+
+  return output.join('\n');
+}
+
+function normalizeStopLevelTableBlock(tableLines, riskLevelValues, defaultStopLevel) {
+  const headers = splitMarkdownRow(tableLines[0]);
+  const stopColumnIndex = headers.findIndex((header) => normalizeTableHeader(header).includes('stop'));
+
+  if (stopColumnIndex === -1) {
+    return tableLines;
+  }
+
+  return tableLines.map((line, index) => {
+    if (index < 2 || !isMarkdownTableRow(line)) {
+      return line;
+    }
+
+    const cells = splitMarkdownRow(line);
+    const stopValue = normalizeTableHeader(cells[stopColumnIndex] || '');
+
+    if (riskLevelValues.includes(stopValue)) {
+      cells[stopColumnIndex] = defaultStopLevel;
+    }
+
+    return formatMarkdownRow(cells);
+  });
+}
+
+function ensureRiskAssessmentRequiredSections(document, language = 'fr') {
+  const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+  const conclusionHeading = `## 22. ${config.sections[21]}`;
+  const validationHeading = `## 23. ${config.sections[22]}`;
+  let normalized = document.trim();
+
+  if (!normalized.includes(conclusionHeading)) {
+    const validationIndex = normalized.indexOf(validationHeading);
+    const conclusionBlock = `${conclusionHeading}\n\n${buildFallbackRiskConclusion(language)}\n\n`;
+    normalized = validationIndex === -1
+      ? `${normalized}\n\n${conclusionBlock.trim()}`
+      : `${normalized.slice(0, validationIndex)}${conclusionBlock}${normalized.slice(validationIndex)}`;
+  } else if (isRiskConclusionMissingOrTableOnly(normalized, language)) {
+    normalized = insertFallbackConclusionText(normalized, language);
+  }
+
+  if (!normalized.includes(validationHeading)) {
+    normalized = `${normalized}\n\n${validationHeading}\n\n${config.finalMention}`;
+  }
+
+  return setSectionContent(normalized, 23, config, config.finalMention);
+}
+
+function isRiskConclusionMissingOrTableOnly(document, language = 'fr') {
+  const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+  const sectionText = getSectionText(document, 22, config);
+  const nonEmptyLines = sectionText.split('\n').map((line) => line.trim()).filter(Boolean);
+
+  return nonEmptyLines.length === 0 || nonEmptyLines[0].startsWith('|');
+}
+
+function insertFallbackConclusionText(document, language = 'fr') {
+  const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+  const conclusionHeading = `## 22. ${config.sections[21]}`;
+  const headingIndex = document.indexOf(conclusionHeading);
+
+  if (headingIndex === -1) {
+    return document;
+  }
+
+  const insertIndex = headingIndex + conclusionHeading.length;
+  return `${document.slice(0, insertIndex)}\n\n${buildFallbackRiskConclusion(language)}\n${document.slice(insertIndex)}`;
+}
+
+function getSectionText(document, sectionNumber, config) {
+  const heading = `## ${sectionNumber}. ${config.sections[sectionNumber - 1]}`;
+  const start = document.indexOf(heading);
+
+  if (start === -1) {
+    return '';
+  }
+
+  const afterHeading = start + heading.length;
+  const nextSectionMatch = document.slice(afterHeading).match(/\n##\s+\d{1,2}\.\s+/);
+  const end = nextSectionMatch?.index === undefined
+    ? document.length
+    : afterHeading + nextSectionMatch.index;
+
+  return document.slice(afterHeading, end).trim();
+}
+
+function setSectionContent(document, sectionNumber, config, content) {
+  const heading = `## ${sectionNumber}. ${config.sections[sectionNumber - 1]}`;
+  const start = document.indexOf(heading);
+
+  if (start === -1) {
+    return document;
+  }
+
+  const afterHeading = start + heading.length;
+  const nextSectionMatch = document.slice(afterHeading).match(/\n##\s+\d{1,2}\.\s+/);
+  const end = nextSectionMatch?.index === undefined
+    ? document.length
+    : afterHeading + nextSectionMatch.index;
+
+  return `${document.slice(0, afterHeading)}\n\n${content.trim()}${document.slice(end)}`;
+}
+
+function buildFallbackRiskConclusion(language = 'fr') {
+  const conclusions = {
+    fr:
+      'Cette analyse reste un projet à adapter et à valider. Les risques principaux, les points bloquants, les actions urgentes, les preuves manquantes, les photos ou annexes à ajouter et les avis externes recommandés doivent être confirmés à partir des tableaux précédents. Les actions à court terme peuvent alimenter le Plan Annuel d’Action, tandis que les mesures structurelles peuvent alimenter le Plan Global de Prévention. Le document peut être présenté au CPPT comme base de discussion, mais il ne peut pas être considéré comme finalisé tant que les validations, preuves et conditions minimales de levée des points bloquants ne sont pas réunies.',
+    nl:
+      'Deze analyse blijft een ontwerp dat moet worden aangepast en gevalideerd. De belangrijkste risico’s, blokkerende punten, dringende acties, ontbrekende bewijzen, toe te voegen foto’s of bijlagen en aanbevolen externe adviezen moeten worden bevestigd op basis van de voorgaande tabellen. Kortetermijnacties kunnen worden opgenomen in het Jaaractieplan, terwijl structurele maatregelen kunnen worden opgenomen in het Globaal Preventieplan. Het document kan aan het CPBW worden voorgelegd als basis voor bespreking, maar het kan niet als definitief worden beschouwd zolang de validaties, bewijzen en minimale voorwaarden voor opheffing van de blokkerende punten niet zijn verzameld.',
+    en:
+      'This assessment remains a draft to be adapted and validated. The main risks, blocking points, urgent actions, missing evidence, photos or annexes to be added and recommended external opinions must be confirmed from the preceding tables. Short-term actions may feed the Annual Action Plan, while structural measures may feed the Global Prevention Plan. The document may be presented to the health and safety committee as a basis for discussion, but it cannot be considered final until the validations, evidence and minimum conditions for removing blocking points have been met.',
+    de:
+      'Diese Beurteilung bleibt ein Entwurf, der anzupassen und zu validieren ist. Die Hauptrisiken, blockierenden Punkte, dringenden Maßnahmen, fehlenden Nachweise, hinzuzufügenden Fotos oder Anhänge und empfohlenen externen Stellungnahmen müssen anhand der vorstehenden Tabellen bestätigt werden. Kurzfristige Maßnahmen können in den Jährlichen Aktionsplan einfließen, strukturelle Maßnahmen in den Globalen Präventionsplan. Das Dokument kann dem AGS/CPPT als Diskussionsgrundlage vorgelegt werden, gilt jedoch nicht als abgeschlossen, solange Validierungen, Nachweise und Mindestbedingungen zur Aufhebung der blockierenden Punkte nicht erfüllt sind.',
+  };
+
+  return conclusions[language] || conclusions.fr;
 }
 
 function removeStandaloneMarkdownSeparators(document) {
@@ -1990,6 +2239,57 @@ ${LANGUAGE_CONFIGS.fr.finalMention}`,
     normalizedRiskDocument.split(LANGUAGE_CONFIGS.fr.finalMention).length - 1,
     1,
     'Final validation statement should appear once in risk assessments',
+  );
+
+  const repairedRiskDocument = processGeneratedDocument(
+    `# ${LANGUAGE_CONFIGS.fr.title}
+
+## 4. Périmètre de l’analyse
+PAA : Plan Annuel d’Action.
+
+## 9. Tableau principal d’analyse des risques
+Le plan photos sert à objectiver les constats.
+
+## 11. Priorités d’action
+Score = Gravité × Probabilité × Exposition.
+
+## 12. Tableau principal d’analyse des risques
+### 12.1 Mauvais titre
+| ${LANGUAGE_CONFIGS.fr.riskInitialTableColumns} |
+| --- |
+| 1 | Tâche | Danger | Scénario | Dommage | Exposés | Mesures | Preuves | Observé | Confirmer | 3 | 3 | 3 | Justification | 27 | Moyen |
+### 12.2 Mesures, suivi et validation
+| ${LANGUAGE_CONFIGS.fr.riskInitialTableColumns} |
+| --- |
+| 1 | Mesure | Moyen | Responsable | Échéance | 9 | Faible | Justification | Preuve | Photo | Annexe | Haute | Oui | Oui |
+
+## 16. Annexes nécessaires
+Lien PAA/PGP.
+
+## 17. Conclusion
+| Document | Pourquoi le créer ou le mettre à jour | Responsable | Échéance | Preuve attendue | Annexe concernée | Priorité |
+| --- | --- | --- | --- | --- | --- | --- |
+| Procédure | Validation | SIPPT | 1 mois | Procédure signée | A1 | Haute |
+
+## 23. Mention de validation
+Texte en trop.
+${LANGUAGE_CONFIGS.fr.finalMention}
+Texte en trop.`,
+    getDocumentDefinition('Analyse de risques générale'),
+    'fr',
+  ).document;
+
+  assert.match(repairedRiskDocument, /## 4\. Glossaire des abréviations utilisées/);
+  assert.match(repairedRiskDocument, /## 9\. Plan photos/);
+  assert.match(repairedRiskDocument, /## 11\. Méthode de cotation/);
+  assert.match(repairedRiskDocument, /## 16\. Lien avec le Plan Annuel d’Action et le Plan Global de Prévention/);
+  assert.match(repairedRiskDocument, /## 17\. Documents à créer ou à mettre à jour/);
+  assert.match(repairedRiskDocument, /## 22\. Conclusion/);
+  assert.match(repairedRiskDocument, new RegExp(escapeRegExp(`| ${LANGUAGE_CONFIGS.fr.riskFollowUpTableColumns} |`)));
+  assert.doesNotMatch(repairedRiskDocument, /\|\s*Mesure\s*\|\s*Moyen\s*\|/);
+  assert.equal(
+    getSectionText(repairedRiskDocument, 23, LANGUAGE_CONFIGS.fr),
+    LANGUAGE_CONFIGS.fr.finalMention,
   );
 
   const normalizedDutch = normalizeRiskLevels(`| Nr. | Activiteit | Score | Niveau |
