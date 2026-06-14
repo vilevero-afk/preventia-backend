@@ -55,8 +55,10 @@ const LANGUAGE_CONFIGS = {
     },
     riskInitialSubsectionTitle: 'Évaluation initiale des risques',
     riskFollowUpSubsectionTitle: 'Mesures, suivi et validation',
+    riskLinkingSentence:
+      'Les numéros de risque sont identiques dans les tableaux 12.1 et 12.2 afin de relier l’évaluation initiale aux mesures de suivi.',
     riskInitialTableColumns:
-      'N° | Tâche | Danger | Situation dangereuse ou scénario | Risque ou dommage possible | Personnes exposées | Mesures existantes | Preuves existantes | Éléments observés ou déclarés | Éléments à confirmer | G | P | E | Justification de la cotation | Score initial | Niveau initial',
+      'N° | Tâche | Danger | Situation dangereuse ou scénario | Risque ou dommage possible | Exposés | Mesures existantes | Preuves existantes | Éléments observés ou déclarés | Éléments à confirmer | G | P | E | Justification de la cotation | Score initial | Niveau initial',
     riskFollowUpTableColumns:
       'N° | Mesure complémentaire | Niveau STOP | Responsable | Échéance | Score résiduel | Niveau résiduel | Justification du score résiduel | Preuve attendue | Photo à insérer | Annexe à joindre | Priorité | Point bloquant oui/non | Avis externe oui/non',
     residualTableColumns:
@@ -74,7 +76,7 @@ const LANGUAGE_CONFIGS = {
     completenessStatuses:
       'Présent; Partiel; Absent; À vérifier; Bloquant avant validation',
     stopLevels:
-      'Suppression / substitution; Mesure technique collective; Mesure organisationnelle; Protection individuelle',
+      'Suppression/Substitution; Technique; Organisationnelle; Protection individuelle',
     provisionalScoreText:
       'Score provisoire à confirmer après vérification terrain. La gravité est estimée sur base des conséquences plausibles, la probabilité sur base des incidents ou mesures existantes connues, et l’exposition sur base de la fréquence déclarée. Les scores doivent être validés par observation terrain et preuves documentaires.',
     advisorHelpBlockTitle: 'Bloc d’aide au conseiller',
@@ -127,8 +129,10 @@ const LANGUAGE_CONFIGS = {
     },
     riskInitialSubsectionTitle: 'Initiële risicobeoordeling',
     riskFollowUpSubsectionTitle: 'Maatregelen, opvolging en validatie',
+    riskLinkingSentence:
+      'De risiconummers zijn identiek in de tabellen 12.1 en 12.2 om de initiële beoordeling te koppelen aan de opvolgingsmaatregelen.',
     riskInitialTableColumns:
-      'Nr. | Taak | Gevaar | Gevaarlijke situatie of scenario | Mogelijk risico of schade | Blootgestelde personen | Bestaande maatregelen | Bestaande bewijzen | Vastgestelde of verklaarde elementen | Te bevestigen elementen | E | W | B | Motivering van de beoordeling | Initiële score | Initieel niveau',
+      'Nr. | Taak | Gevaar | Gevaarlijke situatie of scenario | Mogelijk risico of schade | Blootgestelden | Bestaande maatregelen | Bestaande bewijzen | Vastgestelde of verklaarde elementen | Te bevestigen elementen | E | W | B | Motivering van de beoordeling | Initiële score | Initieel niveau',
     riskFollowUpTableColumns:
       'Nr. | Aanvullende maatregel | STOP-niveau | Verantwoordelijke | Termijn | Restrisicoscore | Restrisiconiveau | Motivering van de restrisicoscore | Verwacht bewijs | Foto in te voegen | Bijlage toe te voegen | Prioriteit | Blokkerend punt ja/nee | Extern advies ja/nee',
     residualTableColumns:
@@ -146,7 +150,7 @@ const LANGUAGE_CONFIGS = {
     completenessStatuses:
       'Aanwezig; Gedeeltelijk; Afwezig; Te controleren; Blokkerend vóór validatie',
     stopLevels:
-      'Eliminatie / substitutie; Collectieve technische maatregel; Organisatorische maatregel; Persoonlijke bescherming',
+      'Eliminatie/substitutie; Technisch; Organisatorisch; Persoonlijke bescherming',
     provisionalScoreText:
       'Voorlopige score te bevestigen na terreincontrole. De ernst wordt ingeschat op basis van plausibele gevolgen, de waarschijnlijkheid op basis van bekende incidenten of bestaande maatregelen, en de blootstelling op basis van de aangegeven frequentie. De scores moeten worden gevalideerd door terreinobservatie en documentaire bewijzen.',
     advisorHelpBlockTitle: 'Hulpblok voor de preventieadviseur',
@@ -199,6 +203,8 @@ const LANGUAGE_CONFIGS = {
     },
     riskInitialSubsectionTitle: 'Initial risk assessment',
     riskFollowUpSubsectionTitle: 'Measures, follow-up and validation',
+    riskLinkingSentence:
+      'The risk numbers are identical in tables 12.1 and 12.2 in order to link the initial assessment to the follow-up measures.',
     riskInitialTableColumns:
       'No. | Task | Hazard | Hazardous situation or scenario | Possible risk or harm | Exposed persons | Existing measures | Existing evidence | Observed or declared elements | Elements to be confirmed | S | P | E | Scoring justification | Initial score | Initial level',
     riskFollowUpTableColumns:
@@ -218,7 +224,7 @@ const LANGUAGE_CONFIGS = {
     completenessStatuses:
       'Present; Partial; Missing; To be checked; Blocking before validation',
     stopLevels:
-      'Elimination / substitution; Collective technical measure; Organisational measure; Personal protection',
+      'Elimination/substitution; Technical; Organisational; Personal protection',
     provisionalScoreText:
       'Provisional score to be confirmed after field verification. Severity is estimated based on plausible consequences, probability based on known incidents or existing measures, and exposure based on the declared frequency. The scores must be validated through field observation and documentary evidence.',
     advisorHelpBlockTitle: 'Prevention Advisor Help Block',
@@ -271,6 +277,8 @@ const LANGUAGE_CONFIGS = {
     },
     riskInitialSubsectionTitle: 'Erste Risikobewertung',
     riskFollowUpSubsectionTitle: 'Maßnahmen, Nachverfolgung und Validierung',
+    riskLinkingSentence:
+      'Die Risikonummern sind in den Tabellen 12.1 und 12.2 identisch, um die erste Bewertung mit den Nachverfolgungsmaßnahmen zu verbinden.',
     riskInitialTableColumns:
       'Nr. | Aufgabe | Gefährdung | Gefährliche Situation oder Szenario | Mögliches Risiko oder Schaden | Exponierte Personen | Bestehende Maßnahmen | Bestehende Nachweise | Beobachtete oder angegebene Elemente | Zu bestätigende Elemente | S | W | E | Begründung der Bewertung | Ausgangsbewertung | Ausgangsniveau',
     riskFollowUpTableColumns:
@@ -290,7 +298,7 @@ const LANGUAGE_CONFIGS = {
     completenessStatuses:
       'Vorhanden; Teilweise; Fehlend; Zu prüfen; Blockierend vor Validierung',
     stopLevels:
-      'Beseitigung / Substitution; Kollektive technische Maßnahme; Organisatorische Maßnahme; Persönlicher Schutz',
+      'Beseitigung/Substitution; Technisch; Organisatorisch; Persönlicher Schutz',
     provisionalScoreText:
       'Vorläufige Bewertung, die nach Vor-Ort-Überprüfung zu bestätigen ist. Die Schwere wird anhand plausibler Folgen, die Wahrscheinlichkeit anhand bekannter Vorfälle oder vorhandener Maßnahmen und die Exposition anhand der angegebenen Häufigkeit eingeschätzt. Die Bewertungen müssen durch Vor-Ort-Beobachtung und dokumentierte Nachweise validiert werden.',
     advisorHelpBlockTitle: 'Hilfsblock für den Präventionsberater',
@@ -316,6 +324,7 @@ Règles strictes :
 - Répondre uniquement en Markdown, sans JSON ni préambule.
 - Répondre exclusivement dans la langue demandée par le prompt utilisateur, avec un ton professionnel, sans anglicisme inutile et sans formulation familière, approximative ou non professionnelle.
 - Respecter exactement l’ordre, les titres et les tableaux demandés par le template utilisateur.
+- Pour les analyses de risques, conserver exactement les 23 titres numérotés demandés. Ne jamais produire une ancienne structure à 17 ou 18 sections.
 - Rester synthétique : environ 2500 à 3500 mots maximum.
 - Ne jamais affirmer qu’un document est juridiquement complet.
 - Ne jamais inventer d’articles légaux précis ; citer seulement la loi, le Code, les Livres ou Titres pertinents.
@@ -383,6 +392,7 @@ Contraintes de sortie :
 - Section 20 : limites d’intervention du conseiller en prévention niveau 3 et avis externes nécessaires.
 - Section 21 : points bloquants avant validation, preuve attendue, responsable, échéance, avis externe et condition de levée.
 - Section 22 : conclusion avec risques principaux, points bloquants, actions urgentes, avis externes, annexes manquantes, validations nécessaires, date de réévaluation recommandée et limites du projet.
+- Ne jamais placer un tableau dans la section 22 Conclusion.
 - Par défaut en français, la section 23 doit contenir exactement cette mention, une seule fois :
 Ce document est un projet d’aide à l’analyse de risques destiné à être adapté à la situation réelle de l’entreprise. Il doit être complété par les observations terrain, les pièces justificatives et les validations nécessaires. Il doit être validé par le conseiller en prévention, l’employeur et, le cas échéant, le service externe, le médecin du travail, le CPPT, un organisme agréé ou un expert compétent. Il ne constitue pas à lui seul une preuve de conformité réglementaire.`;
 
@@ -1487,7 +1497,43 @@ function normalizeRiskLevels(markdownDocument) {
 }
 
 function normalizeRiskAssessmentFinalOutput(document, language = 'fr') {
-  return ensureFinalMentionOnce(removeStandaloneMarkdownSeparators(document), language);
+  return ensureFinalMentionOnce(
+    normalizeRiskAssessmentSection12Spacing(removeStandaloneMarkdownSeparators(document), language),
+    language,
+  );
+}
+
+function normalizeRiskAssessmentSection12Spacing(document, language = 'fr') {
+  const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+
+  if (typeof document !== 'string') {
+    return document;
+  }
+
+  let normalized = document
+    .replace(
+      new RegExp(`\\n(?=###\\s+12\\.1\\s+${escapeRegExp(config.riskInitialSubsectionTitle)})`, 'g'),
+      '\n\n',
+    )
+    .replace(
+      new RegExp(`\\n(?=###\\s+12\\.2\\s+${escapeRegExp(config.riskFollowUpSubsectionTitle)})`, 'g'),
+      '\n\n',
+    );
+
+  const section12Heading = `## 12. ${config.sections[11]}`;
+  const section12Index = normalized.indexOf(section12Heading);
+  const section121Index = normalized.indexOf(`### 12.1 ${config.riskInitialSubsectionTitle}`);
+
+  if (
+    section12Index !== -1 &&
+    section121Index !== -1 &&
+    section12Index < section121Index &&
+    !normalized.slice(section12Index, section121Index).includes(config.riskLinkingSentence)
+  ) {
+    normalized = `${normalized.slice(0, section12Index + section12Heading.length)}\n\n${config.riskLinkingSentence}\n${normalized.slice(section12Index + section12Heading.length)}`;
+  }
+
+  return normalized;
 }
 
 function removeStandaloneMarkdownSeparators(document) {
@@ -1917,6 +1963,35 @@ function runInternalRiskTests() {
   assert.doesNotMatch(normalizeRiskLevels('Avant\n---\nAprès'), /^---$/m);
   assert.doesNotMatch(normalizeRiskLevels('Avant\n| --- |\nAprès'), /^\| --- \|$/m);
 
+  const normalizedRiskDocument = processGeneratedDocument(
+    `# ${LANGUAGE_CONFIGS.fr.title}
+
+## 12. ${LANGUAGE_CONFIGS.fr.sections[11]}
+### 12.1 ${LANGUAGE_CONFIGS.fr.riskInitialSubsectionTitle}
+| ${LANGUAGE_CONFIGS.fr.riskInitialTableColumns} |
+| --- |
+| 1 |
+### 12.2 ${LANGUAGE_CONFIGS.fr.riskFollowUpSubsectionTitle}
+| ${LANGUAGE_CONFIGS.fr.riskFollowUpTableColumns} |
+| --- |
+| 1 |
+
+## 23. ${LANGUAGE_CONFIGS.fr.sections[22]}
+${LANGUAGE_CONFIGS.fr.finalMention}
+${LANGUAGE_CONFIGS.fr.finalMention}`,
+    getDocumentDefinition('Analyse de risques générale'),
+    'fr',
+  ).document;
+
+  assert.match(normalizedRiskDocument, new RegExp(escapeRegExp(LANGUAGE_CONFIGS.fr.riskLinkingSentence)));
+  assert.match(normalizedRiskDocument, /\n\n### 12\.1 Évaluation initiale des risques/);
+  assert.match(normalizedRiskDocument, /\n\n### 12\.2 Mesures, suivi et validation/);
+  assert.equal(
+    normalizedRiskDocument.split(LANGUAGE_CONFIGS.fr.finalMention).length - 1,
+    1,
+    'Final validation statement should appear once in risk assessments',
+  );
+
   const normalizedDutch = normalizeRiskLevels(`| Nr. | Activiteit | Score | Niveau |
 | --- | --- | --- | --- |
 | 1 | Onderhoud | 10 | Gemiddeld |
@@ -2040,8 +2115,10 @@ function runRiskPromptQualityTests() {
     assert.match(prompt, new RegExp(escapeRegExp(config.hazardTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(`### 12.1 ${config.riskInitialSubsectionTitle}`)));
     assert.match(prompt, new RegExp(escapeRegExp(`### 12.2 ${config.riskFollowUpSubsectionTitle}`)));
+    assert.match(prompt, new RegExp(escapeRegExp(config.riskLinkingSentence)));
     assert.match(prompt, new RegExp(escapeRegExp(config.riskInitialTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(config.riskFollowUpTableColumns)));
+    assert.match(prompt, new RegExp(escapeRegExp(config.stopLevels)));
     assert.match(prompt, new RegExp(escapeRegExp(config.residualTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(config.actionTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(config.standardStatuses)));
@@ -2067,6 +2144,9 @@ function runRiskPromptQualityTests() {
     assert.match(prompt, /Section 12 must be titled exactly/);
     assert.match(prompt, /It must not contain one wide main table/);
     assert.match(prompt, /same 8 risk numbers, in the same order/);
+    assert.match(prompt, /Never write heading 12\.2 before table 12\.1/);
+    assert.match(prompt, /Never use the 12\.1 header for table 12\.2/);
+    assert.match(prompt, /Never write risk levels such as/);
     assert.match(prompt, /there is no single main table with 25 or more columns/);
     assert.match(prompt, /Section 13 must be a synthetic residual risk analysis/);
     assert.match(prompt, /Keep documents to create\/update, actors and annexes\/supporting evidence separate/);
@@ -2082,6 +2162,9 @@ function runRiskPromptQualityTests() {
     assert.match(prompt, /final statement appears once in section 23/);
     assert.match(prompt, /Do not include visible Markdown horizontal separators/);
     assert.match(prompt, /Do not place the list of documents to create or update here/);
+    assert.match(prompt, /Section 17 must contain only one Markdown table/);
+    assert.match(prompt, /Section 18 must contain only one Markdown table/);
+    assert.match(prompt, /Section 19 must contain only one Markdown table/);
     assert.match(prompt, /Do not explain the G x P x E method here/);
     assert.match(prompt, /Score must equal Severity\/Gravity x Probability x Exposure/);
     assert.doesNotMatch(prompt, /all 18 sections/);
@@ -2200,32 +2283,37 @@ Consignes opérationnelles :
 2. La langue cible est : ${resolvedLanguageLabel}. Tu dois rédiger l’intégralité du document dans cette langue. Si les réponses du formulaire sont majoritairement dans une autre langue, utilise la langue cible déterminée. Si la langue cible n’a pas été fournie mais que les réponses du formulaire sont dans une langue identifiable, réponds dans cette langue. Ne mélange jamais les langues dans les titres, tableaux, explications, priorités, plans d’action, mentions ou conclusions. Les noms officiels belges peuvent rester dans leur forme officielle si nécessaire, mais les explications doivent être dans la langue cible.
 3. Respecte exactement cette structure de ${languageConfig.sections.length} sections, dans cet ordre, avec ces titres traduits :
 ${structure}
+Do not renumber, rename, merge or skip these sections. If a generated heading number does not match the title above, rewrite it before answering.
 4. The entire document must be written in the target language. Do not mix languages. Use the translated headings, tables, risk levels and final statement from the language configuration. Do not use these non-target headings or terms: ${languageConfig.forbiddenTerms.join('; ')}.
 5. Apply this strict placement matrix before answering. If content is under the wrong heading, move it to the correct section and keep the original section focused:
 ${sectionPlacementRules}
 6. Section 3 must contain a Markdown table with exactly these columns in the target language: ${tableColumns.reference}. Select the relevant Belgian references from the general and theme-specific references: Law of 4 August 1996, Code on Well-being at Work, Book I Title 2, Global Prevention Plan, Annual Action Plan, internal prevention service, health and safety committee consultation if applicable, and depending on the topic Book III, Book III Title 3, Book III Title 6, Book IV, Book VI, Book VIII, Book VIII Title 3, Book I Title 3, Book IX and specific worker rules. Do not invent precise articles. If uncertain, write: ${languageConfig.referenceToCheck}
-7. Section 4 must be titled exactly "${languageConfig.sections[3]}". It must contain only abbreviations and important technical terms actually used in the generated document. Do not add a large generic glossary. If ATEX, CMR, CLP or TMS is not used in this analysis, do not explain it. The section must not be empty: detect the abbreviations used and include the relevant ones only. Use definitions in ${resolvedLanguageLabel}: ${abbreviationGlossaryInstruction}
+7. Section 4 must be titled exactly "${languageConfig.sections[3]}". It must contain only abbreviations and important technical terms actually used in the generated document. Do not add a large generic glossary. If ATEX, CMR, CLP or TMS is not used in this analysis, do not explain it. The section must not be empty: detect the abbreviations used and include the relevant ones only. Never place sites, activities, exposed workers or perimeter limits here. Use definitions in ${resolvedLanguageLabel}: ${abbreviationGlossaryInstruction}
 8. At the first natural important occurrence in the body text, write the full term followed by the abbreviation in parentheses, for example the target-language equivalent of "Plan Annuel d’Action (PAA)", "Plan Global de Prévention (PGP)", "Comité pour la Prévention et la Protection au Travail (CPPT)", "Fiche de Données de Sécurité (FDS)" and "Équipement de Protection Individuelle (EPI)".
 9. Section 6 must contain a Markdown table with exactly these columns: ${tableColumns.sources}. Include, where relevant, site visit, workstation observation, photos, worker interviews, line management consultation, health and safety committee consultation, external service opinion, occupational physician opinion, inspection reports, technical sheets, SDS, accident/incident register, training register, plans, instructions, checklist, questionnaire and environmental measurements.
-10. Section 7 must distinguish facts provided, observations, declarations, cautious assumptions, available evidence, missing evidence and limits. Do not place blocking-point synthesis here; it belongs only in section 21. Never turn an assumption into a fact and never state that the analysis is complete or final.
+10. Section 5 must contain only scope information: included sites, excluded sites, concerned activities, concerned workers, included situations and scope limits. It must not contain glossary definitions. Section 7 must distinguish facts provided, observations, declarations, cautious assumptions, available evidence, missing evidence and limits. Do not place blocking-point synthesis here; it belongs only in section 21. Never turn an assumption into a fact and never state that the analysis is complete or final.
 11. Section 8 must contain a Markdown table with exactly these columns: ${tableColumns.jobs}. It must identify real activities, exposure frequency and duration, exposed workers, equipment/products, specific constraints, photos to take and documents to attach.
 12. Section 9 is mandatory and must contain the purpose of photos plus a Markdown table with exactly these columns: ${tableColumns.photos}. For each photo, state the photo number, area or task, what it must show, why it is useful, where to insert it, whether it also goes in an annex, confidentiality precautions, linked risk number if possible, linked action, expected evidence, linked annex and before/after correction indication. Explain that photos objectify findings, illustrate risk situations and keep before/after evidence. Include these photo rules: no faces unless necessary, avoid visible personal data, mask number plates if not useful, take a general photo then a detail photo, take before and after correction photos, date photos, identify the area and keep originals in the evidence file. Adapt the rows to the analysis type: ${photoPlanInstruction}
 13. Section 10 must always contain 6 to 8 concrete hazards in a Markdown table with exactly these columns: ${languageConfig.hazardTableColumns}. Each row must explain what to verify, how to verify it, which proof and photo to add, and whether it blocks validation. Never write only "to be checked" or an equivalent.
 14. Section 11 must be titled exactly "${languageConfig.sections[10]}" and must explain the formula, scales, thresholds and interpretation. Use this content in the target language: ${scoringMethodInstruction}
-15. Section 12 must be titled exactly "${languageConfig.sections[11]}". It must not contain one wide main table. It must contain exactly these two subsections and two Markdown tables:
+15. Section 12 must be titled exactly "${languageConfig.sections[11]}". It must not contain one wide main table. It must follow this exact sequence:
+First, write this sentence exactly in the target language:
+${languageConfig.riskLinkingSentence}
+Then write:
 ### 12.1 ${languageConfig.riskInitialSubsectionTitle}
-Table 12.1 must contain 8 complete risk rows with exactly these columns: ${languageConfig.riskInitialTableColumns}.
+Then insert only table 12.1. Table 12.1 must contain 8 complete risk rows with exactly these columns: ${languageConfig.riskInitialTableColumns}.
+After the final row of table 12.1, insert one blank line and a short target-language transition sentence meaning "The following table lists the follow-up measures for the same risk numbers." Then write:
 ### 12.2 ${languageConfig.riskFollowUpSubsectionTitle}
-Table 12.2 must contain the same 8 risk numbers, in the same order, with exactly these columns: ${languageConfig.riskFollowUpTableColumns}.
-Split the information that would previously have been in one wide table between 12.1 and 12.2. No risk may disappear. The number column must be identical in 12.1 and 12.2. Keep photo to insert, annex to attach, blocking point yes/no, external opinion/advice yes/no, residual scores and scoring justifications. Do not leave generic cells. If information is unavailable, write an actionable instruction such as the target-language equivalent of "To be confirmed by site visit. Expected evidence: photo of the area and inspection report." Use this wording only as supporting text when useful, never as the whole section: ${languageConfig.provisionalScoreText}
+Then insert only table 12.2. Table 12.2 must contain the same 8 risk numbers, in the same order, with exactly these columns: ${languageConfig.riskFollowUpTableColumns}.
+Never write heading 12.2 before table 12.1. Never attach table 12.2 directly to table 12.1 without the transition sentence and a blank line. Never use the 12.1 header for table 12.2. Never mix 12.1 columns with 12.2 columns. Split the information that would previously have been in one wide table between 12.1 and 12.2. No risk may disappear. The number column must be identical in 12.1 and 12.2. Keep photo to insert, annex to attach, blocking point yes/no, external opinion/advice yes/no, residual scores and scoring justifications. The STOP level column must contain only one of these values: ${languageConfig.stopLevels}. Never write risk levels such as ${Object.values(languageConfig.riskLevels).join(', ')} in the STOP level column. Do not leave generic cells. If information is unavailable, write an actionable instruction such as the target-language equivalent of "To be confirmed by site visit. Expected evidence: photo of the area and inspection report." Use this wording only as supporting text when useful, never as the whole section: ${languageConfig.provisionalScoreText}
 16. Blocking point yes/no and external opinion yes/no are mandatory wherever those columns appear. Use only these blocking values in the target language: ${tableColumns.blockingValues}. Mark blocking yes when missing proof, inspection, site visit, specialist opinion or validation can significantly change risk evaluation or prevent document validation. Mark blocking no when the point can be completed without challenging overall validability. Mark to be determined only when the backend lacks enough information. Never leave the cells empty. Typical blocking points include missing site visit, SDS for dangerous products, electrical inspection report, fire equipment inspection, ATEX analysis where explosive atmosphere is possible, external service opinion for specialised risks, occupational physician opinion for vulnerable workers or health exposure, CPPT consultation when applicable, proof of existing measures, score justification, or a critical risk without immediate action.
 17. Before finalising section 12, verify each score and level: ${riskScale}. Score must equal Severity/Gravity x Probability x Exposure and remain coherent with the justifications.
-18. In section 12 and section 15, use STOP levels in the target language. STOP means eliminate or substitute the hazard, technical measures, organisational measures, then collective protection or personal protective equipment if necessary. Use levels from: ${languageConfig.stopLevels}.
+18. In section 12 and section 15, use STOP levels in the target language. STOP means eliminate or substitute the hazard, technical measures, organisational measures, then personal protection if necessary. Use exactly these levels only: ${languageConfig.stopLevels}. Do not use risk-level labels in STOP cells.
 19. Section 13 must be a synthetic residual risk analysis, not a copy of the main table. If you use a table, use this compact header only: ${languageConfig.residualTableColumns}. It must identify significant residual risks, conditions to confirm lower scores, missing evidence, standardised status, blocking point yes/no and external opinion yes/no in every row.
 20. Section 14 must contain at least 4 structured priorities. Each priority must contain ${languageConfig.priorityLabels}, expected proof, photo or annex where relevant, blocking point yes/no, external opinion yes/no and whether it should be treated as urgent, structural or validation-related. Do not explain the G x P x E method here.
 21. Section 15 must always contain 6 to 8 action plan items. Every action must start with a concrete action verb in the target language equivalent of: verify, remove, replace, clear, repair, train, display, control, record, isolate, update, centralise, test or have validated. Use this Markdown table header: ${languageConfig.actionTableColumns}. Do not place this action plan table in section 16. Use only these standardised statuses in action and follow-up tables: ${languageConfig.standardStatuses}. The blocking point and external opinion columns must be filled in every row. Action types to balance: ${actionTypeInstruction}.
 22. Section 16 must contain only the link with the Annual Action Plan and the Global Prevention Plan: which urgent actions feed the Annual Action Plan and which structural actions feed the Global Prevention Plan. Do not place actors, annexes, documents to create, the action plan table or consultation details here. First important occurrence must write the full PAA/AAP/JAP and PGP/GPP terms with abbreviations.
-23. Section 17 must contain a Markdown table with exactly these columns: ${tableColumns.documents}. Section 18 must contain a Markdown table with exactly these columns: ${tableColumns.actors}. Section 19 must contain a Markdown table with exactly these columns: ${tableColumns.annexes}. Keep documents to create/update, actors and annexes/supporting evidence separate. Use concrete documents and proofs: ${evidenceInstruction} Fill blocking point yes/no and external opinion yes/no when a document, actor or annex is essential for validation.
+23. Section 17 must contain only one Markdown table with exactly these columns: ${tableColumns.documents}. Section 18 must contain only one Markdown table with exactly these columns: ${tableColumns.actors}. Section 19 must contain only one Markdown table with exactly these columns: ${tableColumns.annexes}. Keep documents to create/update, actors and annexes/supporting evidence separate. Use concrete documents and proofs: ${evidenceInstruction} Do not add PAA/PGP links in section 19 and do not add documents-to-create content in section 22.
 24. Section 20 must explain simply that the level 3 prevention advisor can prepare, observe, document, report and follow actions, but that certain subjects must be validated by a competent person or expert. Include examples requiring external opinion if present: ATEX, significant chemical exposure, complex fire risk, compartmentation, ventilation, sprinklers, electrical conformity, rack stability, dangerous machines, serious or critical risks, complex psychosocial risks, health surveillance, young workers, pregnant workers and vulnerable workers.
 25. Section 21 must summarize blocking points before validation in a Markdown table with exactly these columns: ${tableColumns.blockers}. It must state the number of blocking points, related risk or theme, why it is blocking, expected proof, responsible person, deadline, external opinion yes/no and removal condition. If no blocking point exists, state "0" in the target language and keep one concise row explaining the condition.
 26. Use short practical inserts only where useful inside the relevant sections, not as a separate section. Allowed insert labels only: field check, evidence to obtain, photo to take, blocking point, external opinion recommended, immediate action. Target-language labels may be used. Do not overuse inserts; each must be brief and practical. Guidance: ${advisorHelpBlockInstruction}
@@ -2243,17 +2331,17 @@ function buildRiskSectionPlacementRules(language) {
 
   return [
     `- ${section(4)}: only abbreviations and definitions actually used; never place this glossary in ${section(5)}.`,
-    `- ${section(5)}: scope, sites, activities, exclusions and boundaries only; no abbreviation definitions.`,
-    `- ${section(9)}: photo purpose, photo rules and the photo table only; never place this table in ${section(12)}.`,
-    `- ${section(11)}: scoring formula G x P x E, scales, thresholds and interpretation only.`,
-    `- ${section(12)}: the main risk assessment table only; never place the photo plan here.`,
-    `- ${section(14)}: action priorities only; never explain the scoring method here.`,
-    `- ${section(16)}: Annual Action Plan and Global Prevention Plan link only; never place this link in ${section(19)}.`,
-    `- ${section(17)}: documents to create or update only; never place this list in ${section(22)}.`,
-    `- ${section(18)}: actors to consult or involve only.`,
-    `- ${section(19)}: required annexes and supporting evidence only; no PAA/PGP link and no documents-to-create list.`,
-    `- ${section(22)}: a drafted conclusion only; no documents-to-create list and no final validation statement.`,
-    `- ${section(23)}: the final validation statement exactly once, at the end.`,
+    `- ${section(5)}: included sites, excluded sites, concerned activities, concerned workers, included situations and scope limits only; no abbreviation definitions.`,
+    `- ${section(9)}: photo usefulness, GDPR/confidentiality rules and the photo table only; never place the photo plan in ${section(12)}.`,
+    `- ${section(11)}: scoring formula, G/P/E scales, interpretation thresholds and provisional confirmation requirement only.`,
+    `- ${section(12)}: exactly the mandatory linking sentence, ${config.riskInitialSubsectionTitle} table and ${config.riskFollowUpSubsectionTitle} table only; never place the photo plan here.`,
+    `- ${section(14)}: action priorities table and urgent, structural or validation-related actions only; never explain the scoring method here.`,
+    `- ${section(16)}: Annual Action Plan and Global Prevention Plan link, health and safety committee role, management and prevention-service follow-up only; never place this link in ${section(19)}.`,
+    `- ${section(17)}: documents to create or update table only; never place this list in ${section(22)}.`,
+    `- ${section(18)}: actors to consult or involve table only.`,
+    `- ${section(19)}: required annexes table only; no PAA/PGP link and no documents-to-create list.`,
+    `- ${section(22)}: drafted conclusion paragraphs only; no table, no documents-to-create list and no final validation statement.`,
+    `- ${section(23)}: the final validation statement only and exactly once, at the end.`,
   ].join('\n');
 }
 
@@ -2337,9 +2425,9 @@ function buildRiskSupportTableColumns(language) {
       documents:
         'Document | Pourquoi le créer ou le mettre à jour | Responsable | Échéance | Preuve attendue | Annexe concernée | Priorité',
       annexes:
-        'Annexe | Obligatoire / recommandée / selon situation | Pourquoi elle est nécessaire | Qui doit la fournir | Où la classer | Statut | Point bloquant oui/non',
+        'Annexe | Obligatoire / recommandée / selon situation | Pourquoi elle est nécessaire | Qui doit la fournir | Où la classer | Statut',
       actors:
-        'Acteur | Rôle attendu | Moment de consultation | Preuve attendue | Obligatoire ou recommandé | Limite pour conseiller niveau 3 | Point bloquant oui/non | Avis externe oui/non',
+        'Acteur | Rôle attendu | Moment de consultation | Preuve attendue | Obligatoire ou recommandé | Limite pour conseiller niveau 3',
       blockers:
         'Nombre | Risque ou thème concerné | Pourquoi c’est bloquant | Preuve attendue | Responsable | Échéance | Avis externe oui/non | Condition de levée',
       blockingValues: 'Oui; Non; À déterminer',
@@ -2355,9 +2443,9 @@ function buildRiskSupportTableColumns(language) {
       documents:
         'Document | Waarom opstellen of bijwerken | Verantwoordelijke | Termijn | Verwacht bewijs | Betrokken bijlage | Prioriteit',
       annexes:
-        'Bijlage | Verplicht / aanbevolen / volgens situatie | Waarom ze nodig is | Wie ze moet bezorgen | Waar ze te bewaren | Status | Blokkerend punt ja/nee',
+        'Bijlage | Verplicht / aanbevolen / volgens situatie | Waarom ze nodig is | Wie ze moet bezorgen | Waar ze te bewaren | Status',
       actors:
-        'Actor | Verwachte rol | Moment van raadpleging | Verwacht bewijs | Verplicht of aanbevolen | Grens voor preventieadviseur niveau 3 | Blokkerend punt ja/nee | Extern advies ja/nee',
+        'Actor | Verwachte rol | Moment van raadpleging | Verwacht bewijs | Verplicht of aanbevolen | Grens voor preventieadviseur niveau 3',
       blockers:
         'Aantal | Betrokken risico of thema | Waarom dit blokkerend is | Verwacht bewijs | Verantwoordelijke | Termijn | Extern advies ja/nee | Voorwaarde voor opheffing',
       blockingValues: 'Ja; Nee; Te bepalen',
@@ -2373,9 +2461,9 @@ function buildRiskSupportTableColumns(language) {
       documents:
         'Document | Why create or update it | Responsible person | Deadline | Expected evidence | Related annex | Priority',
       annexes:
-        'Annex | Mandatory / recommended / depending on situation | Why it is necessary | Who must provide it | Where to file it | Status | Blocking point yes/no',
+        'Annex | Mandatory / recommended / depending on situation | Why it is necessary | Who must provide it | Where to file it | Status',
       actors:
-        'Actor | Expected role | Consultation timing | Expected evidence | Mandatory or recommended | Limit for level 3 prevention advisor | Blocking point yes/no | External opinion yes/no',
+        'Actor | Expected role | Consultation timing | Expected evidence | Mandatory or recommended | Limit for level 3 prevention advisor',
       blockers:
         'Number | Related risk or theme | Why it is blocking | Expected evidence | Responsible person | Deadline | External opinion yes/no | Removal condition',
       blockingValues: 'Yes; No; To be determined',
@@ -2391,9 +2479,9 @@ function buildRiskSupportTableColumns(language) {
       documents:
         'Dokument | Warum erstellen oder aktualisieren | Verantwortliche Person | Frist | Erwarteter Nachweis | Betroffener Anhang | Priorität',
       annexes:
-        'Anhang | Verpflichtend / empfohlen / je nach Situation | Warum er notwendig ist | Wer ihn liefern muss | Wo er abzulegen ist | Status | Blockierender Punkt ja/nein',
+        'Anhang | Verpflichtend / empfohlen / je nach Situation | Warum er notwendig ist | Wer ihn liefern muss | Wo er abzulegen ist | Status',
       actors:
-        'Akteur | Erwartete Rolle | Zeitpunkt der Konsultation | Erwarteter Nachweis | Verpflichtend oder empfohlen | Grenze für Präventionsberater Niveau 3 | Blockierender Punkt ja/nein | Externe Stellungnahme ja/nein',
+        'Akteur | Erwartete Rolle | Zeitpunkt der Konsultation | Erwarteter Nachweis | Verpflichtend oder empfohlen | Grenze für Präventionsberater Niveau 3',
       blockers:
         'Anzahl | Betroffenes Risiko oder Thema | Warum dies blockierend ist | Erwarteter Nachweis | Verantwortliche Person | Frist | Externe Stellungnahme ja/nein | Bedingung für Aufhebung',
       blockingValues: 'Ja; Nein; Zu bestimmen',
