@@ -144,7 +144,7 @@ const LANGUAGE_CONFIGS = {
   fr: {
     code: 'fr',
     label: 'Français',
-    title: 'Analyse de risques – Projet à valider',
+    title: 'Analyse de risques – Projet à adapter et à valider',
     sections: [
       'Identification du document',
       'Contexte et objectif',
@@ -472,7 +472,7 @@ Cotation : Risque = Gravité x Probabilité x Exposition.
 Gravité, Probabilité et Exposition sont cotées de 1 à 5. Niveau : 1 à 10 = Faible ; 11 à 30 = Moyen ; 31 à 60 = Élevé ; 61 à 125 = Critique. Les justifications G/P/E doivent être courtes. Avant de répondre, vérifie que chaque niveau correspond exactement au score selon la grille. Ne jamais classer 10 comme Moyen, 30 comme Élevé, 60 comme Critique, ni 36 ou 48 comme Moyen. Ne force jamais artificiellement un score élevé, mais ne sous-évalue pas les risques typiques d’un service technique communal lorsque l’exposition est régulière ou la gravité importante : travail en hauteur, produits chimiques, circulation véhicules/piétons, incendie, machines/outillage, manutention régulière, bruit, coactivité avec public ou sous-traitants. Évite les scores très faibles pour ces risques sauf justification claire et cohérente avec Gravité x Probabilité x Exposition ; ne classe pas un risque grave et fréquent en risque faible.
 
 Structure obligatoire par défaut pour une analyse de risques en français si aucune autre langue valide n’est demandée :
-# Analyse de risques – Projet à valider
+# Analyse de risques – Projet à adapter et à valider
 
 ## 1. Identification du document
 ## 2. Contexte et objectif
@@ -1281,6 +1281,7 @@ app.get('/health', (_req, res) => {
 
 app.post('/api/generate-document', async (req, res, next) => {
   try {
+    console.log('[RISK_RENDER_TRACE] route generate-document');
     if (!process.env.OPENAI_API_KEY) {
       const error = new Error('Configuration OpenAI manquante côté serveur.');
       error.status = 500;
@@ -1301,15 +1302,54 @@ app.post('/api/generate-document', async (req, res, next) => {
       formFields: Object.keys(formData).length,
     });
 
-    const generatedDocument = documentDefinition.family === 'risk_assessment'
-      ? await generateRiskAssessmentFast({
+    let generatedDocument;
+
+    if (documentDefinition.family === 'risk_assessment') {
+      console.log('[RISK_RENDER_TRACE] using function: generateRiskAssessmentFast');
+      const generatedRiskAssessment = await generateRiskAssessmentFast({
         openai,
         documentType,
         formData,
         languageCode: targetLanguage.code,
         languageLabel: targetLanguage.label,
-      })
-      : processGeneratedDocument(
+      });
+      const reference = generatedRiskAssessment.reference;
+
+      console.log('[RISK_RENDER_TRACE] using function: renderRiskAssessmentFinalMarkdown');
+      let markdown = renderRiskAssessmentFinalMarkdown(
+        generatedRiskAssessment.structuredData,
+        targetLanguage.code,
+      );
+      console.log('[RISK_RENDER_TRACE] using function: finalizeRiskAssessmentMarkdown');
+      let cleaned = finalizeRiskAssessmentMarkdown(markdown, targetLanguage.code, reference);
+
+      try {
+        assertRiskAssessmentMarkdownIsValid(cleaned, targetLanguage.code);
+      } catch (validationError) {
+        console.error('[RISK_RENDER_TRACE] validation failed before retry', {
+          message: validationError.message,
+        });
+        cleaned = finalizeRiskAssessmentMarkdown(cleaned, targetLanguage.code, reference);
+        try {
+          assertRiskAssessmentMarkdownIsValid(cleaned, targetLanguage.code);
+        } catch (retryError) {
+          console.error('[RISK_RENDER_TRACE] validation failed after retry', {
+            message: retryError.message,
+          });
+          return res.json({
+            success: false,
+            message: 'Le document n’a pas été exporté car la structure finale n’est pas valide.',
+          });
+        }
+      }
+
+      console.log('[RISK_RENDER_TRACE] final markdown preview:', cleaned.slice(0, 1500));
+      generatedDocument = {
+        document: cleaned,
+        complementaryDocument: null,
+      };
+    } else {
+      generatedDocument = processGeneratedDocument(
         (await openai.responses.create({
           model: OPENAI_MODEL,
           max_output_tokens: OPENAI_MAX_OUTPUT_TOKENS,
@@ -1335,6 +1375,7 @@ app.post('/api/generate-document', async (req, res, next) => {
         documentDefinition,
         targetLanguage.code,
       );
+    }
     const { document, complementaryDocument } = generatedDocument;
 
     if (!document) {
@@ -1399,6 +1440,8 @@ function startServer() {
 
 if (process.env.RUN_INTERNAL_RISK_TESTS === '1') {
   runInternalRiskTests();
+} else if (process.env.PREVENTIA_BACKEND_NO_START === '1') {
+  console.info('preventia-backend importé sans démarrage serveur.');
 } else {
   startServer();
 }
@@ -1725,19 +1768,15 @@ async function generateRiskAssessmentFast({
     ...fixedSections,
     ...riskItems,
   }, languageCode);
-  const document = removeMarkdownSeparatorRows(
-    removeStandaloneMarkdownSeparators(
-      normalizeKnownPhrases(renderRiskAssessmentMarkdown(validatedData, languageCode)),
-    ),
-  );
 
-  console.info('Renderer OK');
+  console.info('Données structurées analyse de risques OK');
   console.info('Durée totale génération en ms', {
     durationMs: Date.now() - startedAt,
   });
 
   return {
-    document,
+    structuredData: validatedData,
+    reference: validatedData.documentIdentification.reference,
     complementaryDocument: null,
   };
 }
@@ -2017,11 +2056,14 @@ function buildRiskAssessmentFixedSections(formData = {}, documentType = '', lang
   const constraints = pick('contraintesParticulieres', 'informationsComplementaires');
   const riskDetails = getFallbackRiskDetailsForDocument(documentType, formData, language).slice(0, 8);
   const riskNames = riskDetails.map((risk) => risk.hazard);
+  const reference = resolveRiskAssessmentReference(formData, {
+    documentIdentification: { type: documentType, site, company: sector },
+  });
 
   return {
     documentIdentification: {
       type: documentType || config.title,
-      reference: buildRiskAssessmentReference({ documentIdentification: { type: documentType, site, company: sector } }),
+      reference,
       company: sector,
       site,
       services: preventionService,
@@ -2134,6 +2176,22 @@ function buildSourceRow(source, available, comment, expectedEvidence, whereToFil
     expectedEvidence,
     whereToFile,
   };
+}
+
+function resolveRiskAssessmentReference(formData = {}, fallbackData = {}) {
+  const candidates = [
+    formData.documentReference,
+    formData.reference,
+    formData.savedReference,
+    formData.savedDocumentReference,
+    formData.documentId,
+    formData.id,
+  ];
+  const existingReference = candidates.find(hasUsableStringValue);
+
+  return existingReference
+    ? String(existingReference).trim()
+    : buildRiskAssessmentReference(fallbackData);
 }
 
 function buildDeterministicRegulatoryReferences(documentType = '', language = 'fr') {
@@ -2729,7 +2787,7 @@ function renderRiskAssessmentMarkdown(data, language = 'fr') {
   lines.push('');
   const initialRows = data.mainRiskAssessment.initialAssessment;
   const followUpRows = data.mainRiskAssessment.measuresFollowUpValidation;
-  const section121Table = renderTable(config.riskInitialTableColumns, initialRows, [
+  const section121Table = renderMarkdownTable(config.riskInitialTableColumns, initialRows, [
     'number',
     'task',
     'hazard',
@@ -2751,7 +2809,7 @@ function renderRiskAssessmentMarkdown(data, language = 'fr') {
   lines.push('');
   lines.push(`### 12.2 ${config.riskFollowUpSubsectionTitle}`);
   lines.push('');
-  const section122Table = renderTable(config.riskFollowUpTableColumns, followUpRows, [
+  const section122Table = renderMarkdownTable(config.riskFollowUpTableColumns, followUpRows, [
     'number',
     'additionalMeasure',
     'stopLevel',
@@ -2859,6 +2917,25 @@ function renderRiskAssessmentMarkdown(data, language = 'fr') {
   lines.push(config.finalMention);
 
   return ensureRiskAssessmentSection12Integrity(lines.join('\n').replace(/\n{3,}/g, '\n\n').trim(), data, language);
+}
+
+function renderRiskAssessmentFinalMarkdown(data, language = 'fr') {
+  console.log('[RISK_RENDER_TRACE] using function: renderRiskAssessmentFinalMarkdown');
+  const rendered = renderRiskAssessmentMarkdown(data, language);
+  const normalized = ensureRiskAssessmentSection12Integrity(rendered, data, language);
+
+  if (language !== 'fr') {
+    return normalized;
+  }
+
+  return stripMarkdownHeadingMarkers(normalized);
+}
+
+function stripMarkdownHeadingMarkers(markdown) {
+  return String(markdown || '')
+    .split('\n')
+    .map((line) => line.replace(/^#{1,6}\s+((?:\d{1,2}\.)|(?:\d{1,2}\.\d))\s+/, '$1 '))
+    .join('\n');
 }
 
 function getRiskIdentificationEntries(language = 'fr') {
@@ -2987,7 +3064,7 @@ function buildRiskAssessmentSection12Markdown(data, language = 'fr') {
   const titles = RISK_ASSESSMENT_TITLES[language] || RISK_ASSESSMENT_TITLES.fr;
   const initialRows = ensureObject(data.mainRiskAssessment).initialAssessment || [];
   const followUpRows = ensureObject(data.mainRiskAssessment).measuresFollowUpValidation || [];
-  const initialTable = renderTable(config.riskInitialTableColumns, initialRows, [
+  const initialTable = renderMarkdownTable(config.riskInitialTableColumns, initialRows, [
     'number',
     'task',
     'hazard',
@@ -3005,7 +3082,7 @@ function buildRiskAssessmentSection12Markdown(data, language = 'fr') {
     'initialScore',
     'initialLevel',
   ], language);
-  const followUpTable = renderTable(config.riskFollowUpTableColumns, followUpRows, [
+  const followUpTable = renderMarkdownTable(config.riskFollowUpTableColumns, followUpRows, [
     'number',
     'additionalMeasure',
     'stopLevel',
@@ -3037,10 +3114,13 @@ function buildRiskAssessmentSection12Markdown(data, language = 'fr') {
   ].join('\n');
 }
 
-function finalizeRiskAssessmentMarkdown(markdown, language = 'fr') {
+function finalizeRiskAssessmentMarkdown(markdown, language = 'fr', reference = '') {
   const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
   const titles = RISK_ASSESSMENT_TITLES[language] || RISK_ASSESSMENT_TITLES.fr;
+  const mainReference = sanitizeMarkdownCell(reference, language);
   let normalized = String(markdown || '')
+    .replace(/[◊�]/g, '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
     .replace(/^Document Reference:\s*.+$/gim, '')
     .replace(/^#\s*Analyse de risques – Projet à valider\s*$/gim, '')
     .replace(/^Analyse de risques – Projet à valider\s*$/gim, '')
@@ -3068,7 +3148,142 @@ function finalizeRiskAssessmentMarkdown(markdown, language = 'fr') {
     normalized = `${normalized.trim()}\n\n${validationHeading}\n\n${config.finalMention}`;
   }
 
-  return normalized.replace(/\n{3,}/g, '\n\n').trim();
+  if (mainReference && mainReference !== getLanguagePlaceholder(language)) {
+    normalized = replaceSecondaryRiskReferences(normalized, mainReference);
+  }
+
+  if (language === 'fr') {
+    normalized = enforceRiskAssessmentHeader(normalized, mainReference, language);
+    normalized = stripMarkdownHeadingMarkers(normalized);
+  }
+
+  return normalized
+    .split('\n')
+    .filter((line) => line.trim() !== '---')
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function replaceSecondaryRiskReferences(markdown, reference) {
+  const escapedReference = escapeRegExp(reference);
+  return String(markdown || '').replace(/\bAR-\d{4}-\d{4}\b/g, (value) =>
+    new RegExp(`^${escapedReference}$`).test(value) ? value : reference,
+  );
+}
+
+function enforceRiskAssessmentHeader(markdown, reference, language = 'fr') {
+  const titles = RISK_ASSESSMENT_TITLES[language] || RISK_ASSESSMENT_TITLES.fr;
+  const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+  const lines = String(markdown || '').split('\n');
+  const dateLine = lines.find((line) => /^Date\s*:/i.test(line.trim()));
+  const date = dateLine?.replace(/^Date\s*:\s*/i, '').trim() || formatRiskAssessmentDate(new Date(), language);
+  const resolvedReference = reference && reference !== getLanguagePlaceholder(language)
+    ? reference
+    : buildRiskAssessmentReference({ documentIdentification: { title: titles.documentTitle, date } });
+  const body = lines
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        return true;
+      }
+      if (trimmed === titles.documentTitle || trimmed === config.title) {
+        return false;
+      }
+      if (/^#?\s*Analyse de risques – Projet à valider$/i.test(trimmed)) {
+        return false;
+      }
+      if (/^Référence\s*:/i.test(trimmed) || /^Reference\s*:/i.test(trimmed)) {
+        return false;
+      }
+      if (/^Date\s*:/i.test(trimmed)) {
+        return false;
+      }
+      return true;
+    })
+    .join('\n')
+    .replace(/^\s+/, '');
+
+  return [
+    titles.documentTitle,
+    `Référence : ${resolvedReference}`,
+    `Date : ${date}`,
+    '',
+    body.trim(),
+  ].join('\n');
+}
+
+function assertRiskAssessmentMarkdownIsValid(markdown, language = 'fr') {
+  if (language !== 'fr') {
+    return true;
+  }
+
+  const document = String(markdown || '');
+  const required = [
+    '4. Glossaire des abréviations utilisées',
+    '5. Périmètre de l’analyse',
+    '9. Plan photos',
+    '11. Méthode de cotation',
+    '12.1 Évaluation initiale des risques',
+    '12.2 Mesures, suivi et validation',
+    '16. Lien avec le Plan Annuel d’Action et le Plan Global de Prévention',
+    '17. Documents à créer ou à mettre à jour',
+    '22. Conclusion',
+    '23. Mention de validation',
+  ];
+  const forbidden = [
+    'Document Reference:',
+    'Analyse de risques – Projet à valider',
+    '4. Périmètre de l’analyse\n\nAbréviation',
+    '4. Périmètre de l’analyse\n\n| Abréviation',
+    '9. Tableau principal d’analyse des risques\n\nPlan photos',
+    '9. Tableau principal d’analyse des risques\n\n| Numéro photo',
+    '11. Priorités d’action\n\nScore =',
+    '16. Annexes nécessaires\n\n• PAA',
+    '16. Annexes nécessaires\n\n- PAA',
+    '17. Conclusion\n\nDocument | Pourquoi',
+    '17. Conclusion\n\n| Document | Pourquoi',
+  ];
+
+  for (const expected of required) {
+    assert.ok(document.includes(expected), `Structure analyse de risques invalide: titre manquant "${expected}"`);
+  }
+
+  for (const value of forbidden) {
+    assert.ok(!document.includes(value), `Structure analyse de risques invalide: contenu interdit "${value}"`);
+  }
+
+  const section121Index = document.indexOf('12.1 Évaluation initiale des risques');
+  const section122Index = document.indexOf('12.2 Mesures, suivi et validation');
+  assert.ok(
+    section121Index !== -1 && section122Index !== -1 && section121Index < section122Index,
+    'Structure analyse de risques invalide: 12.1 doit précéder 12.2',
+  );
+
+  const initialHeader = `| ${LANGUAGE_CONFIGS.fr.riskInitialTableColumns} |`;
+  const followUpHeader = `| ${LANGUAGE_CONFIGS.fr.riskFollowUpTableColumns} |`;
+  const initialBlock = document.slice(section121Index, section122Index);
+  const followUpBlock = document.slice(section122Index, findNextRiskSectionIndex(document, section122Index));
+
+  assert.ok(
+    initialBlock.includes(initialHeader),
+    'Structure analyse de risques invalide: en-têtes du tableau initial absents entre 12.1 et 12.2',
+  );
+  assert.ok(
+    followUpBlock.includes(followUpHeader),
+    'Structure analyse de risques invalide: en-têtes du tableau de suivi absents après 12.2',
+  );
+  assert.ok(
+    !followUpBlock.includes('Tâche | Danger | Situation dangereuse'),
+    'Structure analyse de risques invalide: en-têtes initiaux présents dans 12.2',
+  );
+
+  return true;
+}
+
+function findNextRiskSectionIndex(document, startIndex) {
+  const match = document.slice(startIndex + 1).match(/\n(?:#{1,6}\s*)?\d{1,2}\.\s+/);
+  return match?.index === undefined ? document.length : startIndex + 1 + match.index;
 }
 
 function alignRiskAssessmentHeadingsToTitles(document, language = 'fr') {
@@ -3225,6 +3440,10 @@ function renderTable(header, rows, keys, language = 'fr') {
       })),
     ),
   ].join('\n');
+}
+
+function renderMarkdownTable(header, rows, keys, language = 'fr') {
+  return renderTable(header, rows, keys, language);
 }
 
 function renderKeyValueTable(data, entries, language = 'fr') {
@@ -6567,3 +6786,12 @@ function formatRiskScale(language) {
 
   return `1-10 ${labels.low}, 11-30 ${labels.medium}, 31-60 ${labels.high}, 61-125 ${labels.critical}`;
 }
+
+export {
+  assertRiskAssessmentMarkdownIsValid,
+  buildFallbackRiskItems,
+  buildRiskAssessmentFixedSections,
+  finalizeRiskAssessmentMarkdown,
+  renderRiskAssessmentFinalMarkdown,
+  validateRiskAssessmentStructuredData,
+};
