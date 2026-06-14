@@ -40,6 +40,7 @@ const LANGUAGE_CONFIGS = {
       'Documents à créer ou mettre à jour',
       'Acteurs à consulter ou à impliquer',
       'Annexes nécessaires',
+      'Guide pratique pour le conseiller en prévention',
       'Validabilité de l’analyse et conditions avant validation',
       'Évaluation de complétude de l’analyse',
       'Conclusion',
@@ -104,6 +105,7 @@ const LANGUAGE_CONFIGS = {
       'Documenten die moeten worden opgesteld of bijgewerkt',
       'Te raadplegen of te betrekken actoren',
       'Noodzakelijke bijlagen',
+      'Praktische gids voor de preventieadviseur',
       'Valideerbaarheid van de analyse en voorwaarden vóór validatie',
       'Beoordeling van de volledigheid van de analyse',
       'Conclusie',
@@ -168,6 +170,7 @@ const LANGUAGE_CONFIGS = {
       'Documents to create or update',
       'Actors to consult or involve',
       'Required appendices',
+      'Practical guide for the prevention advisor',
       'Validability of the assessment and conditions before validation',
       'Completeness assessment of the risk assessment',
       'Conclusion',
@@ -232,6 +235,7 @@ const LANGUAGE_CONFIGS = {
       'Zu erstellende oder zu aktualisierende Dokumente',
       'Zu konsultierende oder einzubeziehende Akteure',
       'Erforderliche Anhänge',
+      'Praktischer Leitfaden für den Präventionsberater',
       'Validierbarkeit der Beurteilung und Bedingungen vor der Validierung',
       'Bewertung der Vollständigkeit der Beurteilung',
       'Schlussfolgerung',
@@ -1924,6 +1928,9 @@ function runRiskPromptQualityTests() {
     assert.match(prompt, new RegExp(escapeRegExp(`## 9. ${config.sections[8]}`)));
     assert.match(prompt, new RegExp(escapeRegExp(`## 18. ${config.sections[17]}`)));
     assert.match(prompt, new RegExp(escapeRegExp(`## 19. ${config.sections[18]}`)));
+    assert.match(prompt, new RegExp(escapeRegExp(`## 20. ${config.sections[19]}`)));
+    assert.match(prompt, new RegExp(escapeRegExp(`## 21. ${config.sections[20]}`)));
+    assert.match(prompt, new RegExp(escapeRegExp(`## 22. ${config.sections[21]}`)));
     assert.match(prompt, new RegExp(escapeRegExp(config.hazardTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(config.riskTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(config.residualTableColumns)));
@@ -1939,6 +1946,12 @@ function runRiskPromptQualityTests() {
     assert.match(prompt, /61-125/);
     assert.match(prompt, /provisional residual score|restrisico|Restrisiken|risque résiduel/);
     assert.match(prompt, /STOP|stop/i);
+    assert.match(prompt, /guide pratique|Praktische gids|Practical guide|Praktischer Leitfaden/i);
+    assert.match(prompt, /Documents à joindre|Toe te voegen documenten|Documents to attach|Beizufügende Dokumente/);
+    assert.match(prompt, /Photos à ajouter|Toe te voegen foto’s|Photos to add|Hinzuzufügende Fotos/);
+    assert.match(prompt, /Où placer les photos|Waar de foto’s te plaatsen|Where to place the photos|Wo die Fotos einzufügen sind/);
+    assert.match(prompt, /rapport de visite terrain|terreinbezoekverslag|site visit report|Vor-Ort-Begehung/);
+    assert.match(prompt, /photo générale|algemene foto|general photo|Übersichtsbild/);
     assert.match(prompt, /section 10 contains the complete main table/);
     assert.match(prompt, /section 11 is only a synthetic residual analysis/);
     assert.match(prompt, /documents, actors and annexes are correctly separated/);
@@ -1981,6 +1994,10 @@ function buildRiskUserPrompt(documentType, formData, language = 'fr', languageLa
   const advisorHelpBlockInstruction = buildAdvisorHelpBlockInstruction(language);
   const actionTypeInstruction = buildActionTypeInstruction(language);
   const specializationInstruction = buildRiskSpecializationInstruction(documentType);
+  const practicalGuideInstruction = buildPracticalGuideInstruction(documentType, language);
+  const practicalGuideRowsInstruction = buildPracticalGuideRowsInstruction(documentType, language);
+  const evidenceInstruction = buildRiskEvidenceInstruction(documentType, language);
+  const photoInstruction = buildRiskPhotoInstruction(documentType, language);
   const structure = [
     `# ${languageConfig.title}`,
     '',
@@ -2008,24 +2025,26 @@ ${structure}
 11. Section 11 must be titled exactly "${languageConfig.sections[10]}" and must not contain the full main table from section 10. It must contain a synthetic residual risk analysis: risks still significant after measures, high or critical residual risks, conditions required to confirm residual scores, evidence to collect and blocking points before validation. If you use a table, use this compact header only: ${languageConfig.residualTableColumns}.
 12. Avant de finaliser le tableau, vérifie chaque score et niveau : ${riskScale}. Le score doit rester cohérent avec Gravité x Probabilité x Exposition.
 13. Si des informations existent, produire une analyse provisoire exploitable. Si des informations manquent, préciser exactement ce qui manque, pourquoi c’est important, quelle preuve est attendue, qui doit vérifier, comment vérifier, où documenter la preuve et si le point bloque la validation. Le fallback simple ${languageConfig.missingInfo} ne peut jamais être utilisé seul.
-14. Blocs d’aide au conseiller obligatoires lorsque l’analyse repose sur une hypothèse, une preuve manquante, une cotation provisoire, un risque résiduel non confirmé ou un point bloquant. Titre du bloc : "${languageConfig.advisorHelpBlockTitle}". ${businessBlockInstruction} ${advisorHelpBlockInstruction} Termine chaque bloc par "${languageConfig.advisorHelpBlockClose}". Les blocs doivent rester courts et directement actionnables pour le conseiller en prévention.
+14. Blocs d’aide au conseiller obligatoires lorsque l’analyse repose sur une hypothèse, une preuve manquante, une cotation provisoire, un risque résiduel non confirmé ou un point bloquant. N’utilise jamais un bloc court limité à une phrase comme "à vérifier sur le terrain" ou équivalent. Titre du bloc : "${languageConfig.advisorHelpBlockTitle}". ${businessBlockInstruction} ${advisorHelpBlockInstruction} Termine chaque bloc par "${languageConfig.advisorHelpBlockClose}". Les blocs doivent être simples, opérationnels et aider le conseiller à compléter, vérifier, documenter et défendre l’analyse.
 15. Hiérarchie STOP obligatoire : pour chaque mesure complémentaire importante, utiliser un niveau parmi : ${languageConfig.stopLevels}. Ne jamais proposer uniquement une protection individuelle si une mesure de suppression, substitution, technique collective ou organisationnelle est plus appropriée.
 16. Section 12 must always contain at least 4 structured priorities. Each priority must contain ${languageConfig.priorityLabels}.
 17. Section 13 must always contain 6 to 8 action plan items, with both action types represented: ${actionTypeInstruction}. Use this Markdown table header in the target language: ${languageConfig.actionTableColumns}. Do not place this action plan table in section 14.
 18. Section 14 must explain only which urgent actions feed the Annual Action Plan, which structural actions feed the Global Prevention Plan, how CPPT follow-up is ensured and how validation actions are integrated. Do not include the complete action plan table in this section.
 19. Section 15 must contain only documents to create or update, such as SDS, procedures, registers, instructions, plans, hot-work permits, reports and checklists. Section 16 must contain only people or services to consult or involve, including workers, line management, prevention advisor, employer, CPPT when present, external service and occupational physician when relevant. Section 17 must contain only annexes, such as photos, inspection reports, plans, SDS, CPPT minutes, registers and proof. Never shift these contents into the wrong section.
-20. Section 18 must contain six explicit subparts in the target language: document status; what is already usable; what is missing; blocking points; minimum actions before validation; actors who must validate. It must also include a clear opinion on whether the document is validable as it stands. The document status must be exactly one of: ${languageConfig.documentStatuses}.
-21. Section 18 must clearly say the assessment is not final if any of these are missing or unconfirmed: site visit, documentary evidence, worker consultation, CPPT consultation when a CPPT exists, SDS, inspection/control reports, score justifications, proof of existing measures, external service opinion or occupational physician opinion when relevant.
-22. Section 19 must contain a Markdown table with exactly these columns: ${languageConfig.completenessTableColumns}. Evaluate every mandatory element, using only these status labels: ${languageConfig.completenessStatuses}. Mandatory elements to evaluate: ${completenessElements}.
-23. Section 20 conclusion must be a written conclusion, not a table or list transferred from another section. It must answer clearly: is this a risk assessment or a preparatory draft; is it complete; can it feed the PGP; can it feed the PAA; can it be presented to the CPPT; can it be used in an audit; what are the minimum conditions before validation. Never write that it is finalized or compliant if it is not supported by evidence. Do not include annexes, actors, the completeness table, the main table or the action plan in the conclusion.
-24. Relis les preuves attendues : elles doivent être vérifiables, professionnelles et cohérentes avec le risque et la mesure. Privilégie : rapport de contrôle, registre de formation, liste de présence, photos avant/après, inventaire mis à jour, FDS centralisées, rapport de visite terrain, PV ou avis du CPPT, registre accidents/incidents, check-list signée. Évite : suivi, constat, conformité normale, document disponible, rapport général.
-25. Conformité belge et prudence juridique : mentionner les références belges pertinentes sans inventer d’articles ; ne jamais affirmer une conformité si les preuves ne sont pas présentes ; distinguer obligation légale, bonne pratique et point à vérifier.
-26. Spécialisation obligatoire selon le type d’analyse demandé : ${specializationInstruction}
-27. Section ${languageConfig.sections.length} doit contenir exactement cette mention finale traduite, une seule fois :
+20. Documents, preuves et photos à intégrer dans les sections 15, 17, 18, 19 et dans les preuves des tableaux de risques : ${evidenceInstruction} ${photoInstruction}
+21. Section 18 must be titled exactly "${languageConfig.sections[17]}". It must contain a simple Markdown table, not too wide, with this exact header in the target language: ${practicalGuideInstruction}. The table must contain 8 to 12 operational rows adapted to the analysis type. ${practicalGuideRowsInstruction} Each row must explain the point to complete, what to do, how to do it, document to attach, photo to add, where to place it and priority.
+22. Section 19 must contain explicit subparts in the target language: document status; what is already usable; what must be checked; blocking points; essential documents and photos; minimum actions before validation; opinions or specialist advice required; actors who must validate. It must clearly identify usable points, points to verify, blocking points, indispensable documents, indispensable photos, required opinions and minimum conditions before validation. It must include a clear opinion on whether the document is validable as it stands. The document status must be exactly one of: ${languageConfig.documentStatuses}.
+23. Section 19 must clearly say the assessment is not final if any of these are missing or unconfirmed: site visit, documentary evidence, worker consultation, CPPT consultation when a CPPT exists, SDS, inspection/control reports, score justifications, proof of existing measures, external service opinion or occupational physician opinion when relevant.
+24. Section 20 must contain a Markdown table with exactly these columns: ${languageConfig.completenessTableColumns}. Evaluate every mandatory element, using only these status labels: ${languageConfig.completenessStatuses}. Mandatory elements to evaluate: ${completenessElements}.
+25. Section 21 conclusion must be a written conclusion, not a table or list transferred from another section. It must answer clearly: document usable as a draft; not finalisable without site visit and evidence; can feed the GPP/PGP and AAP/PAA; can be presented to the health and safety committee/CPPT as a discussion basis; must not be presented as full proof of compliance while evidence is not attached. Never write that it is finalized or compliant if it is not supported by evidence. Do not include annexes, actors, the completeness table, the main table or the action plan in the conclusion.
+26. Relis les preuves attendues : elles doivent être vérifiables, professionnelles et cohérentes avec le risque et la mesure. Privilégie : rapport de contrôle, registre de formation, liste de présence, photos avant/après, inventaire mis à jour, FDS centralisées, rapport de visite terrain, PV ou avis du CPPT, registre accidents/incidents, check-list signée. Évite : suivi, constat, conformité normale, document disponible, rapport général.
+27. Conformité belge et prudence juridique : mentionner les références belges pertinentes sans inventer d’articles ; ne jamais affirmer une conformité si les preuves ne sont pas présentes ; distinguer obligation légale, bonne pratique et point à vérifier.
+28. Spécialisation obligatoire selon le type d’analyse demandé : ${specializationInstruction}
+29. Section ${languageConfig.sections.length} doit contenir exactement cette mention finale traduite, une seule fois :
 ${languageConfig.finalMention}
-28. Before answering, perform a strict mental verification: all ${languageConfig.sections.length} sections are present and in the requested order; headings match the target language exactly; section 10 contains the complete main table; section 11 is only a synthetic residual analysis; documents, actors and annexes are correctly separated; validability and completeness both exist as separate sections; the conclusion is a real written conclusion; no section is empty; no section contains content belonging to another section; scoring method is present; detailed hazard identification is filled; provisional residual scores are present; STOP hierarchy is present; action plan contains risk-control actions and validation actions; score justifications are present; the document status is explicit; there is no unjustified compliance conclusion; no heading from another language remains.
-29. Rappel RGPD dans la langue cible : ${languageConfig.gdprReminder}
-30. Garde une réponse concise pour éviter les timeouts.`;
+30. Before answering, perform a strict mental verification: all ${languageConfig.sections.length} sections are present and in the requested order; headings match the target language exactly; section 10 contains the complete main table; section 11 is only a synthetic residual analysis; documents, actors and annexes are correctly separated; the practical guide, validability and completeness are separate sections; the conclusion is a real written conclusion; no section is empty; no section contains content belonging to another section; scoring method is present; detailed hazard identification is filled; provisional residual scores are present; STOP hierarchy is present; action plan contains risk-control actions and validation actions; score justifications are present; the document status is explicit; there is no unjustified compliance conclusion; no heading from another language remains.
+31. Rappel RGPD dans la langue cible : ${languageConfig.gdprReminder}
+32. Garde une réponse concise pour éviter les timeouts.`;
 }
 
 function buildCompletenessElements(language) {
@@ -2200,16 +2219,213 @@ function buildBusinessBlockInstruction(language) {
 function buildAdvisorHelpBlockInstruction(language) {
   const instructions = {
     fr:
-      'Chaque bloc doit contenir uniquement les sous-parties utiles parmi : ce qui est déjà exploitable, hypothèse restante, vérification à réaliser, méthode de vérification, lieu de documentation, preuve attendue, responsable de validation et impact sur la validabilité.',
+      'Chaque bloc doit utiliser exactement cette structure complète dans la langue cible : Ce que le conseiller doit faire: ; Comment le vérifier: ; Où le documenter: ; Documents à joindre: ; Photos à ajouter: ; Où placer les photos: ; Preuve attendue: ; Pourquoi c’est important: ; Impact sur la validation:. Chaque rubrique doit contenir une aide concrète, jamais un simple mot ou une formule vague.',
     nl:
-      'Elk blok bevat alleen de nuttige onderdelen uit: wat al bruikbaar is, resterende hypothese, uit te voeren controle, controlemethode, plaats van documentatie, verwacht bewijs, verantwoordelijke voor validatie en impact op de valideerbaarheid.',
+      'Elk blok moet exact deze volledige structuur in de doeltaal gebruiken: Wat de preventieadviseur moet doen: ; Hoe dit te controleren: ; Waar dit te documenteren: ; Toe te voegen documenten: ; Toe te voegen foto’s: ; Waar de foto’s te plaatsen: ; Verwacht bewijs: ; Waarom dit belangrijk is: ; Impact op de validatie:. Elke rubriek moet concrete hulp bevatten, nooit alleen een woord of vage formule.',
     en:
-      'Each block must contain only the useful subparts among: what is already usable, remaining assumption, check to perform, verification method, documentation location, expected evidence, validation owner and impact on validability.',
+      'Each block must use exactly this full structure in the target language: What the prevention advisor must do: ; How to check it: ; Where to document it: ; Documents to attach: ; Photos to add: ; Where to place the photos: ; Expected evidence: ; Why this matters: ; Impact on validation:. Each heading must contain concrete help, never only one word or a vague formula.',
     de:
-      'Jeder Block enthält nur die nützlichen Unterteile aus: bereits nutzbare Elemente, verbleibende Annahme, durchzuführende Prüfung, Prüfmethode, Dokumentationsort, erwarteter Nachweis, Validierungsverantwortlicher und Auswirkung auf die Validierbarkeit.',
+      'Jeder Block muss genau diese vollständige Struktur in der Zielsprache verwenden: Was der Präventionsberater tun muss: ; Wie dies zu prüfen ist: ; Wo dies zu dokumentieren ist: ; Beizufügende Dokumente: ; Hinzuzufügende Fotos: ; Wo die Fotos einzufügen sind: ; Erwarteter Nachweis: ; Warum dies wichtig ist: ; Auswirkung auf die Validierung:. Jede Rubrik muss konkrete Hilfe enthalten, niemals nur ein Wort oder eine vage Formel.',
   };
 
   return instructions[language] || instructions.fr;
+}
+
+function buildPracticalGuideInstruction(documentType, language) {
+  const headers = {
+    fr: 'Point à compléter | Ce qu’il faut faire | Comment le faire | Document à joindre | Photo à ajouter | Où le placer | Priorité',
+    nl: 'Aan te vullen punt | Wat te doen | Hoe dit te doen | Toe te voegen document | Toe te voegen foto | Waar te plaatsen | Prioriteit',
+    en: 'Item to complete | What to do | How to do it | Document to attach | Photo to add | Where to place it | Priority',
+    de: 'Zu ergänzender Punkt | Was zu tun ist | Wie es zu tun ist | Beizufügendes Dokument | Hinzuzufügendes Foto | Wo einzufügen | Priorität',
+  };
+
+  return headers[language] || headers.fr;
+}
+
+function buildPracticalGuideRowsInstruction(documentType, language) {
+  const fireRows = {
+    fr:
+      'Pour l’analyse incendie, inclure au minimum : visite terrain ; FDS et inventaire produits dangereux ; extincteurs et dévidoirs ; détection incendie ; éclairage de secours ; portes coupe-feu ; issues de secours ; local batteries ; accès pompiers ; exercices d’évacuation ; formation intérimaires ; avis service externe ou incendie ; ATEX si applicable.',
+    nl:
+      'Voor de brandanalyse minimaal opnemen: terreinbezoek; VIB en inventaris gevaarlijke producten; brandblussers en haspels; branddetectie; noodverlichting; branddeuren; nooduitgangen; batterijlokaal; toegang brandweer; evacuatieoefeningen; opleiding uitzendkrachten; advies externe dienst of branddeskundige; ATEX indien van toepassing.',
+    en:
+      'For fire analysis, include at least: site visit; SDS and hazardous products inventory; extinguishers and hose reels; fire detection; emergency lighting; fire doors; emergency exits; battery room; firefighter access; evacuation drills; temporary worker training; external service or fire specialist advice; ATEX if applicable.',
+    de:
+      'Für die Brandanalyse mindestens aufnehmen: Vor-Ort-Begehung; SDB und Inventar gefährlicher Produkte; Feuerlöscher und Wandhydranten; Branddetektion; Sicherheitsbeleuchtung; Brandschutztüren; Notausgänge; Batterieraum; Feuerwehrzugang; Evakuierungsübungen; Schulung von Leiharbeitnehmern; Stellungnahme des externen Dienstes oder Brandschutzexperten; ATEX falls zutreffend.',
+  };
+  const normalized = normalizeDocumentType(documentType);
+
+  return normalized.includes('incendie et evacuation') ? fireRows[language] || fireRows.fr : '';
+}
+
+function buildRiskEvidenceInstruction(documentType, language) {
+  const common = {
+    fr:
+      'Dans toutes les analyses, recommander concrètement : rapport de visite terrain, photos des situations observées, consultation des travailleurs, avis CPPT si applicable, plan d’action signé ou validé, preuves des mesures existantes, preuves des formations, preuves des contrôles périodiques, documents internes applicables, consignes ou procédures existantes, fiches de poste ou fiches d’instruction si utiles.',
+    nl:
+      'In alle analyses concreet aanbevelen: terreinbezoekverslag, foto’s van geobserveerde situaties, raadpleging van werknemers, advies CPBW indien van toepassing, ondertekend of gevalideerd actieplan, bewijzen van bestaande maatregelen, opleidingsbewijzen, bewijzen van periodieke controles, toepasselijke interne documenten, bestaande instructies of procedures, functiefiches of instructiefiches indien nuttig.',
+    en:
+      'In every assessment, give concrete recommendations for: site visit report, photos of observed situations, worker consultation, health and safety committee opinion if applicable, signed or validated action plan, evidence of existing measures, training evidence, periodic inspection evidence, applicable internal documents, existing instructions or procedures, job sheets or instruction sheets where useful.',
+    de:
+      'In allen Beurteilungen konkret empfehlen: Bericht der Vor-Ort-Begehung, Fotos der beobachteten Situationen, Konsultation der Beschäftigten, Stellungnahme des AGS falls zutreffend, unterzeichneter oder validierter Maßnahmenplan, Nachweise bestehender Maßnahmen, Schulungsnachweise, Nachweise periodischer Kontrollen, anwendbare interne Dokumente, bestehende Anweisungen oder Verfahren, Arbeitsplatz- oder Unterweisungsblätter falls nützlich.',
+  };
+  const normalized = normalizeDocumentType(documentType);
+  const specific = getRiskSpecificEvidence(normalized, language);
+
+  return `${common[language] || common.fr} ${specific}`;
+}
+
+function getRiskSpecificEvidence(normalizedDocumentType, language) {
+  const text = {
+    fire: {
+      fr: 'Incendie / évacuation : rapports de contrôle extincteurs, détection incendie, éclairage de secours, portes coupe-feu, plans d’évacuation, registre exercices, liste équipiers de première intervention, registre formations incendie, permis de feu, rapport ventilation, analyse ATEX si applicable, plan d’accès pompiers, inventaire produits dangereux et FDS.',
+      nl: 'Brand / evacuatie: keuringsverslagen brandblussers, branddetectie, noodverlichting, branddeuren, evacuatieplannen, register oefeningen, lijst eerste interventieploeg, register brandopleidingen, vuurvergunning, ventilatieverslag, ATEX-analyse indien van toepassing, toegangsplan brandweer, inventaris gevaarlijke producten en VIB.',
+      en: 'Fire / evacuation: inspection reports for extinguishers, fire detection, emergency lighting, fire doors, evacuation plans, evacuation drill register, first intervention team list, fire training register, hot-work permit, ventilation report, ATEX analysis if applicable, firefighter access plan, hazardous products inventory and SDS.',
+      de: 'Brand / Evakuierung: Prüfberichte Feuerlöscher, Branddetektion, Sicherheitsbeleuchtung, Brandschutztüren, Evakuierungspläne, Übungsregister, Liste der Erstinterventionsteams, Brandschutzschulungsregister, Heißarbeitsgenehmigung, Lüftungsbericht, ATEX-Analyse falls zutreffend, Feuerwehrzugangsplan, Inventar gefährlicher Produkte und SDB.',
+    },
+    chemicals: {
+      fr: 'Produits chimiques : inventaire produits chimiques, FDS, étiquetage CLP, plan de stockage, tableau d’incompatibilité, rapports ventilation, mesures d’exposition si disponibles, avis médecin du travail, consignes de manipulation, registre déchets dangereux et preuves de formation.',
+      nl: 'Chemische producten: inventaris chemische producten, VIB, CLP-etikettering, opslagplan, incompatibiliteitstabel, ventilatieverslagen, blootstellingsmetingen indien beschikbaar, advies arbeidsarts, hanteringsinstructies, register gevaarlijk afval en opleidingsbewijzen.',
+      en: 'Chemicals: chemical inventory, SDS, CLP labelling, storage plan, incompatibility table, ventilation reports, exposure measurement results if available, occupational physician opinion, handling instructions, hazardous waste register and training evidence.',
+      de: 'Chemische Produkte: Chemikalieninventar, SDB, CLP-Kennzeichnung, Lagerplan, Unverträglichkeitstabelle, Lüftungsberichte, Expositionsmessungen falls verfügbar, Stellungnahme des Arbeitsmediziners, Handhabungsanweisungen, Gefahrstoffabfallregister und Schulungsnachweise.',
+    },
+    machines: {
+      fr: 'Machines : notices machines, certificats CE si disponibles, rapports de contrôle, registre maintenance, procédure de consignation, autorisations opérateurs, fiches d’instruction, preuves de formation, rapports incidents ou presque accidents.',
+      nl: 'Machines: machinehandleidingen, CE-certificaten indien beschikbaar, keuringsverslagen, onderhoudsregister, lockout/tagout-procedure, operatorautorisaties, instructiefiches, opleidingsbewijzen, incident- of bijna-ongevalrapporten.',
+      en: 'Machines: machine manuals, CE certificates if available, inspection reports, maintenance register, lockout procedure, operator authorisations, instruction sheets, training evidence, incident or near-miss reports.',
+      de: 'Maschinen: Maschinenanleitungen, CE-Zertifikate falls verfügbar, Prüfberichte, Wartungsregister, Lockout/Tagout-Verfahren, Bedienerfreigaben, Unterweisungsblätter, Schulungsnachweise, Vorfall- oder Beinaheunfallberichte.',
+    },
+    height: {
+      fr: 'Travail en hauteur : plan de prévention, autorisations, contrôle échafaudage, nacelle ou équipement, notices équipements, registre harnais si utilisé, plan de secours, formation travail en hauteur, analyse météo si pertinente.',
+      nl: 'Werken op hoogte: preventieplan, toelatingen, controle van steiger, hoogwerker of uitrusting, handleidingen, harnasregister indien gebruikt, reddingsplan, opleiding werken op hoogte, weeranalyse indien relevant.',
+      en: 'Work at height: prevention plan, authorisations, scaffold, MEWP or equipment inspection, equipment manuals, harness register if used, rescue plan, work-at-height training, weather assessment if relevant.',
+      de: 'Arbeiten in der Höhe: Präventionsplan, Genehmigungen, Prüfung von Gerüst, Hubarbeitsbühne oder Ausrüstung, Ausrüstungsanleitungen, Gurtregister falls verwendet, Rettungsplan, Schulung Arbeiten in der Höhe, Wetterbewertung falls relevant.',
+    },
+    ergonomics: {
+      fr: 'Ergonomie / manutention : observations poste, photos postures, données poids/fréquence, fiche de poste, avis médecin du travail ou ergonome, rapport TMS si disponible, inventaire aides mécaniques, consultation travailleurs.',
+      nl: 'Ergonomie / manueel hanteren: werkpostobservaties, foto’s van houdingen, gegevens gewicht/frequentie, functiefiche, advies arbeidsarts of ergonoom, MSA-rapport indien beschikbaar, inventaris mechanische hulpmiddelen, raadpleging werknemers.',
+      en: 'Ergonomics / manual handling: workstation observations, posture photos, weight/frequency data, job sheet, occupational physician or ergonomist opinion, MSD report if available, mechanical aids inventory, worker consultation.',
+      de: 'Ergonomie / manuelle Handhabung: Arbeitsplatzbeobachtungen, Fotos von Körperhaltungen, Gewichts-/Häufigkeitsdaten, Arbeitsplatzblatt, Stellungnahme Arbeitsmediziner oder Ergonom, MSE-Bericht falls verfügbar, Inventar mechanischer Hilfen, Konsultation der Beschäftigten.',
+    },
+    lone: {
+      fr: 'Travail isolé : procédure travail isolé, moyens d’alerte, registre rondes ou contacts, procédure secours, évaluation horaires, preuve de test du dispositif d’alarme.',
+      nl: 'Alleenwerk: procedure alleenwerk, alarmmiddelen, register rondes of contacten, noodprocedure, evaluatie uurroosters, bewijs van alarmtest.',
+      en: 'Lone work: lone work procedure, alert means, rounds or contact register, rescue procedure, schedule assessment, alarm device test evidence.',
+      de: 'Alleinarbeit: Alleinarbeitsverfahren, Alarmmittel, Rundgangs- oder Kontaktregister, Rettungsverfahren, Bewertung der Arbeitszeiten, Nachweis des Alarmgerätetests.',
+    },
+    psychosocial: {
+      fr: 'Psychosocial : données anonymisées, consultation collective, indicateurs RH agrégés, procédure interne risques psychosociaux, coordonnées personne de confiance, avis conseiller aspects psychosociaux. Ne jamais demander ni afficher de données personnelles sensibles non nécessaires.',
+      nl: 'Psychosociaal: geanonimiseerde gegevens, collectieve raadpleging, geaggregeerde HR-indicatoren, interne procedure psychosociale risico’s, gegevens vertrouwenspersoon, advies preventieadviseur psychosociale aspecten. Vraag of toon nooit onnodige gevoelige persoonsgegevens.',
+      en: 'Psychosocial: anonymised data, collective consultation, aggregated HR indicators, internal psychosocial risks procedure, trusted person contact details, psychosocial prevention advisor opinion. Never request or display unnecessary sensitive personal data.',
+      de: 'Psychosozial: anonymisierte Daten, kollektive Konsultation, aggregierte HR-Indikatoren, internes Verfahren psychosoziale Risiken, Kontaktdaten Vertrauensperson, Stellungnahme des Präventionsberaters für psychosoziale Aspekte. Niemals unnötige sensible personenbezogene Daten verlangen oder anzeigen.',
+    },
+    vulnerable: {
+      fr: 'Maternité / jeunes / intérimaires : fiche de poste, avis médecin du travail si nécessaire, accueil sécurité, preuve formation, consignes adaptées, restrictions ou adaptations validées, supervision prévue, respect de la confidentialité médicale.',
+      nl: 'Moederschap / jongeren / uitzendkrachten: functiefiche, advies arbeidsarts indien nodig, veiligheidsintroductie, opleidingsbewijs, aangepaste instructies, gevalideerde beperkingen of aanpassingen, voorziene supervisie, respect voor medische vertrouwelijkheid.',
+      en: 'Maternity / young workers / temporary workers: job sheet, occupational physician opinion if needed, safety induction, training evidence, adapted instructions, validated restrictions or adjustments, planned supervision, respect for medical confidentiality.',
+      de: 'Mutterschutz / Jugendliche / Leiharbeitnehmer: Arbeitsplatzblatt, Stellungnahme des Arbeitsmediziners falls nötig, Sicherheitsunterweisung, Schulungsnachweis, angepasste Anweisungen, validierte Einschränkungen oder Anpassungen, vorgesehene Aufsicht, Wahrung der medizinischen Vertraulichkeit.',
+    },
+  };
+  const key = normalizedDocumentType.includes('incendie')
+    ? 'fire'
+    : normalizedDocumentType.includes('produits chimiques')
+      ? 'chemicals'
+      : normalizedDocumentType.includes('machines')
+        ? 'machines'
+        : normalizedDocumentType.includes('hauteur')
+          ? 'height'
+          : normalizedDocumentType.includes('ergonomie') || normalizedDocumentType.includes('manutention')
+            ? 'ergonomics'
+            : normalizedDocumentType.includes('travail isole')
+              ? 'lone'
+              : normalizedDocumentType.includes('psychosociaux')
+                ? 'psychosocial'
+                : normalizedDocumentType.includes('maternite') || normalizedDocumentType.includes('jeunes travailleurs') || normalizedDocumentType.includes('interimaires')
+                  ? 'vulnerable'
+                  : null;
+
+  return key ? text[key][language] || text[key].fr : '';
+}
+
+function buildRiskPhotoInstruction(documentType, language) {
+  const common = {
+    fr:
+      'Pour chaque risque important, recommander au minimum : photo générale de la zone, photo du danger, photo de la mesure existante, photo de la non-conformité si elle existe, photo après correction si une action est réalisée. Toujours indiquer où placer la photo : sous le risque concerné, dans l’annexe photos, dans le plan d’action comme preuve de correction et dans la section preuves des mesures existantes.',
+    nl:
+      'Voor elk belangrijk risico minimaal aanbevelen: algemene foto van de zone, foto van het gevaar, foto van de bestaande maatregel, foto van de non-conformiteit indien aanwezig, foto na correctie indien een actie is uitgevoerd. Altijd aangeven waar de foto te plaatsen: onder het betrokken risico, in de fotobijlage, in het actieplan als bewijs van correctie en in de sectie bewijzen van bestaande maatregelen.',
+    en:
+      'For each significant risk, recommend at least: general photo of the area, photo of the hazard, photo of the existing measure, photo of the non-conformity if any, photo after correction if an action is completed. Always state where to place the photo: under the related risk, in the photo appendix, in the action plan as correction evidence and in the existing-measures evidence section.',
+    de:
+      'Für jedes wesentliche Risiko mindestens empfehlen: Übersichtsbild des Bereichs, Foto der Gefährdung, Foto der bestehenden Maßnahme, Foto der Nichtkonformität falls vorhanden, Foto nach Korrektur falls eine Maßnahme umgesetzt wurde. Immer angeben, wo das Foto einzufügen ist: unter dem betreffenden Risiko, im Fotoanhang, im Maßnahmenplan als Korrekturbeleg und im Abschnitt Nachweise bestehender Maßnahmen.',
+  };
+  const normalized = normalizeDocumentType(documentType);
+  const specific = getRiskSpecificPhotos(normalized, language);
+
+  return `${common[language] || common.fr} ${specific}`;
+}
+
+function getRiskSpecificPhotos(normalizedDocumentType, language) {
+  const text = {
+    fire: {
+      fr: 'Incendie : local produits inflammables, armoire de sécurité, racks aérosols, local et chargeurs batteries, ventilation, extincteurs, dévidoirs, détection, éclairage de secours, portes coupe-feu, issues, signalisation, accès pompiers, point de rassemblement, déchets, palettes/cartons/films plastiques, plans affichés, obstacle ou non-conformité, photo après correction.',
+      nl: 'Brand: lokaal ontvlambare producten, veiligheidskast, aerosolrekken, batterijlokaal en laders, ventilatie, brandblussers, haspels, detectie, noodverlichting, branddeuren, nooduitgangen, signalisatie, toegang brandweer, verzamelplaats, afvalzone, paletten/karton/plastic folie, uitgehangen plannen, obstakel of non-conformiteit, foto na correctie.',
+      en: 'Fire: flammable products room, safety cabinet, aerosol racks, battery room and chargers, ventilation, extinguishers, hose reels, detection, emergency lighting, fire doors, exits, signage, firefighter access, assembly point, waste area, pallets/cardboard/plastic film, displayed plans, obstacle or non-conformity, photo after correction.',
+      de: 'Brand: Lager für entzündliche Produkte, Sicherheitsschrank, Aerosolregale, Batterieraum und Ladegeräte, Lüftung, Feuerlöscher, Wandhydranten, Detektion, Sicherheitsbeleuchtung, Brandschutztüren, Ausgänge, Beschilderung, Feuerwehrzugang, Sammelstelle, Abfallbereich, Paletten/Karton/Kunststofffolie, ausgehängte Pläne, Hindernis oder Nichtkonformität, Foto nach Korrektur.',
+    },
+    chemicals: {
+      fr: 'Produits chimiques : étiquettes CLP, stockage, rétention, produits incompatibles, ventilation, douche oculaire, kit anti-déversement, EPI, déchets dangereux, FDS accessibles.',
+      nl: 'Chemische producten: CLP-etiketten, opslag, lekbakken, incompatibele producten, ventilatie, oogdouche, morskit, PBM, gevaarlijk afval, toegankelijke VIB.',
+      en: 'Chemicals: CLP labels, storage, retention, incompatible products, ventilation, eyewash, spill kit, PPE, hazardous waste, accessible SDS.',
+      de: 'Chemische Produkte: CLP-Etiketten, Lagerung, Auffangwannen, unverträgliche Produkte, Lüftung, Augendusche, Leckage-Set, PSA, gefährliche Abfälle, zugängliche SDB.',
+    },
+    machines: {
+      fr: 'Machines : machine complète, zone opérateur, protections, arrêt d’urgence, zone dangereuse, maintenance, consignation, plaque signalétique, signalisation, poste de travail.',
+      nl: 'Machines: volledige machine, operatorzone, afschermingen, noodstop, gevarenzone, onderhoud, lockout/tagout, typeplaatje, signalisatie, werkpost.',
+      en: 'Machines: complete machine, operator area, guards, emergency stop, danger zone, maintenance, lockout, nameplate, signage, workstation.',
+      de: 'Maschinen: vollständige Maschine, Bedienbereich, Schutzvorrichtungen, Not-Aus, Gefahrenbereich, Wartung, Lockout/Tagout, Typenschild, Beschilderung, Arbeitsplatz.',
+    },
+    height: {
+      fr: 'Travail en hauteur : accès, garde-corps, plateforme, échelle, ancrage, harnais si utilisé, zone au sol, balisage, météo ou obstacles.',
+      nl: 'Werken op hoogte: toegang, leuningen, platform, ladder, ankerpunt, harnas indien gebruikt, zone op de grond, afbakening, weer of obstakels.',
+      en: 'Work at height: access, guardrails, platform, ladder, anchor point, harness if used, ground area, demarcation, weather or obstacles.',
+      de: 'Arbeiten in der Höhe: Zugang, Geländer, Plattform, Leiter, Anschlagpunkt, Gurt falls verwendet, Bodenbereich, Absperrung, Wetter oder Hindernisse.',
+    },
+    ergonomics: {
+      fr: 'Ergonomie : posture réelle, hauteur de travail, charge manipulée, distance de port, zone de stockage, aide mécanique, espace disponible, répétitivité si observable.',
+      nl: 'Ergonomie: werkelijke houding, werkhoogte, gehanteerde last, draagafstand, opslagzone, mechanisch hulpmiddel, beschikbare ruimte, repetitiviteit indien zichtbaar.',
+      en: 'Ergonomics: actual posture, working height, handled load, carrying distance, storage area, mechanical aid, available space, repetitiveness if observable.',
+      de: 'Ergonomie: tatsächliche Körperhaltung, Arbeitshöhe, gehandhabte Last, Tragedistanz, Lagerbereich, mechanische Hilfe, verfügbarer Raum, Wiederholung falls beobachtbar.',
+    },
+    lone: {
+      fr: 'Travail isolé : zone isolée, moyen d’alerte, accès secours, signalisation, zone sans visibilité, point de contact.',
+      nl: 'Alleenwerk: geïsoleerde zone, alarmmiddel, toegang hulpdiensten, signalisatie, zone zonder zichtbaarheid, contactpunt.',
+      en: 'Lone work: isolated area, alert means, rescue access, signage, area without visibility, contact point.',
+      de: 'Alleinarbeit: isolierter Bereich, Alarmmittel, Rettungszugang, Beschilderung, Bereich ohne Sichtkontakt, Kontaktpunkt.',
+    },
+    psychosocial: {
+      fr: 'Psychosocial : ne pas demander de photos de personnes ou de situations identifiantes ; privilégier documents anonymisés, procédures, organigramme, planning et indicateurs collectifs.',
+      nl: 'Psychosociaal: vraag geen foto’s van personen of identificeerbare situaties; geef voorrang aan geanonimiseerde documenten, procedures, organigram, planning en collectieve indicatoren.',
+      en: 'Psychosocial: do not request photos of people or identifiable situations; prefer anonymised documents, procedures, organisation chart, schedules and collective indicators.',
+      de: 'Psychosozial: keine Fotos von Personen oder identifizierbaren Situationen verlangen; anonymisierte Dokumente, Verfahren, Organigramm, Planung und kollektive Indikatoren bevorzugen.',
+    },
+  };
+  const key = normalizedDocumentType.includes('incendie')
+    ? 'fire'
+    : normalizedDocumentType.includes('produits chimiques')
+      ? 'chemicals'
+      : normalizedDocumentType.includes('machines')
+        ? 'machines'
+        : normalizedDocumentType.includes('hauteur')
+          ? 'height'
+          : normalizedDocumentType.includes('ergonomie') || normalizedDocumentType.includes('manutention')
+            ? 'ergonomics'
+            : normalizedDocumentType.includes('travail isole')
+              ? 'lone'
+              : normalizedDocumentType.includes('psychosociaux')
+                ? 'psychosocial'
+                : null;
+
+  return key ? text[key][language] || text[key].fr : '';
 }
 
 function buildActionTypeInstruction(language) {
