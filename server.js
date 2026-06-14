@@ -26,21 +26,24 @@ const LANGUAGE_CONFIGS = {
       'Identification du document',
       'Contexte et objectif',
       'Références réglementaires belges applicables',
+      'Abréviations et termes utilisés',
       'Périmètre de l’analyse',
       'Sources d’information utilisées ou à obtenir',
-      'Hypothèses et limites',
+      'Hypothèses, limites et points bloquants',
       'Description des postes, tâches et travailleurs exposés',
-      'Méthode de cotation utilisée',
+      'Plan photos à réaliser et à insérer dans le document',
       'Identification détaillée des dangers',
+      'Méthode de cotation',
       'Tableau principal d’analyse des risques',
+      'Hiérarchie des mesures de prévention',
       'Analyse des risques résiduels',
       'Priorités d’action',
       'Projet de plan d’action',
-      'Lien avec le Plan Global de Prévention et le Plan Annuel d’Action',
+      'Lien avec le Plan Annuel d’Action et le Plan Global de Prévention',
       'Documents à créer ou mettre à jour',
+      'Pièces jointes et annexes obligatoires ou recommandées',
       'Acteurs à consulter ou à impliquer',
-      'Annexes nécessaires',
-      'Guide pratique pour le conseiller en prévention',
+      'Encarts pédagogiques à intégrer',
       'Validabilité de l’analyse et conditions avant validation',
       'Évaluation de complétude de l’analyse',
       'Conclusion',
@@ -53,15 +56,15 @@ const LANGUAGE_CONFIGS = {
       critical: 'Critique',
     },
     riskTableColumns:
-      'N° | Activité ou tâche | Danger | Risque | Personnes exposées | Mesures existantes | Preuves existantes | Gravité | Justification gravité | Probabilité | Justification probabilité | Exposition | Justification exposition | Éléments observés ou déclarés | Éléments à confirmer | Score initial | Niveau initial | Mesures complémentaires | Niveau STOP | Score résiduel provisoire | Niveau résiduel | Responsable | Échéance | Contrôle / preuve attendue | Priorité',
+      'N° | Activité ou tâche | Danger | Situation dangereuse ou scénario | Risque ou dommage possible | Personnes exposées | Mesures existantes | Preuves existantes | Gravité | Justification gravité | Probabilité | Justification probabilité | Exposition | Justification exposition | Éléments observés ou déclarés | Éléments à confirmer | Score initial | Niveau initial | Mesures complémentaires proposées | Niveau de mesure selon la hiérarchie STOP | Responsable | Échéance | Score résiduel provisoire | Niveau résiduel | Justification du score résiduel | Contrôle ou preuve attendue | Photo à insérer | Annexe à joindre | Priorité | Point bloquant oui/non',
     residualTableColumns:
-      'Risque principal | Score initial | Score résiduel provisoire | Condition de réduction | Preuve nécessaire | Statut',
+      'Risque principal | Score initial | Score résiduel provisoire | Condition de réduction | Preuve nécessaire | Statut | Point bloquant oui/non',
     actionTableColumns:
-      'N° | Type d’action | Risque ou point concerné | Mesure proposée | Objectif | Responsable | Échéance | Preuve attendue | Priorité | Statut',
+      'N° | Type d’action | Risque ou point concerné | Mesure proposée | Objectif | Responsable | Échéance | Preuve attendue | Priorité | Statut | Point bloquant oui/non',
     hazardTableColumns:
-      'Danger | Scénario plausible | Zone ou tâche concernée | Personnes exposées | Facteurs aggravants | Mesures existantes connues | Preuves à vérifier | Ce que le conseiller doit faire | Où documenter la preuve | Points bloquants avant validation',
+      'Famille de danger | Danger précis | Scénario plausible | Zone ou tâche concernée | Personnes exposées | Facteurs aggravants | Mesures existantes connues | Preuves à vérifier | Ce que le conseiller doit faire | Où documenter la preuve | Points bloquants avant validation | Photos à prendre',
     completenessTableColumns:
-      'Élément évalué | Statut | Commentaire | Action nécessaire | Priorité',
+      'Élément évalué | Statut | Commentaire | Action nécessaire | Priorité | Point bloquant oui/non',
     documentStatuses:
       'Projet préparatoire; Analyse partielle; Analyse exploitable sous réserve; Analyse validable après compléments; Non validable en l’état',
     completenessStatuses:
@@ -81,7 +84,7 @@ const LANGUAGE_CONFIGS = {
     gdprReminder:
       'Limiter les données personnelles au strict nécessaire, éviter toute donnée médicale non indispensable et vérifier les règles RGPD applicables avant diffusion.',
     finalMention:
-      'Ce document est un projet à adapter à la situation réelle de l’entreprise et à valider par le conseiller en prévention, l’employeur et, le cas échéant, le service externe, le médecin du travail ou le CPPT. Il ne constitue pas à lui seul une preuve de conformité réglementaire.',
+      'Ce document est un projet d’aide à l’analyse de risques destiné à être adapté à la situation réelle de l’entreprise. Il doit être complété par les observations terrain, les pièces justificatives et les validations nécessaires. Il doit être validé par le conseiller en prévention, l’employeur et, le cas échéant, le service externe, le médecin du travail, le CPPT, un organisme agréé ou un expert compétent. Il ne constitue pas à lui seul une preuve de conformité réglementaire.',
   },
   nl: {
     code: 'nl',
@@ -91,21 +94,24 @@ const LANGUAGE_CONFIGS = {
       'Identificatie van het document',
       'Context en doelstelling',
       'Toepasselijke Belgische regelgevende referenties',
+      'Afkortingen en gebruikte termen',
       'Afbakening van de analyse',
       'Gebruikte of nog te verkrijgen informatiebronnen',
-      'Hypothesen en beperkingen',
+      'Hypothesen, beperkingen en blokkerende punten',
       'Beschrijving van functies, taken en blootgestelde werknemers',
-      'Gebruikte beoordelingsmethode',
+      'Fotoplan dat moet worden uitgevoerd en in het document moet worden opgenomen',
       'Gedetailleerde identificatie van de gevaren',
+      'Gebruikte beoordelingsmethode',
       'Hoofdtabel van de risicoanalyse',
+      'Hiërarchie van preventiemaatregelen',
       'Analyse van de restrisico’s',
       'Prioritaire acties',
       'Ontwerpactieplan',
-      'Verband met het Globaal Preventieplan en het Jaaractieplan',
+      'Verband met het Jaaractieplan en het Globaal Preventieplan',
       'Documenten die moeten worden opgesteld of bijgewerkt',
+      'Verplichte of aanbevolen bijlagen',
       'Te raadplegen of te betrekken actoren',
-      'Noodzakelijke bijlagen',
-      'Praktische gids voor de preventieadviseur',
+      'Pedagogische kaders om op te nemen',
       'Valideerbaarheid van de analyse en voorwaarden vóór validatie',
       'Beoordeling van de volledigheid van de analyse',
       'Conclusie',
@@ -118,15 +124,15 @@ const LANGUAGE_CONFIGS = {
       critical: 'Kritiek',
     },
     riskTableColumns:
-      'Nr. | Activiteit of taak | Gevaar | Risico | Blootgestelde personen | Bestaande maatregelen | Bestaande bewijzen | Ernst | Motivering ernst | Waarschijnlijkheid | Motivering waarschijnlijkheid | Blootstelling | Motivering blootstelling | Vastgestelde of verklaarde elementen | Te bevestigen elementen | Initiële score | Initieel niveau | Aanvullende maatregelen | STOP-niveau | Voorlopige restrisicoscore | Restrisiconiveau | Verantwoordelijke | Termijn | Controle / verwacht bewijs | Prioriteit',
+      'Nr. | Activiteit of taak | Gevaar | Gevaarlijke situatie of scenario | Mogelijk risico of schade | Blootgestelde personen | Bestaande maatregelen | Bestaande bewijzen | Ernst | Motivering ernst | Waarschijnlijkheid | Motivering waarschijnlijkheid | Blootstelling | Motivering blootstelling | Vastgestelde of verklaarde elementen | Te bevestigen elementen | Initiële score | Initieel niveau | Voorgestelde aanvullende maatregelen | Maatregelniveau volgens de STOP-hiërarchie | Verantwoordelijke | Termijn | Voorlopige restrisicoscore | Restrisiconiveau | Motivering van de restrisicoscore | Controle of verwacht bewijs | In te voegen foto | Toe te voegen bijlage | Prioriteit | Blokkerend punt ja/nee',
     residualTableColumns:
-      'Belangrijkste risico | Initiële score | Voorlopige restrisicoscore | Voorwaarde voor vermindering | Vereist bewijs | Status',
+      'Belangrijkste risico | Initiële score | Voorlopige restrisicoscore | Voorwaarde voor vermindering | Vereist bewijs | Status | Blokkerend punt ja/nee',
     actionTableColumns:
-      'Nr. | Type actie | Betrokken risico of punt | Voorgestelde maatregel | Doel | Verantwoordelijke | Termijn | Verwacht bewijs | Prioriteit | Status',
+      'Nr. | Type actie | Betrokken risico of punt | Voorgestelde maatregel | Doel | Verantwoordelijke | Termijn | Verwacht bewijs | Prioriteit | Status | Blokkerend punt ja/nee',
     hazardTableColumns:
-      'Gevaar | Waarschijnlijk scenario | Betrokken zone of taak | Blootgestelde personen | Verergerende factoren | Bekende bestaande maatregelen | Te controleren bewijzen | Wat de preventieadviseur moet doen | Waar het bewijs te documenteren | Blokkerende punten vóór validatie',
+      'Gevarenfamilie | Precies gevaar | Waarschijnlijk scenario | Betrokken zone of taak | Blootgestelde personen | Verergerende factoren | Bekende bestaande maatregelen | Te controleren bewijzen | Wat de preventieadviseur moet doen | Waar het bewijs te documenteren | Blokkerende punten vóór validatie | Te nemen foto’s',
     completenessTableColumns:
-      'Beoordeeld element | Status | Opmerking | Noodzakelijke actie | Prioriteit',
+      'Beoordeeld element | Status | Opmerking | Noodzakelijke actie | Prioriteit | Blokkerend punt ja/nee',
     documentStatuses:
       'Voorbereidend ontwerp; Gedeeltelijke analyse; Analyse bruikbaar onder voorbehoud; Analyse valideerbaar na aanvullingen; Niet valideerbaar in de huidige staat',
     completenessStatuses:
@@ -146,7 +152,7 @@ const LANGUAGE_CONFIGS = {
     gdprReminder:
       'Beperk persoonsgegevens tot wat strikt noodzakelijk is, vermijd niet-noodzakelijke medische gegevens en controleer de toepasselijke AVG-regels vóór verspreiding.',
     finalMention:
-      'Dit document is een ontwerp dat moet worden aangepast aan de werkelijke situatie van de onderneming en gevalideerd door de preventieadviseur, de werkgever en, indien van toepassing, de externe dienst, de arbeidsarts of het CPBW. Het vormt op zichzelf geen bewijs van reglementaire conformiteit.',
+      'Dit document is een ontwerphulpmiddel voor de risicoanalyse dat moet worden aangepast aan de werkelijke situatie van de onderneming. Het moet worden aangevuld met terreinobservaties, bewijsstukken en de noodzakelijke validaties. Het moet worden gevalideerd door de preventieadviseur, de werkgever en, indien van toepassing, de externe dienst, de arbeidsarts, het CPBW, een erkend organisme of een bevoegde expert. Het vormt op zichzelf geen bewijs van reglementaire conformiteit.',
   },
   en: {
     code: 'en',
@@ -156,21 +162,24 @@ const LANGUAGE_CONFIGS = {
       'Document identification',
       'Context and objective',
       'Applicable Belgian regulatory references',
+      'Abbreviations and terms used',
       'Scope of the assessment',
       'Information sources used or to be obtained',
-      'Assumptions and limitations',
+      'Assumptions, limitations and blocking points',
       'Description of jobs, tasks and exposed workers',
-      'Risk scoring method used',
+      'Photo plan to be taken and inserted into the document',
       'Detailed identification of hazards',
+      'Risk scoring method',
       'Main risk assessment table',
+      'Hierarchy of prevention measures',
       'Residual risk analysis',
       'Action priorities',
       'Draft action plan',
-      'Link with the Global Prevention Plan and the Annual Action Plan',
+      'Link with the Annual Action Plan and the Global Prevention Plan',
       'Documents to create or update',
+      'Mandatory or recommended attachments and annexes',
       'Actors to consult or involve',
-      'Required appendices',
-      'Practical guide for the prevention advisor',
+      'Educational inserts to include',
       'Validability of the assessment and conditions before validation',
       'Completeness assessment of the risk assessment',
       'Conclusion',
@@ -183,15 +192,15 @@ const LANGUAGE_CONFIGS = {
       critical: 'Critical',
     },
     riskTableColumns:
-      'No. | Activity or task | Hazard | Risk | Exposed persons | Existing measures | Existing evidence | Severity | Severity justification | Probability | Probability justification | Exposure | Exposure justification | Observed or declared elements | Elements to be confirmed | Initial score | Initial level | Additional measures | STOP level | Provisional residual score | Residual level | Responsible person | Deadline | Control / expected evidence | Priority',
+      'No. | Activity or task | Hazard | Dangerous situation or scenario | Possible risk or harm | Exposed persons | Existing measures | Existing evidence | Severity | Severity justification | Probability | Probability justification | Exposure | Exposure justification | Observed or declared elements | Elements to be confirmed | Initial score | Initial level | Proposed additional measures | Measure level according to the STOP hierarchy | Responsible person | Deadline | Provisional residual score | Residual level | Residual score justification | Control or expected evidence | Photo to insert | Annex to attach | Priority | Blocking point yes/no',
     residualTableColumns:
-      'Main risk | Initial score | Provisional residual score | Reduction condition | Required evidence | Status',
+      'Main risk | Initial score | Provisional residual score | Reduction condition | Required evidence | Status | Blocking point yes/no',
     actionTableColumns:
-      'No. | Action type | Related risk or point | Proposed measure | Objective | Responsible person | Deadline | Expected evidence | Priority | Status',
+      'No. | Action type | Related risk or point | Proposed measure | Objective | Responsible person | Deadline | Expected evidence | Priority | Status | Blocking point yes/no',
     hazardTableColumns:
-      'Hazard | Plausible scenario | Area or task concerned | Exposed persons | Aggravating factors | Known existing measures | Evidence to be checked | What the prevention advisor must do | Where to document the evidence | Blocking points before validation',
+      'Hazard family | Specific hazard | Plausible scenario | Area or task concerned | Exposed persons | Aggravating factors | Known existing measures | Evidence to be checked | What the prevention advisor must do | Where to document the evidence | Blocking points before validation | Photos to take',
     completenessTableColumns:
-      'Assessed element | Status | Comment | Required action | Priority',
+      'Assessed element | Status | Comment | Required action | Priority | Blocking point yes/no',
     documentStatuses:
       'Preparatory draft; Partial assessment; Assessment usable subject to reservations; Assessment validable after additional information; Not validable as it stands',
     completenessStatuses:
@@ -211,7 +220,7 @@ const LANGUAGE_CONFIGS = {
     gdprReminder:
       'Limit personal data to what is strictly necessary, avoid unnecessary medical data and check the applicable GDPR rules before distribution.',
     finalMention:
-      'This document is a draft that must be adapted to the actual situation of the organisation and validated by the prevention advisor, the employer and, where applicable, the external service, the occupational physician or the health and safety committee. It does not constitute proof of regulatory compliance on its own.',
+      'This document is a draft risk assessment support document intended to be adapted to the actual situation of the organisation. It must be completed with field observations, supporting evidence and the necessary validations. It must be validated by the prevention advisor, the employer and, where applicable, the external service, the occupational physician, the health and safety committee, an accredited body or a competent expert. It does not constitute proof of regulatory compliance on its own.',
   },
   de: {
     code: 'de',
@@ -221,21 +230,24 @@ const LANGUAGE_CONFIGS = {
       'Dokumentidentifikation',
       'Kontext und Zielsetzung',
       'Anwendbare belgische regulatorische Referenzen',
+      'Abkürzungen und verwendete Begriffe',
       'Umfang der Beurteilung',
       'Verwendete oder noch zu beschaffende Informationsquellen',
-      'Annahmen und Einschränkungen',
+      'Annahmen, Einschränkungen und blockierende Punkte',
       'Beschreibung der Arbeitsplätze, Tätigkeiten und exponierten Beschäftigten',
-      'Verwendete Bewertungsmethode',
+      'Fotoplan zur Erstellung und Einfügung in das Dokument',
       'Detaillierte Identifikation der Gefährdungen',
+      'Verwendete Bewertungsmethode',
       'Haupttabelle der Gefährdungsbeurteilung',
+      'Hierarchie der Präventionsmaßnahmen',
       'Analyse der Restrisiken',
       'Handlungsprioritäten',
       'Entwurf des Maßnahmenplans',
-      'Verbindung mit dem Globalen Präventionsplan und dem Jährlichen Aktionsplan',
+      'Verbindung mit dem Jährlichen Aktionsplan und dem Globalen Präventionsplan',
       'Zu erstellende oder zu aktualisierende Dokumente',
+      'Verpflichtende oder empfohlene Anlagen und Anhänge',
       'Zu konsultierende oder einzubeziehende Akteure',
-      'Erforderliche Anhänge',
-      'Praktischer Leitfaden für den Präventionsberater',
+      'Einzufügende pädagogische Hinweise',
       'Validierbarkeit der Beurteilung und Bedingungen vor der Validierung',
       'Bewertung der Vollständigkeit der Beurteilung',
       'Schlussfolgerung',
@@ -248,15 +260,15 @@ const LANGUAGE_CONFIGS = {
       critical: 'Kritisch',
     },
     riskTableColumns:
-      'Nr. | Tätigkeit oder Aufgabe | Gefährdung | Risiko | Exponierte Personen | Bestehende Maßnahmen | Bestehende Nachweise | Schwere | Begründung der Schwere | Wahrscheinlichkeit | Begründung der Wahrscheinlichkeit | Exposition | Begründung der Exposition | Beobachtete oder angegebene Elemente | Zu bestätigende Elemente | Ausgangsbewertung | Ausgangsniveau | Zusätzliche Maßnahmen | STOP-Ebene | Vorläufige Restrisikobewertung | Restrisikoniveau | Verantwortliche Person | Frist | Kontrolle / erwarteter Nachweis | Priorität',
+      'Nr. | Tätigkeit oder Aufgabe | Gefährdung | Gefährliche Situation oder Szenario | Mögliches Risiko oder möglicher Schaden | Exponierte Personen | Bestehende Maßnahmen | Bestehende Nachweise | Schwere | Begründung der Schwere | Wahrscheinlichkeit | Begründung der Wahrscheinlichkeit | Exposition | Begründung der Exposition | Beobachtete oder angegebene Elemente | Zu bestätigende Elemente | Ausgangsbewertung | Ausgangsniveau | Vorgeschlagene zusätzliche Maßnahmen | Maßnahmenebene nach der STOP-Hierarchie | Verantwortliche Person | Frist | Vorläufige Restrisikobewertung | Restrisikoniveau | Begründung der Restrisikobewertung | Kontrolle oder erwarteter Nachweis | Einzufügendes Foto | Beizufügender Anhang | Priorität | Blockierender Punkt ja/nein',
     residualTableColumns:
-      'Hauptrisiko | Ausgangsbewertung | Vorläufige Restrisikobewertung | Bedingung für die Reduzierung | Erforderlicher Nachweis | Status',
+      'Hauptrisiko | Ausgangsbewertung | Vorläufige Restrisikobewertung | Bedingung für die Reduzierung | Erforderlicher Nachweis | Status | Blockierender Punkt ja/nein',
     actionTableColumns:
-      'Nr. | Maßnahmentyp | Betroffenes Risiko oder Punkt | Vorgeschlagene Maßnahme | Ziel | Verantwortliche Person | Frist | Erwarteter Nachweis | Priorität | Status',
+      'Nr. | Maßnahmentyp | Betroffenes Risiko oder Punkt | Vorgeschlagene Maßnahme | Ziel | Verantwortliche Person | Frist | Erwarteter Nachweis | Priorität | Status | Blockierender Punkt ja/nein',
     hazardTableColumns:
-      'Gefährdung | Plausibles Szenario | Betroffener Bereich oder Aufgabe | Exponierte Personen | Erschwerende Faktoren | Bekannte bestehende Maßnahmen | Zu prüfende Nachweise | Was der Präventionsberater tun muss | Wo der Nachweis zu dokumentieren ist | Blockierende Punkte vor Validierung',
+      'Gefährdungsfamilie | Genaue Gefährdung | Plausibles Szenario | Betroffener Bereich oder Aufgabe | Exponierte Personen | Erschwerende Faktoren | Bekannte bestehende Maßnahmen | Zu prüfende Nachweise | Was der Präventionsberater tun muss | Wo der Nachweis zu dokumentieren ist | Blockierende Punkte vor Validierung | Zu machende Fotos',
     completenessTableColumns:
-      'Bewertetes Element | Status | Kommentar | Erforderliche Maßnahme | Priorität',
+      'Bewertetes Element | Status | Kommentar | Erforderliche Maßnahme | Priorität | Blockierender Punkt ja/nein',
     documentStatuses:
       'Vorbereitender Entwurf; Teilweise Beurteilung; Beurteilung unter Vorbehalt nutzbar; Beurteilung nach Ergänzungen validierbar; In der vorliegenden Form nicht validierbar',
     completenessStatuses:
@@ -276,7 +288,7 @@ const LANGUAGE_CONFIGS = {
     gdprReminder:
       'Beschränken Sie personenbezogene Daten auf das unbedingt Erforderliche, vermeiden Sie nicht notwendige medizinische Daten und prüfen Sie vor der Weitergabe die anwendbaren DSGVO-Regeln.',
     finalMention:
-      'Dieses Dokument ist ein Entwurf, der an die tatsächliche Situation des Unternehmens angepasst und vom Präventionsberater, dem Arbeitgeber sowie gegebenenfalls vom externen Dienst, dem Arbeitsmediziner oder dem Ausschuss für Gefahrenverhütung und Schutz am Arbeitsplatz validiert werden muss. Es stellt für sich allein keinen Nachweis der regulatorischen Konformität dar.',
+      'Dieses Dokument ist ein Entwurf zur Unterstützung der Gefährdungsbeurteilung und muss an die tatsächliche Situation des Unternehmens angepasst werden. Es muss durch Vor-Ort-Beobachtungen, Nachweise und die erforderlichen Validierungen ergänzt werden. Es muss vom Präventionsberater, vom Arbeitgeber sowie gegebenenfalls vom externen Dienst, vom Arbeitsmediziner, vom Ausschuss für Gefahrenverhütung und Schutz am Arbeitsplatz, von einer zugelassenen Stelle oder von einem zuständigen Experten validiert werden. Es stellt für sich allein keinen Nachweis der regulatorischen Konformität dar.',
   },
 };
 
@@ -314,41 +326,50 @@ Structure obligatoire par défaut pour une analyse de risques en français si au
 ## 1. Identification du document
 ## 2. Contexte et objectif
 ## 3. Références réglementaires belges applicables
-## 4. Périmètre de l’analyse
-## 5. Sources d’information utilisées ou à obtenir
-## 6. Hypothèses et limites
-## 7. Description des postes, tâches et travailleurs exposés
-## 8. Méthode de cotation utilisée
-## 9. Identification détaillée des dangers
-## 10. Tableau principal d’analyse des risques
-## 11. Analyse des risques résiduels
-## 12. Priorités d’action
-## 13. Projet de plan d’action
-## 14. Lien avec le Plan Global de Prévention et le Plan Annuel d’Action
-## 15. Documents à créer ou mettre à jour
-## 16. Acteurs à consulter ou à impliquer
-## 17. Annexes nécessaires
-## 18. Validabilité de l’analyse et conditions avant validation
-## 19. Évaluation de complétude de l’analyse
-## 20. Conclusion
-## 21. Mention finale obligatoire
+## 4. Abréviations et termes utilisés
+## 5. Périmètre de l’analyse
+## 6. Sources d’information utilisées ou à obtenir
+## 7. Hypothèses, limites et points bloquants
+## 8. Description des postes, tâches et travailleurs exposés
+## 9. Plan photos à réaliser et à insérer dans le document
+## 10. Identification détaillée des dangers
+## 11. Méthode de cotation
+## 12. Tableau principal d’analyse des risques
+## 13. Hiérarchie des mesures de prévention
+## 14. Analyse des risques résiduels
+## 15. Priorités d’action
+## 16. Projet de plan d’action
+## 17. Lien avec le Plan Annuel d’Action et le Plan Global de Prévention
+## 18. Documents à créer ou mettre à jour
+## 19. Pièces jointes et annexes obligatoires ou recommandées
+## 20. Acteurs à consulter ou à impliquer
+## 21. Encarts pédagogiques à intégrer
+## 22. Validabilité de l’analyse et conditions avant validation
+## 23. Évaluation de complétude de l’analyse
+## 24. Conclusion
+## 25. Mention finale obligatoire
 
 Contraintes de sortie :
-- Section 3 : tableau Markdown de maximum 8 références avec colonnes équivalentes à "Référence ou domaine réglementaire", "Pourquoi c’est applicable", "Conséquence pratique pour l’analyse ou les actions", dans la langue demandée.
-- Section 8 : expliquer la formule, les échelles, les seuils et l’interprétation de la cotation.
-- Section 9 : tableau Markdown ou liste structurée obligatoire avec danger, scénario plausible, zone ou tâche, personnes exposées, facteurs aggravants, mesures existantes connues, preuves à vérifier et points bloquants avant validation.
-- Section 10 : tableau principal Markdown de maximum 8 risques concrets. Chaque risque coté doit inclure score initial, niveau initial, niveau STOP, score résiduel provisoire, niveau résiduel et preuve attendue. Ne jamais déplacer ce tableau en section 11.
-- Section 11 : synthèse des risques résiduels uniquement, sans reprendre le tableau principal complet.
-- Section 12 : ne jamais laisser vide. Toujours produire au moins 4 priorités structurées avec Priorité 1 actions urgentes ou risques les plus élevés, Priorité 2 risques élevés ou moyens significatifs, Priorité 3 risques moyens, Priorité 4 amélioration continue. Chaque priorité contient explicitement : action, risque concerné, responsable, échéance et preuve attendue.
-- Section 13 : tableau Markdown de maximum 8 actions distinguant les actions de maîtrise du risque et les actions de validation de l’analyse.
-- Section 14 : expliquer uniquement le lien PGP/PAA, sans y placer le tableau complet du plan d’action.
-- Section 15 : toujours 5 à 8 documents concrets à créer ou mettre à jour, jamais une simple mention "Information à compléter ou à valider sur le terrain".
-- Sections 5, 7, 9, 15 et 16 doivent contenir du contenu exploitable, pas seulement un titre. Section 9 : toujours produire 6 à 8 dangers détaillés, concrets et contextualisés. Ne jamais afficher seulement "Information à compléter ou à valider sur le terrain." ni seulement "Dangers identifiés :". Pour un service technique communal, inclure si pertinent : manutention manuelle, machines/outillage électroportatif, produits chimiques, circulation véhicules/piétons, bruit, travail en hauteur, glissades/chutes de plain-pied, incendie, coactivité avec citoyens ou sous-traitants, conditions météo, travail isolé.
-- Section 18 : indiquer le statut du document, ce qui est déjà exploitable, ce qui manque pour validation, les points bloquants, les actions minimales avant validation, les acteurs devant valider et un avis clair sur la validabilité en l’état.
-- Section 19 : tableau obligatoire d’évaluation de complétude. Évaluer les éléments métier demandés par le prompt utilisateur avec un statut précis.
-- Section 20 : conclure clairement si le document est un projet ou une analyse exploitable sous réserve, s’il est complet, s’il peut alimenter le PGP/PAA, être présenté au CPPT, être utilisé en audit et quelles conditions minimales sont requises avant validation.
-- Par défaut en français, la section 21 doit contenir exactement cette mention, une seule fois :
-Ce document est un projet à adapter à la situation réelle de l’entreprise et à valider par le conseiller en prévention, l’employeur et, le cas échéant, le service externe, le médecin du travail ou le CPPT. Il ne constitue pas à lui seul une preuve de conformité réglementaire.`;
+- Section 3 : tableau Markdown avec colonnes équivalentes à "Référence ou domaine réglementaire", "Pourquoi c’est applicable", "Conséquence pratique", "Document ou preuve à prévoir", "Validation ou avis nécessaire", dans la langue demandée.
+- Section 4 : expliquer uniquement les abréviations et termes techniques réellement utilisés dans le document, dans la langue demandée.
+- Section 6 : tableau des sources, disponibilité, preuve attendue et classement.
+- Section 8 : tableau des postes, activités réelles, exposition, photos à prendre et documents à joindre.
+- Section 9 : plan photos obligatoire avec règles de confidentialité, photos générales/détail et avant/après.
+- Section 10 : tableau de 6 à 8 dangers concrets avec preuves, actions du conseiller, points bloquants et photos.
+- Section 11 : expliquer la formule, les échelles, les seuils et l’interprétation de la cotation.
+- Section 12 : tableau principal Markdown de 8 risques concrets avec cotation G x P x E, preuves, photos, annexes, score résiduel et point bloquant.
+- Section 13 : expliquer la hiérarchie STOP et les preuves de mise en œuvre.
+- Section 14 : synthèse des risques résiduels uniquement, sans reprendre le tableau principal complet.
+- Section 15 : au moins 4 priorités structurées avec responsables, échéances, preuves, photos ou annexes utiles.
+- Section 16 : tableau Markdown de 6 à 8 actions distinguant maîtrise du risque et validation de l’analyse.
+- Section 17 : expliquer les actions urgentes pour le PAA, les actions structurelles pour le PGP, les points CPPT et le suivi direction.
+- Sections 18, 19 et 20 : séparer clairement documents à créer, annexes/preuves et acteurs à consulter.
+- Section 21 : encarts pédagogiques courts, utiles et actionnables, jamais décoratifs.
+- Section 22 : validabilité, points exploitables, manques, points bloquants, documents/photos indispensables, avis nécessaires et appui requis pour le conseiller niveau 3.
+- Section 23 : tableau obligatoire d’évaluation de complétude.
+- Section 24 : conclusion avec risques principaux, actions urgentes, points bloquants, annexes manquantes, validations nécessaires, date de réévaluation recommandée et limites du projet.
+- Par défaut en français, la section 25 doit contenir exactement cette mention, une seule fois :
+Ce document est un projet d’aide à l’analyse de risques destiné à être adapté à la situation réelle de l’entreprise. Il doit être complété par les observations terrain, les pièces justificatives et les validations nécessaires. Il doit être validé par le conseiller en prévention, l’employeur et, le cas échéant, le service externe, le médecin du travail, le CPPT, un organisme agréé ou un expert compétent. Il ne constitue pas à lui seul une preuve de conformité réglementaire.`;
 
 const REQUIRED_FORM_FIELDS = [
   'secteurActivite',
@@ -1924,39 +1945,83 @@ function runRiskPromptQualityTests() {
     const config = LANGUAGE_CONFIGS[language];
     const prompt = buildUserPrompt(documentType, formData, language, config.label);
 
-    assert.match(prompt, new RegExp(escapeRegExp(`## 8. ${config.sections[7]}`)));
+    assert.match(prompt, new RegExp(escapeRegExp(`## 4. ${config.sections[3]}`)));
     assert.match(prompt, new RegExp(escapeRegExp(`## 9. ${config.sections[8]}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(`## 18. ${config.sections[17]}`)));
+    assert.match(prompt, new RegExp(escapeRegExp(`## 10. ${config.sections[9]}`)));
     assert.match(prompt, new RegExp(escapeRegExp(`## 19. ${config.sections[18]}`)));
     assert.match(prompt, new RegExp(escapeRegExp(`## 20. ${config.sections[19]}`)));
     assert.match(prompt, new RegExp(escapeRegExp(`## 21. ${config.sections[20]}`)));
     assert.match(prompt, new RegExp(escapeRegExp(`## 22. ${config.sections[21]}`)));
+    assert.match(prompt, new RegExp(escapeRegExp(`## 23. ${config.sections[22]}`)));
+    assert.match(prompt, new RegExp(escapeRegExp(`## 24. ${config.sections[23]}`)));
+    assert.match(prompt, new RegExp(escapeRegExp(`## 25. ${config.sections[24]}`)));
     assert.match(prompt, new RegExp(escapeRegExp(config.hazardTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(config.riskTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(config.residualTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(config.completenessTableColumns)));
     assert.match(prompt, new RegExp(escapeRegExp(config.actionTableColumns)));
+    assert.match(prompt, /Point bloquant oui\/non|Blokkerend punt ja\/nee|Blocking point yes\/no|Blockierender Punkt ja\/nein/);
+    assert.match(prompt, /Oui; Non; À déterminer|Ja; Nee; Te bepalen|Yes; No; To be determined|Ja; Nein; Zu bestimmen/);
+    assert.match(prompt, /number of blocking points/);
     assert.match(prompt, new RegExp(escapeRegExp(config.documentStatuses.split('; ')[0])));
     assert.match(prompt, new RegExp(escapeRegExp(config.provisionalScoreText)));
     assert.match(prompt, new RegExp(escapeRegExp(config.advisorHelpBlockTitle)));
     assert.match(prompt, new RegExp(escapeRegExp(config.advisorHelpBlockClose)));
-    assert.match(prompt, /Score =|Scoremethode|Risk scoring method used|Bewertungsmethode/);
+    assert.match(prompt, /Score =|Scoremethode|Risk scoring method|Bewertungsmethode/);
     assert.match(prompt, /\[À VÉRIFIER SUR LE TERRAIN\]|\[TO BE CHECKED ON SITE\]|\[TER PLAATSE TE CONTROLEREN\]|\[VOR ORT ZU PRÜFEN\]/);
     assert.match(prompt, /1-10/);
     assert.match(prompt, /61-125/);
-    assert.match(prompt, /provisional residual score|restrisico|Restrisiken|risque résiduel/);
+    assert.match(prompt, /provisional residual score|restrisico|Restrisiken|risques? résiduels?/i);
     assert.match(prompt, /STOP|stop/i);
-    assert.match(prompt, /guide pratique|Praktische gids|Practical guide|Praktischer Leitfaden/i);
+    assert.match(prompt, /Plan photos|Fotoplan|Photo plan/i);
+    assert.match(prompt, /Encarts pédagogiques|Pedagogische kaders|Educational inserts|pädagogische Hinweise/i);
     assert.match(prompt, /Documents à joindre|Toe te voegen documenten|Documents to attach|Beizufügende Dokumente/);
     assert.match(prompt, /Photos à ajouter|Toe te voegen foto’s|Photos to add|Hinzuzufügende Fotos/);
     assert.match(prompt, /Où placer les photos|Waar de foto’s te plaatsen|Where to place the photos|Wo die Fotos einzufügen sind/);
     assert.match(prompt, /rapport de visite terrain|terreinbezoekverslag|site visit report|Vor-Ort-Begehung/);
     assert.match(prompt, /photo générale|algemene foto|general photo|Übersichtsbild/);
-    assert.match(prompt, /section 10 contains the complete main table/);
-    assert.match(prompt, /section 11 is only a synthetic residual analysis/);
-    assert.match(prompt, /documents, actors and annexes are correctly separated/);
-    assert.match(prompt, /score justifications are present/);
+    assert.match(prompt, /It must contain only abbreviations and important technical terms actually used/);
+    assert.match(prompt, /write the full term followed by the abbreviation/);
+    assert.match(prompt, /Section 12 must be titled exactly/);
+    assert.match(prompt, /Section 14 must be a synthetic residual risk analysis/);
+    assert.match(prompt, /Keep documents to create\/update separate from annexes and supporting evidence/);
+    assert.match(prompt, /Score must equal Severity\/Gravity x Probability x Exposure/);
     assert.doesNotMatch(prompt, /all 18 sections/);
+  }
+
+  const requiredCases = [
+    [
+      'Analyse de risques incendie et évacuation',
+      'fr',
+      ['PAA', 'PGP', 'CPPT', 'FDS', 'EPI', 'ATEX', 'STOP'],
+    ],
+    [
+      'Analyse de risques ergonomie',
+      'fr',
+      ['TMS', 'EPI', 'CPPT', 'PAA', 'PGP'],
+    ],
+    [
+      'Analyse de risques produits chimiques',
+      'fr',
+      ['FDS', 'CLP', 'CMR', 'EPI', 'SEPP'],
+    ],
+    [
+      'Analyse de risques machines et équipements',
+      'fr',
+      ['Plan photos à réaliser et à insérer dans le document', 'arrêt d’urgence', 'protections'],
+    ],
+    ['Analyse de risques générale', 'en', ['Abbreviations and terms used', 'SDS/FDS', 'PPE/EPI']],
+    ['Analyse de risques générale', 'nl', ['Afkortingen en gebruikte termen', 'VIB/FDS', 'PBM/EPI']],
+    ['Analyse de risques générale', 'de', ['Abkürzungen und verwendete Begriffe', 'SDB/FDS', 'PSA/EPI']],
+  ];
+
+  for (const [documentType, language, expectedTerms] of requiredCases) {
+    const config = LANGUAGE_CONFIGS[language];
+    const prompt = buildUserPrompt(documentType, formData, language, config.label);
+
+    for (const term of expectedTerms) {
+      assert.match(prompt, new RegExp(escapeRegExp(term)));
+    }
   }
 }
 
@@ -1990,14 +2055,15 @@ function buildRiskUserPrompt(documentType, formData, language = 'fr', languageLa
   const riskScale = formatRiskScale(language);
   const completenessElements = buildCompletenessElements(language);
   const scoringMethodInstruction = buildRiskScoringMethodInstruction(language);
+  const abbreviationGlossaryInstruction = buildAbbreviationGlossaryInstruction(language);
   const businessBlockInstruction = buildBusinessBlockInstruction(language);
   const advisorHelpBlockInstruction = buildAdvisorHelpBlockInstruction(language);
   const actionTypeInstruction = buildActionTypeInstruction(language);
   const specializationInstruction = buildRiskSpecializationInstruction(documentType);
-  const practicalGuideInstruction = buildPracticalGuideInstruction(documentType, language);
-  const practicalGuideRowsInstruction = buildPracticalGuideRowsInstruction(documentType, language);
   const evidenceInstruction = buildRiskEvidenceInstruction(documentType, language);
   const photoInstruction = buildRiskPhotoInstruction(documentType, language);
+  const tableColumns = buildRiskSupportTableColumns(language);
+  const photoPlanInstruction = buildRiskPhotoPlanInstruction(documentType, language);
   const structure = [
     `# ${languageConfig.title}`,
     '',
@@ -2016,35 +2082,200 @@ Consignes opérationnelles :
 3. Respecte exactement cette structure de ${languageConfig.sections.length} sections, dans cet ordre, avec ces titres traduits :
 ${structure}
 4. The entire document must be written in the target language. Do not mix languages. Use the translated headings, tables, risk levels and final statement from the language configuration. Do not use these non-target headings or terms: ${languageConfig.forbiddenTerms.join('; ')}.
-5. Section 3 : sélectionne maximum 8 références pertinentes parmi : Loi du 4 août 1996, Code du bien-être au travail, Livre Ier, Titre 2 – Politique du bien-être et système dynamique de gestion des risques, Plan Global de Prévention, Plan Annuel d’Action, CPPT, SIPPT/SEPPT, Livre III – Lieux de travail, Livre III, Titre 3 – Prévention incendie, Livre III, Titre 6 – Signalisation de sécurité et de santé, Livre IV – Équipements de travail, Livre VI – Agents chimiques, Livre VIII – Ergonomie et TMS, Livre IX – Protections collectives et EPI. Ne cite pas d’articles. Si une référence exacte est incertaine, écris dans la langue cible : ${languageConfig.referenceToCheck}
-6. Section 3 : les noms officiels français des références réglementaires belges peuvent rester en français, mais les explications autour doivent être en ${resolvedLanguageLabel}.
-7. Section 8 must be titled exactly "${languageConfig.sections[7]}" and must explain the formula, scales, thresholds and interpretation. Use this content in the target language: ${scoringMethodInstruction}
-8. Section 9 must always contain 6 to 8 concrete hazards in a Markdown table with exactly these columns: ${languageConfig.hazardTableColumns}. Never write only "Dangers identifiés", "Information à compléter ou à valider sur le terrain" or an equivalent. For each hazard, state a plausible scenario, evidence to check, what the prevention advisor must do, where the proof must be documented and whether the point blocks validation.
-9. Section 10 must be titled exactly "${languageConfig.sections[9]}". It must contain the main detailed risk assessment table and nothing may replace it with a placeholder. Use exactly these columns in the target language: ${languageConfig.riskTableColumns}.
-10. Section 10 must always contain 8 complete risk rows. Each row must justify severity, probability and exposure, distinguish observed or declared elements from elements to be confirmed, include an initial score, initial level, additional measures, STOP level, provisional residual score, residual level, responsible person, deadline and control / expected evidence. If data are insufficient, produce a useful provisional assessment in the relevant cells and use this wording only as supporting text, never as the whole section: ${languageConfig.provisionalScoreText}
-11. Section 11 must be titled exactly "${languageConfig.sections[10]}" and must not contain the full main table from section 10. It must contain a synthetic residual risk analysis: risks still significant after measures, high or critical residual risks, conditions required to confirm residual scores, evidence to collect and blocking points before validation. If you use a table, use this compact header only: ${languageConfig.residualTableColumns}.
-12. Avant de finaliser le tableau, vérifie chaque score et niveau : ${riskScale}. Le score doit rester cohérent avec Gravité x Probabilité x Exposition.
-13. Si des informations existent, produire une analyse provisoire exploitable. Si des informations manquent, préciser exactement ce qui manque, pourquoi c’est important, quelle preuve est attendue, qui doit vérifier, comment vérifier, où documenter la preuve et si le point bloque la validation. Le fallback simple ${languageConfig.missingInfo} ne peut jamais être utilisé seul.
-14. Blocs d’aide au conseiller obligatoires lorsque l’analyse repose sur une hypothèse, une preuve manquante, une cotation provisoire, un risque résiduel non confirmé ou un point bloquant. N’utilise jamais un bloc court limité à une phrase comme "à vérifier sur le terrain" ou équivalent. Titre du bloc : "${languageConfig.advisorHelpBlockTitle}". ${businessBlockInstruction} ${advisorHelpBlockInstruction} Termine chaque bloc par "${languageConfig.advisorHelpBlockClose}". Les blocs doivent être simples, opérationnels et aider le conseiller à compléter, vérifier, documenter et défendre l’analyse.
-15. Hiérarchie STOP obligatoire : pour chaque mesure complémentaire importante, utiliser un niveau parmi : ${languageConfig.stopLevels}. Ne jamais proposer uniquement une protection individuelle si une mesure de suppression, substitution, technique collective ou organisationnelle est plus appropriée.
-16. Section 12 must always contain at least 4 structured priorities. Each priority must contain ${languageConfig.priorityLabels}.
-17. Section 13 must always contain 6 to 8 action plan items, with both action types represented: ${actionTypeInstruction}. Use this Markdown table header in the target language: ${languageConfig.actionTableColumns}. Do not place this action plan table in section 14.
-18. Section 14 must explain only which urgent actions feed the Annual Action Plan, which structural actions feed the Global Prevention Plan, how CPPT follow-up is ensured and how validation actions are integrated. Do not include the complete action plan table in this section.
-19. Section 15 must contain only documents to create or update, such as SDS, procedures, registers, instructions, plans, hot-work permits, reports and checklists. Section 16 must contain only people or services to consult or involve, including workers, line management, prevention advisor, employer, CPPT when present, external service and occupational physician when relevant. Section 17 must contain only annexes, such as photos, inspection reports, plans, SDS, CPPT minutes, registers and proof. Never shift these contents into the wrong section.
-20. Documents, preuves et photos à intégrer dans les sections 15, 17, 18, 19 et dans les preuves des tableaux de risques : ${evidenceInstruction} ${photoInstruction}
-21. Section 18 must be titled exactly "${languageConfig.sections[17]}". It must contain a simple Markdown table, not too wide, with this exact header in the target language: ${practicalGuideInstruction}. The table must contain 8 to 12 operational rows adapted to the analysis type. ${practicalGuideRowsInstruction} Each row must explain the point to complete, what to do, how to do it, document to attach, photo to add, where to place it and priority.
-22. Section 19 must contain explicit subparts in the target language: document status; what is already usable; what must be checked; blocking points; essential documents and photos; minimum actions before validation; opinions or specialist advice required; actors who must validate. It must clearly identify usable points, points to verify, blocking points, indispensable documents, indispensable photos, required opinions and minimum conditions before validation. It must include a clear opinion on whether the document is validable as it stands. The document status must be exactly one of: ${languageConfig.documentStatuses}.
-23. Section 19 must clearly say the assessment is not final if any of these are missing or unconfirmed: site visit, documentary evidence, worker consultation, CPPT consultation when a CPPT exists, SDS, inspection/control reports, score justifications, proof of existing measures, external service opinion or occupational physician opinion when relevant.
-24. Section 20 must contain a Markdown table with exactly these columns: ${languageConfig.completenessTableColumns}. Evaluate every mandatory element, using only these status labels: ${languageConfig.completenessStatuses}. Mandatory elements to evaluate: ${completenessElements}.
-25. Section 21 conclusion must be a written conclusion, not a table or list transferred from another section. It must answer clearly: document usable as a draft; not finalisable without site visit and evidence; can feed the GPP/PGP and AAP/PAA; can be presented to the health and safety committee/CPPT as a discussion basis; must not be presented as full proof of compliance while evidence is not attached. Never write that it is finalized or compliant if it is not supported by evidence. Do not include annexes, actors, the completeness table, the main table or the action plan in the conclusion.
-26. Relis les preuves attendues : elles doivent être vérifiables, professionnelles et cohérentes avec le risque et la mesure. Privilégie : rapport de contrôle, registre de formation, liste de présence, photos avant/après, inventaire mis à jour, FDS centralisées, rapport de visite terrain, PV ou avis du CPPT, registre accidents/incidents, check-list signée. Évite : suivi, constat, conformité normale, document disponible, rapport général.
-27. Conformité belge et prudence juridique : mentionner les références belges pertinentes sans inventer d’articles ; ne jamais affirmer une conformité si les preuves ne sont pas présentes ; distinguer obligation légale, bonne pratique et point à vérifier.
-28. Spécialisation obligatoire selon le type d’analyse demandé : ${specializationInstruction}
-29. Section ${languageConfig.sections.length} doit contenir exactement cette mention finale traduite, une seule fois :
+5. Section 3 must contain a Markdown table with exactly these columns in the target language: ${tableColumns.reference}. Select the relevant Belgian references from the general and theme-specific references: Law of 4 August 1996, Code on Well-being at Work, Book I Title 2, Global Prevention Plan, Annual Action Plan, internal prevention service, health and safety committee consultation if applicable, and depending on the topic Book III, Book III Title 3, Book III Title 6, Book IV, Book VI, Book VIII, Book VIII Title 3, Book I Title 3, Book IX and specific worker rules. Do not invent precise articles. If uncertain, write: ${languageConfig.referenceToCheck}
+6. Section 4 must be titled exactly "${languageConfig.sections[3]}". It must contain only abbreviations and important technical terms actually used in the generated document. Do not add a large generic glossary. If ATEX, CMR, CLP or TMS is not used in this analysis, do not explain it. The section must not be empty: detect the abbreviations used and include the relevant ones only. Use definitions in ${resolvedLanguageLabel}: ${abbreviationGlossaryInstruction}
+7. At the first natural important occurrence in the body text, write the full term followed by the abbreviation in parentheses, for example the target-language equivalent of "Plan Annuel d’Action (PAA)", "Plan Global de Prévention (PGP)", "Comité pour la Prévention et la Protection au Travail (CPPT)", "Fiche de Données de Sécurité (FDS)" and "Équipement de Protection Individuelle (EPI)".
+8. Section 6 must contain a Markdown table with exactly these columns: ${tableColumns.sources}. Include, where relevant, site visit, workstation observation, photos, worker interviews, line management consultation, health and safety committee consultation, external service opinion, occupational physician opinion, inspection reports, technical sheets, SDS, accident/incident register, training register, plans, instructions, checklist, questionnaire and environmental measurements.
+9. Section 7 must distinguish facts provided, observations, declarations, cautious assumptions, available evidence, missing evidence, blocking points and decisions requiring validation. Never turn an assumption into a fact and never state that the analysis is complete or final.
+10. Section 8 must contain a Markdown table with exactly these columns: ${tableColumns.jobs}. It must identify real activities, exposure frequency and duration, exposed workers, equipment/products, specific constraints, photos to take and documents to attach.
+11. Section 9 is mandatory and must contain the purpose of photos plus a Markdown table with exactly these columns: ${tableColumns.photos}. Explain that photos objectify findings, illustrate risk situations and keep before/after evidence. Include these photo rules: no faces unless necessary, avoid visible personal data, mask number plates if not useful, take a general photo then a detail photo, take before and after correction photos, date photos, identify the area and keep originals in the evidence file. Adapt the rows to the analysis type: ${photoPlanInstruction}
+12. Section 10 must always contain 6 to 8 concrete hazards in a Markdown table with exactly these columns: ${languageConfig.hazardTableColumns}. Each row must explain what to verify, how to verify it, which proof and photo to add, and whether it blocks validation. Never write only "to be checked" or an equivalent.
+13. Section 11 must be titled exactly "${languageConfig.sections[10]}" and must explain the formula, scales, thresholds and interpretation. Use this content in the target language: ${scoringMethodInstruction}
+14. Section 12 must be titled exactly "${languageConfig.sections[11]}". It must contain 8 complete risk rows in a Markdown table with exactly these columns: ${languageConfig.riskTableColumns}. Do not leave generic cells. If information is unavailable, write an actionable instruction such as the target-language equivalent of "To be confirmed by site visit. Expected evidence: photo of the area and inspection report." Include photo to insert, annex to attach and blocking point yes/no in every row. Use this wording only as supporting text when useful, never as the whole section: ${languageConfig.provisionalScoreText}
+15. Blocking point yes/no is mandatory wherever the column appears. Use only these values in the target language: ${tableColumns.blockingValues}. Mark yes when missing proof, inspection, site visit, specialist opinion or validation can significantly change risk evaluation or prevent document validation. Mark no when the point can be completed without challenging overall validability. Mark to be determined only when the backend lacks enough information. Never leave the cell empty. Typical blocking points include missing site visit, SDS for dangerous products, electrical inspection report, fire equipment inspection, ATEX analysis where explosive atmosphere is possible, external service opinion for specialised risks, occupational physician opinion for vulnerable workers or health exposure, CPPT consultation when applicable, proof of existing measures, score justification, or a critical risk without immediate action.
+16. Before finalising section 12, verify each score and level: ${riskScale}. Score must equal Severity/Gravity x Probability x Exposure and remain coherent with the justifications.
+17. Section 13 must explain STOP in the target language: S means eliminate or substitute the hazard, T means technical measures, O means organisational measures, P means collective protection then personal protective equipment if necessary. For each important measure, explain why it is proposed and what will prove implementation. Use levels from: ${languageConfig.stopLevels}.
+18. Section 14 must be a synthetic residual risk analysis, not a copy of the main table. If you use a table, use this compact header only: ${languageConfig.residualTableColumns}. It must identify significant residual risks, conditions to confirm lower scores, missing evidence, blocking points and the blocking point yes/no value in every row.
+19. Section 15 must contain at least 4 structured priorities. Each priority must contain ${languageConfig.priorityLabels}, expected proof, photo or annex where relevant, and whether it should be treated as urgent, structural or validation-related.
+20. Section 16 must always contain 6 to 8 action plan items with both action types represented: ${actionTypeInstruction}. Use this Markdown table header: ${languageConfig.actionTableColumns}. Do not place this action plan table in section 17. The blocking point column must be filled in every row. For example, collecting annual extinguisher inspection reports is a validation action and is blocking when the report is missing.
+21. Section 17 must explicitly explain which urgent actions feed the Annual Action Plan, which structural actions feed the Global Prevention Plan, which points go to the health and safety committee/CPPT and which points must be followed by management. First important occurrence must write the full PAA/AAP/JAP and PGP/GPP terms with abbreviations.
+22. Section 18 must contain a Markdown table with exactly these columns: ${tableColumns.documents}. Section 19 must contain a Markdown table with exactly these columns: ${tableColumns.annexes}. Keep documents to create/update separate from annexes and supporting evidence. Use concrete documents and proofs: ${evidenceInstruction} Fill the blocking point column in section 19 when an annex is essential for validation.
+23. Section 20 must contain a Markdown table with exactly these columns: ${tableColumns.actors}. Include, where relevant, employer, line management, internal prevention advisor, external service, occupational physician, health and safety committee, exposed workers, temporary workers, subcontractors, inspection body, fire service and technical expert. Clearly state when a level 3 prevention advisor needs support from level 1 or 2, external service, technical expert, occupational physician or accredited body. Fill the blocking point column when a consultation or opinion is necessary for validation.
+24. Section 21 must contain short, useful and actionable educational inserts. Use the insert title "${languageConfig.advisorHelpBlockTitle}" when useful and close complete helper blocks with "${languageConfig.advisorHelpBlockClose}". Use labels from: ${businessBlockInstruction} The inserts must cover field check, document to request, photo to take, blocking point, external opinion advised, immediate action and explanation for the advisor where relevant. Each insert must include what to do, how to do it, document to attach, photo to take, where to file the proof and whether it blocks validation. Structure guidance: ${advisorHelpBlockInstruction}
+25. Section 22 must contain explicit subparts in the target language: what is already usable; what is missing; blocking points; indispensable documents; indispensable photos; necessary opinions; minimum conditions before validation; whether the level 3 prevention advisor must request support. The document status must be exactly one of: ${languageConfig.documentStatuses}. It must clearly say the assessment is not final if site visit, evidence, worker consultation, CPPT consultation when present, SDS, inspection/control reports, score justifications, proof of existing measures or specialist opinions are missing. It must summarize all blocking points with: number of blocking points, list of blocking points, minimum action to remove each blockage, expected proof, responsible actor and deadline.
+26. Section 23 must contain a Markdown table with exactly these columns: ${languageConfig.completenessTableColumns}. Evaluate every mandatory element using only these status labels: ${languageConfig.completenessStatuses}. Mandatory elements to evaluate: ${completenessElements}. The blocking point column must be filled in every row.
+27. Section 24 conclusion must mention the main risks, urgent actions, blocking points, missing annexes, necessary validations, recommended re-evaluation date, whether the document can be used as a draft, and that it is not complete proof of conformity while evidence is not attached. If one or more blocking points are present, state clearly that the document cannot be considered a finalised analysis and remains a draft or an assessment usable subject to reservations until the blocking points are removed. Never write that it is finalized, compliant or legally complete.
+28. Section ${languageConfig.sections.length} must contain exactly this final translated statement, once:
 ${languageConfig.finalMention}
-30. Before answering, perform a strict mental verification: all ${languageConfig.sections.length} sections are present and in the requested order; headings match the target language exactly; section 10 contains the complete main table; section 11 is only a synthetic residual analysis; documents, actors and annexes are correctly separated; the practical guide, validability and completeness are separate sections; the conclusion is a real written conclusion; no section is empty; no section contains content belonging to another section; scoring method is present; detailed hazard identification is filled; provisional residual scores are present; STOP hierarchy is present; action plan contains risk-control actions and validation actions; score justifications are present; the document status is explicit; there is no unjustified compliance conclusion; no heading from another language remains.
-31. Rappel RGPD dans la langue cible : ${languageConfig.gdprReminder}
-32. Garde une réponse concise pour éviter les timeouts.`;
+29. Before answering, perform a strict mental quality check: all ${languageConfig.sections.length} sections are present and ordered; headings match the target language exactly; Belgian references are present; abbreviations used are explained in ${resolvedLanguageLabel}; scope, sources, assumptions, limits and blocking points are clear; jobs/tasks/workers are described; photo plan is present; hazards are detailed; G x P x E scoring and justifications are present; existing measures, existing evidence, complementary measures, STOP hierarchy, responsible persons, deadlines, expected proofs, residual risks, action plan, PAA/PGP link, documents, annexes, actors, educational inserts, validability, completeness, conclusion and final statement are present. Verify that every table requiring the blocking point yes/no column has it and that no cell in this column is empty. If an item is missing, add it or clearly mark it as to be completed with an actionable proof request.
+30. Rappel RGPD dans la langue cible : ${languageConfig.gdprReminder}
+31. Garde une réponse concise pour éviter les timeouts.`;
+}
+
+function buildAbbreviationGlossaryInstruction(language) {
+  const glossaries = {
+    fr: [
+      'PAA : Plan Annuel d’Action. Il reprend les actions de prévention à réaliser à court terme, généralement pour l’année à venir.',
+      'PGP : Plan Global de Prévention. Il reprend les objectifs, priorités et actions de prévention à moyen et long terme.',
+      'CPPT : Comité pour la Prévention et la Protection au Travail. Il doit être consulté lorsque l’entreprise en dispose, notamment pour les avis et le suivi des actions de prévention.',
+      'FDS : Fiche de Données de Sécurité. Document relatif aux produits chimiques, décrivant les dangers, les mesures de prévention, les conditions de stockage, les premiers secours et la conduite à tenir.',
+      'CLP : règlement européen relatif à la classification, à l’étiquetage et à l’emballage des substances et mélanges. Il aide à identifier les pictogrammes, mentions de danger et conseils de prudence.',
+      'EPI : Équipement de Protection Individuelle. Équipement porté par le travailleur, par exemple gants, lunettes, chaussures de sécurité ou protection auditive. Les EPI ne doivent pas remplacer les mesures collectives lorsqu’elles sont possibles.',
+      'ATEX : Atmosphère Explosive. Situation dans laquelle un mélange d’air et de gaz, vapeurs, brouillards ou poussières inflammables peut exploser en présence d’une source d’ignition. Si un risque ATEX est possible, un avis spécialisé peut être nécessaire.',
+      'STOP : hiérarchie des mesures de prévention : Suppression ou substitution du danger, mesures Techniques, mesures Organisationnelles, puis Protection individuelle.',
+      'SEPP/SEPPT : Service Externe pour la Prévention et la Protection au Travail. Il peut être consulté pour un avis spécialisé, notamment en santé, hygiène, ergonomie, psychosocial, incendie ou risques chimiques.',
+      'SIPP/SIPPT : Service Interne pour la Prévention et la Protection au Travail. Il organise et suit la prévention au sein de l’entreprise.',
+      'RGIE : Règlement Général sur les Installations Électriques. Il concerne les installations électriques et leurs contrôles.',
+      'CMR : agents Cancérigènes, Mutagènes ou Reprotoxiques. Ces agents nécessitent une attention particulière, des mesures strictes et souvent un avis spécialisé.',
+      'TMS : Troubles Musculosquelettiques. Troubles liés notamment aux postures, gestes répétitifs, efforts, manutentions ou contraintes physiques.',
+    ],
+    nl: [
+      'JAP/PAA : Jaaractieplan. Het bevat de preventieacties die op korte termijn moeten worden uitgevoerd, meestal voor het komende jaar.',
+      'GPP/PGP : Globaal Preventieplan. Het bevat de preventiedoelstellingen, prioriteiten en acties op middellange en lange termijn.',
+      'CPBW/CPPT : Comité voor Preventie en Bescherming op het Werk. Het moet worden geraadpleegd wanneer het in de onderneming bestaat, onder meer voor advies en opvolging van preventieacties.',
+      'VIB/FDS : Veiligheidsinformatieblad. Document over chemische producten met de gevaren, preventiemaatregelen, opslagvoorwaarden, eerste hulp en wat te doen bij incidenten.',
+      'CLP : Europese regels voor classificatie, etikettering en verpakking van stoffen en mengsels. Ze helpen pictogrammen, gevarenaanduidingen en voorzorgsmaatregelen te begrijpen.',
+      'PBM/EPI : Persoonlijk Beschermingsmiddel. Uitrusting die door de werknemer wordt gedragen, zoals handschoenen, veiligheidsbril, veiligheidsschoenen of gehoorbescherming. PBM mogen collectieve maatregelen niet vervangen wanneer die mogelijk zijn.',
+      'ATEX : Explosieve Atmosfeer. Situatie waarin een mengsel van lucht en ontvlambare gassen, dampen, nevels of stof kan ontploffen bij aanwezigheid van een ontstekingsbron. Bij een mogelijk ATEX-risico kan gespecialiseerd advies nodig zijn.',
+      'STOP : hiërarchie van preventiemaatregelen: Stoppen of substitutie van het gevaar, Technische maatregelen, Organisatorische maatregelen en daarna Persoonlijke bescherming.',
+      'EDPB/SEPPT : Externe Dienst voor Preventie en Bescherming op het Werk. Deze dienst kan worden geraadpleegd voor gespecialiseerd advies, onder meer over gezondheid, hygiëne, ergonomie, psychosociaal welzijn, brand of chemische risico’s.',
+      'IDPB/SIPPT : Interne Dienst voor Preventie en Bescherming op het Werk. Deze dienst organiseert en volgt de preventie binnen de onderneming op.',
+      'AREI/RGIE : Algemeen Reglement op de Elektrische Installaties. Het heeft betrekking op elektrische installaties en de controles ervan.',
+      'CMR : kankerverwekkende, mutagene of reprotoxische agentia. Deze agentia vragen bijzondere aandacht, strikte maatregelen en vaak gespecialiseerd advies.',
+      'MSA/TMS : Musculoskeletale aandoeningen. Aandoeningen die onder meer verband houden met houdingen, repetitieve bewegingen, fysieke inspanningen, manueel hanteren of lichamelijke belasting.',
+    ],
+    en: [
+      'AAP/PAA : Annual Action Plan. It lists the prevention actions to be carried out in the short term, usually for the coming year.',
+      'GPP/PGP : Global Prevention Plan. It sets out prevention objectives, priorities and actions for the medium and long term.',
+      'CPPT/health and safety committee : Health and Safety Committee. It must be consulted when the organisation has one, especially for opinions and follow-up of prevention actions.',
+      'SDS/FDS : Safety Data Sheet. Document for chemical products describing hazards, prevention measures, storage conditions, first aid and what to do in an incident.',
+      'CLP : European rules on classification, labelling and packaging of substances and mixtures. They help identify pictograms, hazard statements and precautionary advice.',
+      'PPE/EPI : Personal Protective Equipment. Equipment worn by the worker, such as gloves, goggles, safety shoes or hearing protection. PPE must not replace collective measures where those are possible.',
+      'ATEX : Explosive Atmosphere. A situation where a mixture of air and flammable gases, vapours, mists or dusts can explode if an ignition source is present. If an ATEX risk is possible, specialist advice may be needed.',
+      'STOP : hierarchy of prevention measures: elimination or substitution of the hazard, Technical measures, Organisational measures, then Personal protection.',
+      'External service/SEPP : External Service for Prevention and Protection at Work. It can be consulted for specialist advice, particularly on health, hygiene, ergonomics, psychosocial risks, fire or chemical risks.',
+      'Internal service/SIPP : Internal Service for Prevention and Protection at Work. It organises and follows up prevention within the organisation.',
+      'RGIE/AREI : Belgian General Regulations on Electrical Installations. It concerns electrical installations and their inspections.',
+      'CMR : Carcinogenic, Mutagenic or Reprotoxic agents. These agents require particular attention, strict measures and often specialist advice.',
+      'MSD/TMS : Musculoskeletal disorders. Disorders linked in particular to postures, repetitive movements, physical effort, manual handling or physical constraints.',
+    ],
+    de: [
+      'JAP/PAA : Jährlicher Aktionsplan. Er enthält die Präventionsmaßnahmen, die kurzfristig umzusetzen sind, in der Regel für das kommende Jahr.',
+      'GPP/PGP : Globaler Präventionsplan. Er enthält Präventionsziele, Prioritäten und Maßnahmen für die mittel- und langfristige Planung.',
+      'AGS/CPPT : Ausschuss für Gefahrenverhütung und Schutz am Arbeitsplatz. Er muss konsultiert werden, wenn er im Unternehmen besteht, insbesondere für Stellungnahmen und die Nachverfolgung von Präventionsmaßnahmen.',
+      'SDB/FDS : Sicherheitsdatenblatt. Dokument zu chemischen Produkten mit Gefahren, Präventionsmaßnahmen, Lagerbedingungen, Erste-Hilfe-Maßnahmen und Verhalten bei Vorfällen.',
+      'CLP : europäische Regeln zur Einstufung, Kennzeichnung und Verpackung von Stoffen und Gemischen. Sie helfen, Piktogramme, Gefahrenhinweise und Sicherheitshinweise zu verstehen.',
+      'PSA/EPI : Persönliche Schutzausrüstung. Ausrüstung, die von Beschäftigten getragen wird, zum Beispiel Handschuhe, Schutzbrille, Sicherheitsschuhe oder Gehörschutz. PSA darf kollektive Maßnahmen nicht ersetzen, wenn diese möglich sind.',
+      'ATEX : Explosionsfähige Atmosphäre. Situation, in der ein Gemisch aus Luft und entzündbaren Gasen, Dämpfen, Nebeln oder Stäuben bei Vorhandensein einer Zündquelle explodieren kann. Bei möglichem ATEX-Risiko kann fachliche Stellungnahme erforderlich sein.',
+      'STOP : Hierarchie der Präventionsmaßnahmen: Beseitigung oder Substitution der Gefahr, Technische Maßnahmen, Organisatorische Maßnahmen und danach Persönliche Schutzausrüstung.',
+      'Externer Dienst/SEPP : Externer Dienst für Gefahrenverhütung und Schutz am Arbeitsplatz. Er kann für fachliche Stellungnahmen konsultiert werden, insbesondere zu Gesundheit, Hygiene, Ergonomie, psychosozialen Aspekten, Brand oder chemischen Risiken.',
+      'Interner Dienst/SIPP : Interner Dienst für Gefahrenverhütung und Schutz am Arbeitsplatz. Er organisiert und verfolgt die Prävention im Unternehmen.',
+      'RGIE/AREI : Allgemeine Ordnung für elektrische Anlagen in Belgien. Sie betrifft elektrische Anlagen und deren Kontrollen.',
+      'CMR : krebserzeugende, mutagene oder reproduktionstoxische Arbeitsstoffe. Diese Arbeitsstoffe erfordern besondere Aufmerksamkeit, strenge Maßnahmen und häufig fachliche Stellungnahme.',
+      'MSE/TMS : Muskel-Skelett-Erkrankungen. Erkrankungen, die insbesondere mit Körperhaltungen, wiederholten Bewegungen, körperlicher Anstrengung, manueller Handhabung oder körperlichen Belastungen zusammenhängen.',
+    ],
+  };
+
+  return (glossaries[language] || glossaries.fr).join(' ');
+}
+
+function buildRiskSupportTableColumns(language) {
+  const columns = {
+    fr: {
+      reference:
+        'Référence ou domaine réglementaire | Pourquoi c’est applicable | Conséquence pratique | Document ou preuve à prévoir | Validation ou avis nécessaire',
+      sources: 'Source | Disponible | Commentaire | Preuve attendue | Où classer la preuve',
+      jobs:
+        'Poste ou tâche | Description de l’activité réelle | Fréquence | Durée d’exposition | Travailleurs exposés | Équipements ou produits utilisés | Particularités | Photos à prendre | Documents à joindre',
+      photos:
+        'Numéro photo | Zone ou tâche à photographier | Ce que la photo doit montrer | Pourquoi cette photo est utile | Où l’insérer dans le document | À mettre aussi en annexe | Précautions de confidentialité',
+      documents:
+        'Document | Pourquoi le créer ou le mettre à jour | Responsable | Échéance | Preuve attendue | Annexe concernée | Priorité',
+      annexes:
+        'Annexe | Obligatoire / recommandée / selon situation | Pourquoi elle est nécessaire | Qui doit la fournir | Où la classer | Statut | Point bloquant oui/non',
+      actors:
+        'Acteur | Rôle attendu | Moment de consultation | Preuve attendue | Obligatoire ou recommandé | Limite pour conseiller niveau 3 | Point bloquant oui/non',
+      blockingValues: 'Oui; Non; À déterminer',
+    },
+    nl: {
+      reference:
+        'Referentie of regelgevend domein | Waarom dit van toepassing is | Praktische consequentie | Te voorziene document of bewijs | Noodzakelijke validatie of advies',
+      sources: 'Bron | Beschikbaar | Opmerking | Verwacht bewijs | Waar het bewijs te bewaren',
+      jobs:
+        'Functie of taak | Beschrijving van de werkelijke activiteit | Frequentie | Blootstellingsduur | Blootgestelde werknemers | Gebruikte uitrusting of producten | Bijzonderheden | Te nemen foto’s | Toe te voegen documenten',
+      photos:
+        'Fotonummer | Te fotograferen zone of taak | Wat de foto moet tonen | Waarom deze foto nuttig is | Waar de foto in het document moet worden ingevoegd | Ook als bijlage opnemen | Vertrouwelijkheidsvoorzorgen',
+      documents:
+        'Document | Waarom opstellen of bijwerken | Verantwoordelijke | Termijn | Verwacht bewijs | Betrokken bijlage | Prioriteit',
+      annexes:
+        'Bijlage | Verplicht / aanbevolen / volgens situatie | Waarom ze nodig is | Wie ze moet bezorgen | Waar ze te bewaren | Status | Blokkerend punt ja/nee',
+      actors:
+        'Actor | Verwachte rol | Moment van raadpleging | Verwacht bewijs | Verplicht of aanbevolen | Grens voor preventieadviseur niveau 3 | Blokkerend punt ja/nee',
+      blockingValues: 'Ja; Nee; Te bepalen',
+    },
+    en: {
+      reference:
+        'Regulatory reference or domain | Why it applies | Practical consequence | Document or evidence to provide | Required validation or opinion',
+      sources: 'Source | Available | Comment | Expected evidence | Where to file the evidence',
+      jobs:
+        'Job or task | Description of the actual activity | Frequency | Exposure duration | Exposed workers | Equipment or products used | Specific points | Photos to take | Documents to attach',
+      photos:
+        'Photo number | Area or task to photograph | What the photo must show | Why this photo is useful | Where to insert it in the document | Also include as an annex | Confidentiality precautions',
+      documents:
+        'Document | Why create or update it | Responsible person | Deadline | Expected evidence | Related annex | Priority',
+      annexes:
+        'Annex | Mandatory / recommended / depending on situation | Why it is necessary | Who must provide it | Where to file it | Status | Blocking point yes/no',
+      actors:
+        'Actor | Expected role | Consultation timing | Expected evidence | Mandatory or recommended | Limit for level 3 prevention advisor | Blocking point yes/no',
+      blockingValues: 'Yes; No; To be determined',
+    },
+    de: {
+      reference:
+        'Regulatorische Referenz oder Bereich | Warum dies anwendbar ist | Praktische Folge | Vorzusehendes Dokument oder Nachweis | Erforderliche Validierung oder Stellungnahme',
+      sources: 'Quelle | Verfügbar | Kommentar | Erwarteter Nachweis | Wo der Nachweis abzulegen ist',
+      jobs:
+        'Arbeitsplatz oder Aufgabe | Beschreibung der tatsächlichen Tätigkeit | Häufigkeit | Expositionsdauer | Exponierte Beschäftigte | Verwendete Ausrüstung oder Produkte | Besonderheiten | Zu machende Fotos | Beizufügende Dokumente',
+      photos:
+        'Fotonummer | Zu fotografierender Bereich oder Aufgabe | Was das Foto zeigen muss | Warum dieses Foto nützlich ist | Wo das Foto im Dokument einzufügen ist | Auch als Anhang aufnehmen | Vertraulichkeitsvorkehrungen',
+      documents:
+        'Dokument | Warum erstellen oder aktualisieren | Verantwortliche Person | Frist | Erwarteter Nachweis | Betroffener Anhang | Priorität',
+      annexes:
+        'Anhang | Verpflichtend / empfohlen / je nach Situation | Warum er notwendig ist | Wer ihn liefern muss | Wo er abzulegen ist | Status | Blockierender Punkt ja/nein',
+      actors:
+        'Akteur | Erwartete Rolle | Zeitpunkt der Konsultation | Erwarteter Nachweis | Verpflichtend oder empfohlen | Grenze für Präventionsberater Niveau 3 | Blockierender Punkt ja/nein',
+      blockingValues: 'Ja; Nein; Zu bestimmen',
+    },
+  };
+
+  return columns[language] || columns.fr;
+}
+
+function buildRiskPhotoPlanInstruction(documentType, language) {
+  const common = {
+    fr:
+      'Règles générales : ne pas photographier de visages sans nécessité ; éviter les données personnelles visibles ; masquer les plaques d’immatriculation si inutile ; prendre une photo générale puis une photo de détail ; prendre une photo avant correction et après correction ; dater les photos ; identifier la zone ; conserver les photos originales dans le dossier preuve.',
+    nl:
+      'Algemene regels: fotografeer geen gezichten zonder noodzaak; vermijd zichtbare persoonsgegevens; maak nummerplaten onleesbaar als ze niet nuttig zijn; neem eerst een algemene foto en daarna een detailfoto; neem een foto vóór en na correctie; dateer de foto’s; identificeer de zone; bewaar de originele foto’s in het bewijsdossier.',
+    en:
+      'General rules: do not photograph faces unless necessary; avoid visible personal data; mask number plates if not useful; take a general photo and then a detail photo; take before and after correction photos; date the photos; identify the area; keep original photos in the evidence file.',
+    de:
+      'Allgemeine Regeln: keine Gesichter fotografieren, sofern nicht erforderlich; sichtbare personenbezogene Daten vermeiden; Kennzeichen unkenntlich machen, wenn sie nicht nützlich sind; zuerst ein Übersichtsfoto und dann ein Detailfoto machen; Fotos vor und nach der Korrektur machen; Fotos datieren; den Bereich identifizieren; Originalfotos in der Nachweisakte aufbewahren.',
+  };
+
+  const normalized = normalizeDocumentType(documentType);
+  const specific = getRiskSpecificPhotos(normalized, language);
+  const psychosocialLimit = {
+    fr:
+      'Pour les risques psychosociaux, ne pas demander de photos de personnes ou de situations identifiantes ; privilégier documents anonymisés, procédures, organigrammes, plannings et indicateurs collectifs. Pour maternité, jeunes travailleurs et intérimaires, éviter toute photo identifiante et privilégier le poste, les équipements, les consignes affichées et les zones à risque sans visage identifiable.',
+    nl:
+      'Voor psychosociale risico’s geen foto’s van personen of identificeerbare situaties vragen; geef de voorkeur aan geanonimiseerde documenten, procedures, organigrammen, planningen en collectieve indicatoren. Voor moederschap, jongeren en uitzendkrachten identificeerbare foto’s vermijden en de voorkeur geven aan werkpost, uitrusting, uitgehangen instructies en risicozones zonder herkenbaar gezicht.',
+    en:
+      'For psychosocial risks, do not request photos of people or identifiable situations; prefer anonymised documents, procedures, organisation charts, schedules and collective indicators. For maternity, young workers and temporary workers, avoid identifiable photos and prefer the workstation, equipment, displayed instructions and risk areas without identifiable faces.',
+    de:
+      'Bei psychosozialen Risiken keine Fotos von Personen oder identifizierbaren Situationen verlangen; anonymisierte Dokumente, Verfahren, Organigramme, Planungen und kollektive Indikatoren bevorzugen. Bei Mutterschutz, Jugendlichen und Leiharbeitnehmern identifizierende Fotos vermeiden und Arbeitsplatz, Ausrüstung, ausgehängte Anweisungen und Risikobereiche ohne erkennbare Gesichter bevorzugen.',
+  };
+
+  return `${common[language] || common.fr} ${specific} ${psychosocialLimit[language] || psychosocialLimit.fr}`;
 }
 
 function buildCompletenessElements(language) {
@@ -2052,10 +2283,13 @@ function buildCompletenessElements(language) {
     fr: [
       'Contexte et objectif',
       'Périmètre',
+      'Sources d’information',
+      'Hypothèses, limites et points bloquants',
       'Activités et tâches',
       'Postes concernés',
       'Travailleurs exposés',
       'Travailleurs vulnérables',
+      'Plan photos',
       'Dangers identifiés',
       'Scénarios de risques',
       'Personnes exposées',
@@ -2078,17 +2312,27 @@ function buildCompletenessElements(language) {
       'Consultation CPPT',
       'Avis service externe',
       'Avis médecin du travail si pertinent',
-      'Lien PGP',
       'Lien PAA',
-      'Annexes et photos',
+      'Lien PGP',
+      'Documents à créer ou mettre à jour',
+      'Pièces jointes et annexes',
+      'Photos et classement des preuves',
+      'Acteurs à consulter',
+      'Encarts pédagogiques',
+      'Appui externe ou niveau 1/2 si nécessaire',
+      'Validabilité',
+      'Conclusion et mention finale',
     ],
     nl: [
       'Context en doelstelling',
       'Afbakening',
+      'Informatiebronnen',
+      'Hypothesen, beperkingen en blokkerende punten',
       'Activiteiten en taken',
       'Betrokken functies',
       'Blootgestelde werknemers',
       'Kwetsbare werknemers',
+      'Fotoplan',
       'Geïdentificeerde gevaren',
       'Risicoscenario’s',
       'Blootgestelde personen',
@@ -2111,17 +2355,27 @@ function buildCompletenessElements(language) {
       'Raadpleging CPBW',
       'Advies externe dienst',
       'Advies arbeidsarts indien relevant',
-      'Link GPP',
       'Link JAP',
-      'Bijlagen en foto’s',
+      'Link GPP',
+      'Op te stellen of bij te werken documenten',
+      'Bijlagen en bewijsstukken',
+      'Foto’s en klassement van bewijzen',
+      'Te raadplegen actoren',
+      'Pedagogische kaders',
+      'Externe ondersteuning of niveau 1/2 indien nodig',
+      'Valideerbaarheid',
+      'Conclusie en validatievermelding',
     ],
     en: [
       'Context and objective',
       'Scope',
+      'Information sources',
+      'Assumptions, limitations and blocking points',
       'Activities and tasks',
       'Jobs concerned',
       'Exposed workers',
       'Vulnerable workers',
+      'Photo plan',
       'Identified hazards',
       'Risk scenarios',
       'Exposed persons',
@@ -2144,17 +2398,27 @@ function buildCompletenessElements(language) {
       'Health and safety committee consultation',
       'External service opinion',
       'Occupational physician opinion if relevant',
-      'GPP link',
       'AAP link',
-      'Appendices and photos',
+      'GPP link',
+      'Documents to create or update',
+      'Attachments and annexes',
+      'Photos and evidence filing',
+      'Actors to consult',
+      'Educational inserts',
+      'External or level 1/2 support if needed',
+      'Validability',
+      'Conclusion and final statement',
     ],
     de: [
       'Kontext und Zielsetzung',
       'Umfang',
+      'Informationsquellen',
+      'Annahmen, Einschränkungen und blockierende Punkte',
       'Tätigkeiten und Aufgaben',
       'Betroffene Arbeitsplätze',
       'Exponierte Beschäftigte',
       'Schutzbedürftige Beschäftigte',
+      'Fotoplan',
       'Ermittelte Gefährdungen',
       'Risikoszenarien',
       'Exponierte Personen',
@@ -2177,9 +2441,16 @@ function buildCompletenessElements(language) {
       'Konsultation des AGS',
       'Stellungnahme des externen Dienstes',
       'Stellungnahme des Arbeitsmediziners falls relevant',
-      'Bezug GPP',
       'Bezug JAP',
-      'Anhänge und Fotos',
+      'Bezug GPP',
+      'Zu erstellende oder zu aktualisierende Dokumente',
+      'Anlagen und Anhänge',
+      'Fotos und Ablage der Nachweise',
+      'Zu konsultierende Akteure',
+      'Pädagogische Hinweise',
+      'Externe Unterstützung oder Niveau 1/2 falls nötig',
+      'Validierbarkeit',
+      'Schlussfolgerung und Validierungshinweis',
     ],
   };
 
