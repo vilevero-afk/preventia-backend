@@ -1178,34 +1178,40 @@ app.post('/api/generate-document', async (req, res, next) => {
       formFields: Object.keys(formData).length,
     });
 
-    const response = await openai.responses.create({
-      model: OPENAI_MODEL,
-      max_output_tokens: OPENAI_MAX_OUTPUT_TOKENS,
-      instructions: SYSTEM_PROMPT,
-      input: [
-        {
-          role: 'user',
-          content: [
+    const generatedDocument = documentDefinition.family === 'risk_assessment'
+      ? await generateStructuredRiskAssessmentInParts({
+        openai,
+        documentType,
+        formData,
+        languageCode: targetLanguage.code,
+        languageLabel: targetLanguage.label,
+      })
+      : processGeneratedDocument(
+        (await openai.responses.create({
+          model: OPENAI_MODEL,
+          max_output_tokens: OPENAI_MAX_OUTPUT_TOKENS,
+          instructions: SYSTEM_PROMPT,
+          input: [
             {
-              type: 'input_text',
-              text: buildUserPrompt(
-                documentType,
-                formData,
-                targetLanguage.code,
-                targetLanguage.label,
-                documentDefinition,
-              ),
+              role: 'user',
+              content: [
+                {
+                  type: 'input_text',
+                  text: buildUserPrompt(
+                    documentType,
+                    formData,
+                    targetLanguage.code,
+                    targetLanguage.label,
+                    documentDefinition,
+                  ),
+                },
+              ],
             },
           ],
-        },
-      ],
-    });
-
-    const generatedDocument = processGeneratedDocument(
-      response.output_text?.trim(),
-      documentDefinition,
-      targetLanguage.code,
-    );
+        })).output_text?.trim(),
+        documentDefinition,
+        targetLanguage.code,
+      );
     const { document, complementaryDocument } = generatedDocument;
 
     if (!document) {
@@ -1483,42 +1489,175 @@ function normalizeGeneratedDocument(outputText, documentDefinition, language = '
     return normalizeRiskLevels(outputText || '');
   }
 
-  const structuredData = parseRiskAssessmentStructuredOutput(outputText || '');
+  const structuredData = parseRiskAssessmentStructuredOutput(outputText || '', language);
   const validatedData = validateRiskAssessmentStructuredData(structuredData, language);
 
   return removeStandaloneMarkdownSeparators(normalizeKnownPhrases(renderRiskAssessmentMarkdown(validatedData, language)));
 }
 
-function parseRiskAssessmentStructuredOutput(outputText) {
-  const cleaned = String(outputText || '')
+async function generateStructuredRiskAssessmentInParts({
+  openai,
+  documentType,
+  formData,
+  languageCode = 'fr',
+  languageLabel = 'Français',
+}) {
+  console.info('Début analyse structurée par blocs', {
+    documentType,
+    language: languageCode,
+    formFields: Object.keys(formData || {}).length,
+  });
+
+  const blocks = getRiskAssessmentBlockDefinitions();
+  const generatedBlocks = {};
+
+  for (const block of blocks) {
+    generatedBlocks[block.key] = await generateStructuredRiskAssessmentBlock({
+      openai,
+      block,
+      documentType,
+      formData,
+      languageCode,
+      languageLabel,
+    });
+  }
+
+  const structuredData = assembleStructuredRiskAssessmentBlocks(generatedBlocks, languageCode);
+  const validatedData = validateRiskAssessmentStructuredData(structuredData, languageCode);
+  const document = removeStandaloneMarkdownSeparators(
+    normalizeKnownPhrases(renderRiskAssessmentMarkdown(validatedData, languageCode)),
+  );
+
+  console.info('Renderer markdown OK');
+  console.info('Longueur document final', { length: document.length });
+
+  return {
+    document,
+    complementaryDocument: null,
+  };
+}
+
+async function generateStructuredRiskAssessmentBlock({
+  openai,
+  block,
+  documentType,
+  formData,
+  languageCode,
+  languageLabel,
+}) {
+  console.info(`Bloc ${block.label} demandé`);
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const response = await openai.responses.create({
+      model: OPENAI_MODEL,
+      max_output_tokens: Math.min(OPENAI_MAX_OUTPUT_TOKENS, attempt === 1 ? 3500 : 2200),
+      instructions: SYSTEM_PROMPT,
+      input: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: buildRiskAssessmentBlockPrompt({
+                block,
+                documentType,
+                formData,
+                languageCode,
+                languageLabel,
+                retry: attempt === 2,
+              }),
+            },
+          ],
+        },
+      ],
+    });
+
+    const parsed = safeParseAiJson(response.output_text);
+
+    if (parsed.ok && parsed.data && typeof parsed.data === 'object' && !Array.isArray(parsed.data)) {
+      console.info(`Bloc ${block.label} parsing OK`, { attempt });
+      return parsed.data;
+    }
+
+    console.warn(`Bloc ${block.label} parsing KO`, {
+      attempt,
+      error: parsed.ok ? 'Le bloc JSON doit être un objet.' : parsed.error,
+      preview: parsed.preview,
+    });
+  }
+
+  console.warn(`Bloc ${block.label} fallback minimal utilisé`);
+  return buildFallbackRiskAssessmentBlock(block.key, languageCode);
+}
+
+function safeParseAiJson(rawContent) {
+  if (!rawContent) {
+    return {
+      ok: false,
+      error: 'Contenu IA vide',
+      preview: '',
+    };
+  }
+
+  const preview = String(rawContent).slice(0, 1000);
+  const cleaned = String(rawContent)
     .trim()
     .replace(/^```(?:json)?/i, '')
     .replace(/```$/i, '')
+    .replace(/```(?:json)?/gi, '')
+    .replace(/```/g, '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
     .trim();
-
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  const extracted = firstBrace >= 0 && lastBrace > firstBrace
+    ? cleaned.slice(firstBrace, lastBrace + 1)
+    : cleaned;
   const candidates = [
-    cleaned,
-    cleaned.slice(cleaned.indexOf('{'), cleaned.lastIndexOf('}') + 1),
-  ].filter((candidate) => candidate.startsWith('{') && candidate.endsWith('}'));
+    extracted,
+    extracted
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .replace(/,\s*([}\]])/g, '$1'),
+  ];
 
   for (const candidate of candidates) {
     try {
-      return JSON.parse(candidate);
-    } catch {
-      try {
-        return JSON.parse(candidate.replace(/,\s*([}\]])/g, '$1'));
-      } catch {
-        // Try the next repair candidate.
+      return {
+        ok: true,
+        data: JSON.parse(candidate),
+      };
+    } catch (error) {
+      if (candidate === candidates[candidates.length - 1]) {
+        return {
+          ok: false,
+          error: error.message,
+          preview,
+        };
       }
     }
   }
 
-  const error = new Error(
-    'La génération structurée de l’analyse de risques a produit un JSON invalide. Aucun document non contrôlé n’a été renvoyé.',
-  );
-  error.status = 502;
-  error.expose = true;
-  throw error;
+  return {
+    ok: false,
+    error: 'JSON invalide',
+    preview,
+  };
+}
+
+function parseRiskAssessmentStructuredOutput(outputText, language = 'fr') {
+  const parsed = safeParseAiJson(outputText);
+
+  if (parsed.ok) {
+    return parsed.data;
+  }
+
+  console.warn('Parsing JSON analyse de risques KO', {
+    error: parsed.error,
+    preview: parsed.preview,
+  });
+
+  return buildFallbackStructuredRiskAssessment(language);
 }
 
 function validateRiskAssessmentStructuredData(data, language = 'fr') {
@@ -2013,14 +2152,15 @@ function sanitizeMarkdownCell(value, language = 'fr') {
   const cleaned = text
     .replace(/\r?\n+/g, ' ')
     .replace(/\|/g, '/')
+    .replace(/---+/g, '-')
     .replace(/\s+/g, ' ')
     .trim();
 
-  if (!cleaned || /^-+$/.test(cleaned)) {
+  if (!cleaned || /^-+$/.test(cleaned) || cleaned === 'undefined' || cleaned === 'null') {
     return placeholder;
   }
 
-  return cleaned;
+  return cleaned.length > 500 ? `${cleaned.slice(0, 497).trim()}...` : cleaned;
 }
 
 function normalizeStructuredStopLevel(value, language = 'fr') {
@@ -3526,6 +3666,390 @@ function getRiskAssessmentJsonSchema() {
     ],
     conclusion: '',
     validationStatement: '',
+  };
+}
+
+function getRiskAssessmentBlockDefinitions() {
+  const schema = getRiskAssessmentJsonSchema();
+
+  return [
+    {
+      key: 'A',
+      label: 'A',
+      title: 'Identification et cadrage',
+      fields: [
+        'documentIdentification',
+        'contextObjective',
+        'regulatoryReferences',
+        'glossary',
+        'scope',
+        'informationSources',
+        'assumptionsLimitations',
+      ],
+      schema: pickObjectKeys(schema, [
+        'documentIdentification',
+        'contextObjective',
+        'regulatoryReferences',
+        'glossary',
+        'scope',
+        'informationSources',
+        'assumptionsLimitations',
+      ]),
+    },
+    {
+      key: 'B',
+      label: 'B',
+      title: 'Analyse terrain',
+      fields: [
+        'jobsTasksExposedWorkers',
+        'photoPlan',
+        'hazardIdentification',
+        'scoringMethod',
+      ],
+      schema: pickObjectKeys(schema, [
+        'jobsTasksExposedWorkers',
+        'photoPlan',
+        'hazardIdentification',
+        'scoringMethod',
+      ]),
+    },
+    {
+      key: 'C',
+      label: 'C',
+      title: 'Analyse des risques',
+      fields: [
+        'mainRiskAssessment',
+        'residualRiskAnalysis',
+      ],
+      schema: {
+        mainRiskAssessment: pickObjectKeys(schema.mainRiskAssessment, [
+          'initialAssessment',
+          'measuresFollowUpValidation',
+        ]),
+        residualRiskAnalysis: schema.residualRiskAnalysis,
+      },
+    },
+    {
+      key: 'D',
+      label: 'D',
+      title: 'Actions et validation',
+      fields: [
+        'actionPriorities',
+        'draftActionPlan',
+        'paaPgpLink',
+        'documentsToCreateOrUpdate',
+        'actorsToConsult',
+        'requiredAnnexes',
+        'level3AdvisorLimits',
+        'blockingPointsBeforeValidation',
+        'conclusion',
+        'validationStatement',
+      ],
+      schema: pickObjectKeys(schema, [
+        'actionPriorities',
+        'draftActionPlan',
+        'paaPgpLink',
+        'documentsToCreateOrUpdate',
+        'actorsToConsult',
+        'requiredAnnexes',
+        'level3AdvisorLimits',
+        'blockingPointsBeforeValidation',
+        'conclusion',
+        'validationStatement',
+      ]),
+    },
+  ];
+}
+
+function pickObjectKeys(value, keys) {
+  return keys.reduce((result, key) => ({
+    ...result,
+    [key]: value[key],
+  }), {});
+}
+
+function buildRiskAssessmentBlockPrompt({
+  block,
+  documentType,
+  formData,
+  languageCode,
+  languageLabel,
+  retry = false,
+}) {
+  const languageConfig = LANGUAGE_CONFIGS[languageCode] || LANGUAGE_CONFIGS.fr;
+  const tableLimits = retry
+    ? `Limites strictes pour ce nouvel essai :
+- regulatoryReferences : max 6
+- informationSources : max 8
+- jobsTasksExposedWorkers : max 8
+- photoPlan.photos : max 8
+- hazardIdentification : max 8
+- initialAssessment : max 8
+- measuresFollowUpValidation : max 8
+- residualRiskAnalysis : max 8
+- draftActionPlan : max 8
+- requiredAnnexes : max 8
+- actorsToConsult : max 8
+- blockingPointsBeforeValidation : max 8`
+    : 'Longueur attendue : reste concis, vise 6 à 8 lignes maximum dans les listes de risques, actions, annexes et acteurs.';
+
+  return `Type de document demandé : ${documentType}
+Langue cible : ${languageCode} (${languageConfig.label || languageLabel})
+Bloc demandé : ${block.label} - ${block.title}
+
+Données formData à exploiter :
+${JSON.stringify(formData, null, 2)}
+
+Réponds uniquement avec un JSON valide.
+Interdits : markdown, bloc \`\`\`json, bloc \`\`\`, tableaux markdown, séparateurs ---, texte avant ou après JSON.
+Ne génère aucun titre de document : le renderer backend gère les titres et l’ordre.
+Utilise uniquement les champs du schéma de ce bloc.
+Si une information manque, écris une instruction concrète de validation et une preuve attendue.
+Ne déclare jamais le document finalisé, conforme ou juridiquement complet.
+
+Schéma JSON de ce bloc uniquement :
+${JSON.stringify(block.schema, null, 2)}
+
+Règles utiles :
+- Rédige tout en ${languageConfig.label || languageLabel}.
+- Adapte le contenu au document : ${buildRiskSpecializationInstruction(documentType)}
+- Méthode de cotation : ${buildRiskScoringMethodInstruction(languageCode)}
+- Preuves et documents attendus : ${buildRiskEvidenceInstruction(documentType, languageCode)}
+- Photos attendues : ${buildRiskPhotoInstruction(documentType, languageCode)}
+- STOP autorisé uniquement dans measuresFollowUpValidation[].stopLevel : ${getAllowedStopLevels(languageCode).join('; ')}
+- N’utilise jamais ces valeurs dans stopLevel : ${getForbiddenRiskLevelValues().join('; ')}
+- validationStatement, si demandé dans ce bloc, doit reprendre exactement : ${languageConfig.finalMention}
+${tableLimits}`;
+}
+
+function assembleStructuredRiskAssessmentBlocks(blocks, language = 'fr') {
+  return validateRiskAssessmentStructuredData({
+    ...buildFallbackStructuredRiskAssessment(language),
+    ...ensureObject(blocks.A),
+    ...ensureObject(blocks.B),
+    ...ensureObject(blocks.C),
+    ...ensureObject(blocks.D),
+  }, language);
+}
+
+function buildFallbackStructuredRiskAssessment(language = 'fr') {
+  return assembleFallbackStructuredRiskAssessment([
+    buildFallbackRiskAssessmentBlock('A', language),
+    buildFallbackRiskAssessmentBlock('B', language),
+    buildFallbackRiskAssessmentBlock('C', language),
+    buildFallbackRiskAssessmentBlock('D', language),
+  ], language);
+}
+
+function assembleFallbackStructuredRiskAssessment(parts, language = 'fr') {
+  return {
+    ...getRiskAssessmentJsonSchema(),
+    ...parts.reduce((result, part) => ({ ...result, ...part }), {}),
+    validationStatement: (LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr).finalMention,
+  };
+}
+
+function buildFallbackRiskAssessmentBlock(blockKey, language = 'fr') {
+  const placeholder = getLanguagePlaceholder(language);
+  const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+  const scoringMethodText = buildRiskScoringMethodInstruction(language);
+  const defaultRows = Array.from({ length: 4 }, (_unused, index) => String(index + 1));
+
+  if (blockKey === 'A') {
+    return {
+      documentIdentification: {
+        type: placeholder,
+        reference: placeholder,
+        company: placeholder,
+        site: placeholder,
+        services: placeholder,
+        author: placeholder,
+        version: 'Projet',
+        visitDate: placeholder,
+        fieldCheckNote: placeholder,
+      },
+      contextObjective: placeholder,
+      regulatoryReferences: defaultRows.slice(0, 3).map((number) => ({
+        reference: number === '1' ? 'Code belge du bien-être au travail' : placeholder,
+        whyApplicable: placeholder,
+        practicalConsequence: placeholder,
+        documentOrEvidence: placeholder,
+        validationOrAdvice: placeholder,
+      })),
+      glossary: [
+        { abbreviation: 'PAA', definition: placeholder },
+        { abbreviation: 'PGP', definition: placeholder },
+        { abbreviation: 'STOP', definition: placeholder },
+      ],
+      scope: {
+        includedPlaces: [placeholder],
+        excludedPlaces: [placeholder],
+        activities: [placeholder],
+        exposedJobs: [placeholder],
+        includedSituations: [placeholder],
+        scopeLimits: [placeholder],
+      },
+      informationSources: defaultRows.map(() => ({
+        source: placeholder,
+        available: placeholder,
+        comment: placeholder,
+        expectedEvidence: placeholder,
+        whereToFile: placeholder,
+      })),
+      assumptionsLimitations: {
+        factsProvided: [placeholder],
+        partialObservations: [placeholder],
+        missingInformation: [placeholder],
+        pointsToValidate: [placeholder],
+        limits: [placeholder],
+      },
+    };
+  }
+
+  if (blockKey === 'B') {
+    return {
+      jobsTasksExposedWorkers: defaultRows.map(() => ({
+        jobOrTask: placeholder,
+        realActivityDescription: placeholder,
+        frequency: placeholder,
+        exposureDuration: placeholder,
+        exposedWorkers: placeholder,
+        equipmentOrProductsUsed: placeholder,
+        particularities: placeholder,
+        photosToTake: placeholder,
+        documentsToAttach: placeholder,
+      })),
+      photoPlan: {
+        intro: placeholder,
+        confidentialityRules: [placeholder],
+        photos: defaultRows.map((number) => ({
+          photoNumber: number,
+          areaOrTask: placeholder,
+          whatPhotoMustShow: placeholder,
+          whyUseful: placeholder,
+          whereToInsert: placeholder,
+          alsoAnnex: placeholder,
+          confidentialityPrecautions: placeholder,
+          relatedRisk: number,
+          relatedAction: placeholder,
+          expectedEvidence: placeholder,
+          relatedAnnex: placeholder,
+          beforeAfter: placeholder,
+        })),
+      },
+      hazardIdentification: defaultRows.map(() => ({
+        hazardFamily: placeholder,
+        preciseHazard: placeholder,
+        plausibleScenario: placeholder,
+        areaOrTask: placeholder,
+        exposedPersons: placeholder,
+        aggravatingFactors: placeholder,
+        knownExistingMeasures: placeholder,
+        evidenceToCheck: placeholder,
+        whatAdvisorMustDo: placeholder,
+        whereToDocumentEvidence: placeholder,
+        blockingBeforeValidation: placeholder,
+        photosToTake: placeholder,
+      })),
+      scoringMethod: {
+        formula: scoringMethodText.split('.')[0] || 'Score = Gravité × Probabilité × Exposition',
+        severityScale: [placeholder],
+        probabilityScale: [placeholder],
+        exposureScale: [placeholder],
+        thresholds: [formatRiskScale(language)],
+        confirmationNote: placeholder,
+      },
+    };
+  }
+
+  if (blockKey === 'C') {
+    return {
+      mainRiskAssessment: {
+        initialAssessment: defaultRows.map((number) => buildEmptyInitialRiskRow(number, placeholder)),
+        measuresFollowUpValidation: defaultRows.map((number) => ({
+          ...buildEmptyFollowUpRiskRow(number, placeholder),
+          stopLevel: getDefaultStopLevel(language),
+        })),
+      },
+      residualRiskAnalysis: defaultRows.map((number) => ({
+        mainRisk: number,
+        initialScore: placeholder,
+        residualScore: placeholder,
+        reductionCondition: placeholder,
+        requiredEvidence: placeholder,
+        standardStatus: placeholder,
+        blockingPoint: placeholder,
+        externalAdvice: placeholder,
+      })),
+    };
+  }
+
+  return {
+    actionPriorities: defaultRows.map((number) => ({
+      action: placeholder,
+      relatedRisk: number,
+      responsible: placeholder,
+      deadline: placeholder,
+      expectedEvidence: placeholder,
+      blockingPoint: placeholder,
+      externalAdvice: placeholder,
+      actionType: placeholder,
+    })),
+    draftActionPlan: defaultRows.map((number) => ({
+      relatedRisk: number,
+      actionToPerform: placeholder,
+      responsible: placeholder,
+      deadline: placeholder,
+      expectedEvidence: placeholder,
+      photoAfterCorrection: placeholder,
+      standardStatus: placeholder,
+      paaOrPgpLink: placeholder,
+      blockingPoint: placeholder,
+      externalAdvice: placeholder,
+    })),
+    paaPgpLink: {
+      paaActions: [placeholder],
+      pgpActions: [placeholder],
+      cpptRole: placeholder,
+      managementFollowUp: placeholder,
+    },
+    documentsToCreateOrUpdate: defaultRows.map(() => ({
+      document: placeholder,
+      whyCreateOrUpdate: placeholder,
+      responsible: placeholder,
+      deadline: placeholder,
+      expectedEvidence: placeholder,
+      relatedAnnex: placeholder,
+      priority: placeholder,
+    })),
+    actorsToConsult: defaultRows.map(() => ({
+      actor: placeholder,
+      expectedRole: placeholder,
+      consultationMoment: placeholder,
+      expectedEvidence: placeholder,
+      mandatoryOrRecommended: placeholder,
+      limitForLevel3Advisor: placeholder,
+    })),
+    requiredAnnexes: defaultRows.map(() => ({
+      annex: placeholder,
+      mandatoryRecommendedOrDepending: placeholder,
+      whyNecessary: placeholder,
+      whoProvidesIt: placeholder,
+      whereToFile: placeholder,
+      status: placeholder,
+    })),
+    level3AdvisorLimits: placeholder,
+    blockingPointsBeforeValidation: defaultRows.map((number) => ({
+      point: number,
+      whyBlocking: placeholder,
+      expectedEvidence: placeholder,
+      responsible: placeholder,
+      deadline: placeholder,
+      externalAdvice: placeholder,
+      liftingCondition: placeholder,
+    })),
+    conclusion: placeholder,
+    validationStatement: config.finalMention,
   };
 }
 
