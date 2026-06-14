@@ -17,6 +17,129 @@ const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:3000')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+const RISK_ASSESSMENT_TITLES = {
+  fr: {
+    documentTitle: 'Analyse de risques – Projet à adapter et à valider',
+    referenceLabel: 'Référence',
+    dateLabel: 'Date',
+    sections: [
+      'Identification du document',
+      'Contexte et objectif',
+      'Références réglementaires belges applicables',
+      'Glossaire des abréviations utilisées',
+      'Périmètre de l’analyse',
+      'Sources d’information utilisées ou à obtenir',
+      'Hypothèses et limites',
+      'Description des postes, tâches et travailleurs exposés',
+      'Plan photos',
+      'Identification détaillée des dangers',
+      'Méthode de cotation',
+      'Tableau principal d’analyse des risques',
+      'Analyse des risques résiduels',
+      'Priorités d’action',
+      'Projet de plan d’action',
+      'Lien avec le Plan Annuel d’Action et le Plan Global de Prévention',
+      'Documents à créer ou à mettre à jour',
+      'Acteurs à consulter ou à impliquer',
+      'Annexes nécessaires',
+      'Limites d’intervention du conseiller en prévention niveau 3',
+      'Points bloquants avant validation',
+      'Conclusion',
+      'Mention de validation',
+    ],
+  },
+  nl: {
+    documentTitle: 'Risicoanalyse – Ontwerp aan te passen en te valideren',
+    referenceLabel: 'Referentie',
+    dateLabel: 'Datum',
+    sections: [
+      'Identificatie van het document',
+      'Context en doelstelling',
+      'Toepasselijke Belgische regelgevende referenties',
+      'Glossarium van gebruikte afkortingen',
+      'Afbakening van de analyse',
+      'Gebruikte of nog te verkrijgen informatiebronnen',
+      'Hypothesen en beperkingen',
+      'Beschrijving van functies, taken en blootgestelde werknemers',
+      'Fotoplan',
+      'Gedetailleerde identificatie van de gevaren',
+      'Beoordelingsmethode',
+      'Hoofdtabel van de risicoanalyse',
+      'Analyse van de restrisico’s',
+      'Prioritaire acties',
+      'Ontwerpactieplan',
+      'Verband met het Jaaractieplan en het Globaal Preventieplan',
+      'Documenten die moeten worden opgesteld of bijgewerkt',
+      'Te raadplegen of te betrekken actoren',
+      'Noodzakelijke bijlagen',
+      'Grenzen van de tussenkomst van de preventieadviseur niveau 3',
+      'Blokkerende punten vóór validatie',
+      'Conclusie',
+      'Validatievermelding',
+    ],
+  },
+  en: {
+    documentTitle: 'Risk assessment – Draft to adapt and validate',
+    referenceLabel: 'Reference',
+    dateLabel: 'Date',
+    sections: [
+      'Document identification',
+      'Context and objective',
+      'Applicable Belgian regulatory references',
+      'Glossary of abbreviations used',
+      'Scope of the assessment',
+      'Information sources used or to be obtained',
+      'Assumptions and limitations',
+      'Description of jobs, tasks and exposed workers',
+      'Photo plan',
+      'Detailed identification of hazards',
+      'Scoring method',
+      'Main risk assessment table',
+      'Residual risk analysis',
+      'Action priorities',
+      'Draft action plan',
+      'Link with the Annual Action Plan and the Global Prevention Plan',
+      'Documents to create or update',
+      'Actors to consult or involve',
+      'Required annexes',
+      'Limits of intervention of the level 3 prevention advisor',
+      'Blocking points before validation',
+      'Conclusion',
+      'Validation statement',
+    ],
+  },
+  de: {
+    documentTitle: 'Gefährdungsbeurteilung – Entwurf zur Anpassung und Validierung',
+    referenceLabel: 'Referenz',
+    dateLabel: 'Datum',
+    sections: [
+      'Dokumentidentifikation',
+      'Kontext und Zielsetzung',
+      'Anwendbare belgische regulatorische Referenzen',
+      'Glossar der verwendeten Abkürzungen',
+      'Umfang der Beurteilung',
+      'Verwendete oder noch zu beschaffende Informationsquellen',
+      'Annahmen und Einschränkungen',
+      'Beschreibung der Arbeitsplätze, Tätigkeiten und exponierten Beschäftigten',
+      'Fotoplan',
+      'Detaillierte Identifikation der Gefährdungen',
+      'Bewertungsmethode',
+      'Haupttabelle der Gefährdungsbeurteilung',
+      'Analyse der Restrisiken',
+      'Handlungsprioritäten',
+      'Entwurf des Maßnahmenplans',
+      'Verbindung mit dem Jährlichen Aktionsplan und dem Globalen Präventionsplan',
+      'Zu erstellende oder zu aktualisierende Dokumente',
+      'Zu konsultierende oder einzubeziehende Akteure',
+      'Erforderliche Anhänge',
+      'Grenzen der Mitwirkung des Präventionsberaters Niveau 3',
+      'Blockierende Punkte vor der Validierung',
+      'Schlussfolgerung',
+      'Validierungshinweis',
+    ],
+  },
+};
+
 const LANGUAGE_CONFIGS = {
   fr: {
     code: 'fr',
@@ -1492,8 +1615,9 @@ function normalizeGeneratedDocument(outputText, documentDefinition, language = '
   const structuredData = parseRiskAssessmentStructuredOutput(outputText || '', language);
   const validatedData = validateRiskAssessmentStructuredData(structuredData, language);
 
-  return removeMarkdownSeparatorRows(
-    removeStandaloneMarkdownSeparators(normalizeKnownPhrases(renderRiskAssessmentMarkdown(validatedData, language))),
+  return finalizeRiskAssessmentMarkdown(
+    normalizeKnownPhrases(renderRiskAssessmentMarkdown(validatedData, language)),
+    language,
   );
 }
 
@@ -1526,10 +1650,9 @@ async function generateStructuredRiskAssessmentInParts({
 
   const structuredData = assembleStructuredRiskAssessmentBlocks(generatedBlocks, languageCode);
   const validatedData = validateRiskAssessmentStructuredData(structuredData, languageCode);
-  const document = removeMarkdownSeparatorRows(
-    removeStandaloneMarkdownSeparators(
-      normalizeKnownPhrases(renderRiskAssessmentMarkdown(validatedData, languageCode)),
-    ),
+  const document = finalizeRiskAssessmentMarkdown(
+    normalizeKnownPhrases(renderRiskAssessmentMarkdown(validatedData, languageCode)),
+    languageCode,
   );
 
   console.info('Renderer markdown OK');
@@ -1892,18 +2015,19 @@ function buildRiskAssessmentFixedSections(formData = {}, documentType = '', lang
   const cppt = pick('presenceCppt');
   const preventionService = pick('serviceInterneExterne');
   const constraints = pick('contraintesParticulieres', 'informationsComplementaires');
-  const riskNames = getFallbackRiskNamesForDocument(documentType, formData, language).slice(0, 8);
+  const riskDetails = getFallbackRiskDetailsForDocument(documentType, formData, language).slice(0, 8);
+  const riskNames = riskDetails.map((risk) => risk.hazard);
 
   return {
     documentIdentification: {
       type: documentType || config.title,
-      reference: placeholder,
+      reference: buildRiskAssessmentReference({ documentIdentification: { type: documentType, site, company: sector } }),
       company: sector,
       site,
       services: preventionService,
       author: 'PreventIA Belgique',
       version: config.draftSuffix,
-      visitDate: placeholder,
+      visitDate: formatRiskAssessmentDate(new Date(), language),
       fieldCheckNote: 'Visite terrain, photos et preuves documentaires à confirmer avant validation.',
     },
     contextObjective: `Projet d’analyse de risques pour ${activity}. L’objectif est d’identifier les dangers principaux, de prioriser les mesures et de préparer les validations nécessaires sans conclure à une conformité définitive.`,
@@ -1950,10 +2074,10 @@ function buildRiskAssessmentFixedSections(formData = {}, documentType = '', lang
         'Éviter les visages et données personnelles non nécessaires.',
         'Photographier la zone, le danger, la mesure existante et la preuve après correction.',
       ],
-      photos: riskNames.map((riskName, index) => ({
+      photos: riskDetails.map((risk, index) => ({
         photoNumber: String(index + 1),
-        areaOrTask: activity,
-        whatPhotoMustShow: riskName,
+        areaOrTask: risk.task || activity,
+        whatPhotoMustShow: risk.hazard,
         whyUseful: 'Confirmer le danger, les mesures existantes et la priorité.',
         whereToInsert: `Risque ${index + 1} et annexe photos.`,
         alsoAnnex: 'Oui',
@@ -1965,15 +2089,15 @@ function buildRiskAssessmentFixedSections(formData = {}, documentType = '', lang
         beforeAfter: 'Avant et après correction si action réalisée.',
       })),
     },
-    hazardIdentification: riskNames.map((riskName, index) => ({
+    hazardIdentification: riskDetails.map((risk, index) => ({
       hazardFamily: getRiskFamilyLabel(documentType, language),
-      preciseHazard: riskName,
-      plausibleScenario: `Scénario lié à ${riskName}.`,
-      areaOrTask: activity,
+      preciseHazard: risk.hazard,
+      plausibleScenario: risk.hazardousSituationOrScenario || `Scénario lié à ${risk.hazard}.`,
+      areaOrTask: risk.task || activity,
       exposedPersons: exposed,
       aggravatingFactors: constraints,
-      knownExistingMeasures: measures,
-      evidenceToCheck: 'Photo, rapport de contrôle, registre ou procédure applicable.',
+      knownExistingMeasures: risk.existingMeasures || measures,
+      evidenceToCheck: risk.existingEvidence || 'Photo, rapport de contrôle, registre ou procédure applicable.',
       whatAdvisorMustDo: 'Vérifier sur site, documenter les preuves et ajuster la cotation.',
       whereToDocumentEvidence: `Risque ${index + 1}, plan d’action et annexes.`,
       blockingBeforeValidation: 'Oui si preuve ou visite terrain manquante.',
@@ -2493,30 +2617,30 @@ function truncateTextAtWord(value, maxLength = 180) {
 
 function renderRiskAssessmentMarkdown(data, language = 'fr') {
   const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+  const titles = RISK_ASSESSMENT_TITLES[language] || RISK_ASSESSMENT_TITLES.fr;
   const tableColumns = buildRiskSupportTableColumns(language);
-  const lines = [`# ${config.title}`, ''];
+  const reference = sanitizeMarkdownCell(data.documentIdentification.reference || buildRiskAssessmentReference(data), language);
+  const date = sanitizeMarkdownCell(data.documentIdentification.visitDate || formatRiskAssessmentDate(new Date(), language), language);
+  const lines = [
+    titles.documentTitle,
+    `${titles.referenceLabel} : ${reference}`,
+    `${titles.dateLabel} : ${date}`,
+    '',
+  ];
+
+  console.info('Using deterministic risk assessment renderer v2');
 
   const section = (index) => {
     if (lines[lines.length - 1] !== '') {
       lines.push('');
     }
 
-    lines.push(`## ${index}. ${config.sections[index - 1]}`);
+    lines.push(`## ${index}. ${titles.sections[index - 1]}`);
     lines.push('');
   };
 
   section(1);
-  lines.push(renderKeyValueTable(data.documentIdentification, [
-    ['type', 'Type'],
-    ['reference', 'Reference'],
-    ['company', 'Company'],
-    ['site', 'Site'],
-    ['services', 'Services'],
-    ['author', 'Author'],
-    ['version', 'Version'],
-    ['visitDate', 'Visit date'],
-    ['fieldCheckNote', 'Field check note'],
-  ], language));
+  lines.push(renderKeyValueTable(data.documentIdentification, getRiskIdentificationEntries(language), language));
 
   section(2);
   lines.push(renderParagraph(data.contextObjective, language));
@@ -2603,7 +2727,9 @@ function renderRiskAssessmentMarkdown(data, language = 'fr') {
   lines.push('');
   lines.push(`### 12.1 ${config.riskInitialSubsectionTitle}`);
   lines.push('');
-  lines.push(renderTable(config.riskInitialTableColumns, data.mainRiskAssessment.initialAssessment, [
+  const initialRows = data.mainRiskAssessment.initialAssessment;
+  const followUpRows = data.mainRiskAssessment.measuresFollowUpValidation;
+  const section121Table = renderTable(config.riskInitialTableColumns, initialRows, [
     'number',
     'task',
     'hazard',
@@ -2620,11 +2746,12 @@ function renderRiskAssessmentMarkdown(data, language = 'fr') {
     'scoringJustification',
     'initialScore',
     'initialLevel',
-  ], language));
+  ], language);
+  lines.push(section121Table);
   lines.push('');
   lines.push(`### 12.2 ${config.riskFollowUpSubsectionTitle}`);
   lines.push('');
-  lines.push(renderTable(config.riskFollowUpTableColumns, data.mainRiskAssessment.measuresFollowUpValidation, [
+  const section122Table = renderTable(config.riskFollowUpTableColumns, followUpRows, [
     'number',
     'additionalMeasure',
     'stopLevel',
@@ -2639,7 +2766,8 @@ function renderRiskAssessmentMarkdown(data, language = 'fr') {
     'priority',
     'blockingPoint',
     'externalAdvice',
-  ], language));
+  ], language);
+  lines.push(section122Table);
 
   section(13);
   lines.push(renderTable(config.residualTableColumns, data.residualRiskAnalysis, [
@@ -2725,12 +2853,359 @@ function renderRiskAssessmentMarkdown(data, language = 'fr') {
   ], language));
 
   section(22);
-  lines.push(renderParagraph(data.conclusion || buildStructuredFallbackRiskConclusion(data, language), language));
+  lines.push(renderParagraph(getRiskAssessmentConclusion(data, language), language));
 
   section(23);
   lines.push(config.finalMention);
 
-  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return ensureRiskAssessmentSection12Integrity(lines.join('\n').replace(/\n{3,}/g, '\n\n').trim(), data, language);
+}
+
+function getRiskIdentificationEntries(language = 'fr') {
+  const labels = {
+    fr: [
+      ['type', 'Type'],
+      ['reference', 'Référence'],
+      ['company', 'Entreprise ou secteur'],
+      ['site', 'Site'],
+      ['services', 'Service prévention'],
+      ['author', 'Auteur'],
+      ['version', 'Version'],
+      ['visitDate', 'Date'],
+      ['fieldCheckNote', 'Note de vérification terrain'],
+    ],
+    nl: [
+      ['type', 'Type'],
+      ['reference', 'Referentie'],
+      ['company', 'Onderneming of sector'],
+      ['site', 'Site'],
+      ['services', 'Preventiedienst'],
+      ['author', 'Auteur'],
+      ['version', 'Versie'],
+      ['visitDate', 'Datum'],
+      ['fieldCheckNote', 'Nota terreincontrole'],
+    ],
+    en: [
+      ['type', 'Type'],
+      ['reference', 'Reference'],
+      ['company', 'Company or sector'],
+      ['site', 'Site'],
+      ['services', 'Prevention service'],
+      ['author', 'Author'],
+      ['version', 'Version'],
+      ['visitDate', 'Date'],
+      ['fieldCheckNote', 'Field check note'],
+    ],
+    de: [
+      ['type', 'Typ'],
+      ['reference', 'Referenz'],
+      ['company', 'Unternehmen oder Sektor'],
+      ['site', 'Standort'],
+      ['services', 'Präventionsdienst'],
+      ['author', 'Autor'],
+      ['version', 'Version'],
+      ['visitDate', 'Datum'],
+      ['fieldCheckNote', 'Hinweis zur Vor-Ort-Prüfung'],
+    ],
+  };
+
+  return labels[language] || labels.fr;
+}
+
+function buildRiskAssessmentReference(data = {}) {
+  const year = new Date().getFullYear();
+  const raw = JSON.stringify(data.documentIdentification || data).split('').reduce(
+    (sum, char) => sum + char.charCodeAt(0),
+    0,
+  );
+  const number = String((raw % 9999) + 1).padStart(4, '0');
+  return `AR-${year}-${number}`;
+}
+
+function formatRiskAssessmentDate(date = new Date(), language = 'fr') {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+
+  if (language === 'en') {
+    return `${year}-${month}-${day}`;
+  }
+
+  return `${day}/${month}/${year}`;
+}
+
+function getRiskAssessmentConclusion(data, language = 'fr') {
+  const conclusion = ensureString(data.conclusion).trim();
+
+  if (conclusion.length >= 120 && !conclusion.includes('|')) {
+    return conclusion;
+  }
+
+  return buildStructuredFallbackRiskConclusion(data, language);
+}
+
+function ensureRiskAssessmentSection12Integrity(markdown, data, language = 'fr') {
+  const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+  const titles = RISK_ASSESSMENT_TITLES[language] || RISK_ASSESSMENT_TITLES.fr;
+  const section122Heading = `### 12.2 ${config.riskFollowUpSubsectionTitle}`;
+  const section13Heading = `## 13. ${titles.sections[12]}`;
+  const section122Text = getTextBetween(markdown, section122Heading, section13Heading);
+
+  if (!section122Text) {
+    return markdown;
+  }
+
+  const forbiddenInFollowUp = [
+    'Tâche | Danger',
+    'Score initial',
+    'Task | Hazard',
+    'Initial score',
+    'Taak | Gevaar',
+    'Initiële score',
+    'Aufgabe | Gefährdung',
+    'Ausgangsbewertung',
+  ];
+
+  if (!forbiddenInFollowUp.some((value) => section122Text.includes(value))) {
+    return markdown;
+  }
+
+  const section12Heading = `## 12. ${titles.sections[11]}`;
+  const start = markdown.indexOf(section12Heading);
+  const end = markdown.indexOf(section13Heading);
+
+  if (start === -1 || end === -1 || end <= start) {
+    return markdown;
+  }
+
+  const rebuiltSection12 = buildRiskAssessmentSection12Markdown(data, language);
+  return `${markdown.slice(0, start)}${rebuiltSection12}\n\n${markdown.slice(end)}`;
+}
+
+function buildRiskAssessmentSection12Markdown(data, language = 'fr') {
+  const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+  const titles = RISK_ASSESSMENT_TITLES[language] || RISK_ASSESSMENT_TITLES.fr;
+  const initialRows = ensureObject(data.mainRiskAssessment).initialAssessment || [];
+  const followUpRows = ensureObject(data.mainRiskAssessment).measuresFollowUpValidation || [];
+  const initialTable = renderTable(config.riskInitialTableColumns, initialRows, [
+    'number',
+    'task',
+    'hazard',
+    'hazardousSituationOrScenario',
+    'possibleRiskOrHarm',
+    'exposed',
+    'existingMeasures',
+    'existingEvidence',
+    'observedOrDeclaredElements',
+    'elementsToConfirm',
+    'severity',
+    'probability',
+    'exposure',
+    'scoringJustification',
+    'initialScore',
+    'initialLevel',
+  ], language);
+  const followUpTable = renderTable(config.riskFollowUpTableColumns, followUpRows, [
+    'number',
+    'additionalMeasure',
+    'stopLevel',
+    'responsible',
+    'deadline',
+    'residualScore',
+    'residualLevel',
+    'residualScoreJustification',
+    'expectedEvidence',
+    'photoToInsert',
+    'annexToAttach',
+    'priority',
+    'blockingPoint',
+    'externalAdvice',
+  ], language);
+
+  return [
+    `## 12. ${titles.sections[11]}`,
+    '',
+    config.riskLinkingSentence,
+    '',
+    `### 12.1 ${config.riskInitialSubsectionTitle}`,
+    '',
+    initialTable,
+    '',
+    `### 12.2 ${config.riskFollowUpSubsectionTitle}`,
+    '',
+    followUpTable,
+  ].join('\n');
+}
+
+function finalizeRiskAssessmentMarkdown(markdown, language = 'fr') {
+  const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+  const titles = RISK_ASSESSMENT_TITLES[language] || RISK_ASSESSMENT_TITLES.fr;
+  let normalized = String(markdown || '')
+    .replace(/^Document Reference:\s*.+$/gim, '')
+    .replace(/^#\s*Analyse de risques – Projet à valider\s*$/gim, '')
+    .replace(/^Analyse de risques – Projet à valider\s*$/gim, '')
+    .replace(/^#\s*Risk assessment – Draft for validation\s*$/gim, '')
+    .replace(/^#\s*Risicoanalyse – Ontwerp te valideren\s*$/gim, '')
+    .replace(/^#\s*Gefährdungsbeurteilung – Entwurf zur Validierung\s*$/gim, '');
+
+  normalized = alignRiskAssessmentHeadingsToTitles(normalized, language);
+  normalized = replaceWrongRiskHeadingWhenSectionContains(normalized, language, 4, 'Périmètre de l’analyse', /Abréviation\s*\|\s*Définition/i);
+  normalized = replaceWrongRiskHeadingWhenSectionContains(normalized, language, 9, 'Tableau principal d’analyse des risques', /Numéro photo|Photo number|Fotonummer|Foto/i);
+  normalized = replaceWrongRiskHeadingWhenSectionContains(normalized, language, 11, 'Priorités d’action', /Score\s*=\s*Gravité|Score\s*=\s*Severity|Score\s*=\s*Ernst|Score\s*=\s*Schwere/i);
+  normalized = replaceWrongRiskHeadingWhenSectionContains(normalized, language, 16, 'Annexes nécessaires', /\bPAA\b|\bPGP\b|Plan Annuel|Annual Action Plan|Jaaractieplan|Jährlichen Aktionsplan/i);
+  normalized = replaceWrongRiskHeadingWhenSectionContains(normalized, language, 17, 'Conclusion', /Document\s*\|\s*Pourquoi/i);
+  normalized = removeDuplicateRiskSectionHeadings(normalized, language);
+  normalized = ensureRiskConclusionSection(normalized, language);
+  normalized = ensureRiskValidationSection(normalized, language);
+  normalized = removeStandaloneMarkdownSeparators(normalized);
+  normalized = removeDuplicateRiskMainTitle(normalized, language);
+  normalized = ensureFinalMentionOnce(normalized, language);
+
+  const validationHeading = `## 23. ${titles.sections[22]}`;
+  normalized = setSectionContent(normalized, 23, { sections: titles.sections }, config.finalMention);
+
+  if (!normalized.includes(validationHeading)) {
+    normalized = `${normalized.trim()}\n\n${validationHeading}\n\n${config.finalMention}`;
+  }
+
+  return normalized.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function alignRiskAssessmentHeadingsToTitles(document, language = 'fr') {
+  const titles = RISK_ASSESSMENT_TITLES[language] || RISK_ASSESSMENT_TITLES.fr;
+
+  return String(document || '')
+    .split('\n')
+    .map((line) => {
+      const headingMatch = line.match(/^(#{1,6}\s*)?(\d{1,2})\.\s+.+$/);
+
+      if (!headingMatch) {
+        return line;
+      }
+
+      const sectionNumber = Number(headingMatch[2]);
+      const expectedTitle = titles.sections[sectionNumber - 1];
+
+      return expectedTitle ? `## ${sectionNumber}. ${expectedTitle}` : line;
+    })
+    .join('\n');
+}
+
+function replaceWrongRiskHeadingWhenSectionContains(document, language, sectionNumber, wrongTitle, contentPattern) {
+  const titles = RISK_ASSESSMENT_TITLES[language] || RISK_ASSESSMENT_TITLES.fr;
+  const expectedHeading = `## ${sectionNumber}. ${titles.sections[sectionNumber - 1]}`;
+  const wrongHeading = `## ${sectionNumber}. ${wrongTitle}`;
+
+  if (!document.includes(wrongHeading)) {
+    return document;
+  }
+
+  const sectionText = getSectionText(document, sectionNumber, { sections: titles.sections.map((title, index) =>
+    index === sectionNumber - 1 ? wrongTitle : title,
+  ) });
+
+  return contentPattern.test(sectionText)
+    ? document.replaceAll(wrongHeading, expectedHeading)
+    : document;
+}
+
+function removeDuplicateRiskSectionHeadings(document, language = 'fr') {
+  const titles = RISK_ASSESSMENT_TITLES[language] || RISK_ASSESSMENT_TITLES.fr;
+  const seen = new Set();
+
+  return document
+    .split('\n')
+    .filter((line) => {
+      const match = line.match(/^##\s+(\d{1,2})\.\s+(.+)$/);
+
+      if (!match) {
+        return true;
+      }
+
+      const sectionNumber = Number(match[1]);
+      const expectedTitle = titles.sections[sectionNumber - 1];
+
+      if (!expectedTitle || match[2] !== expectedTitle) {
+        return true;
+      }
+
+      if (seen.has(sectionNumber)) {
+        return false;
+      }
+
+      seen.add(sectionNumber);
+      return true;
+    })
+    .join('\n');
+}
+
+function ensureRiskConclusionSection(document, language = 'fr') {
+  const titles = RISK_ASSESSMENT_TITLES[language] || RISK_ASSESSMENT_TITLES.fr;
+  const conclusionHeading = `## 22. ${titles.sections[21]}`;
+  const validationHeading = `## 23. ${titles.sections[22]}`;
+  const fallbackConclusion = buildFallbackRiskConclusion(language);
+
+  if (!document.includes(conclusionHeading)) {
+    const validationIndex = document.indexOf(validationHeading);
+    const block = `${conclusionHeading}\n\n${fallbackConclusion}\n\n`;
+    return validationIndex === -1
+      ? `${document.trim()}\n\n${block.trim()}`
+      : `${document.slice(0, validationIndex)}${block}${document.slice(validationIndex)}`;
+  }
+
+  const sectionText = getSectionText(document, 22, { sections: titles.sections });
+  if (sectionText.length < 120 || sectionText.includes('|')) {
+    return setSectionContent(document, 22, { sections: titles.sections }, fallbackConclusion);
+  }
+
+  return document;
+}
+
+function ensureRiskValidationSection(document, language = 'fr') {
+  const titles = RISK_ASSESSMENT_TITLES[language] || RISK_ASSESSMENT_TITLES.fr;
+  const validationHeading = `## 23. ${titles.sections[22]}`;
+
+  return document.includes(validationHeading)
+    ? document
+    : `${document.trim()}\n\n${validationHeading}\n\n${(LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr).finalMention}`;
+}
+
+function removeDuplicateRiskMainTitle(document, language = 'fr') {
+  const titles = RISK_ASSESSMENT_TITLES[language] || RISK_ASSESSMENT_TITLES.fr;
+  let seenTitle = false;
+
+  return document
+    .split('\n')
+    .filter((line) => {
+      const normalizedLine = line.replace(/^#\s*/, '').trim();
+
+      if (normalizedLine !== titles.documentTitle) {
+        return true;
+      }
+
+      if (seenTitle) {
+        return false;
+      }
+
+      seenTitle = true;
+      return true;
+    })
+    .join('\n');
+}
+
+function getTextBetween(document, startMarker, endMarker) {
+  const start = document.indexOf(startMarker);
+
+  if (start === -1) {
+    return '';
+  }
+
+  const afterStart = start + startMarker.length;
+  const end = document.indexOf(endMarker, afterStart);
+
+  return end === -1
+    ? document.slice(afterStart)
+    : document.slice(afterStart, end);
 }
 
 function renderTable(header, rows, keys, language = 'fr') {
@@ -2888,6 +3363,7 @@ function getAllowedStopLevels(language = 'fr') {
   const values = {
     fr: [
       'Suppression/Substitution',
+      'Suppression/Substitution + Technique + Organisationnelle',
       'Technique',
       'Organisationnelle',
       'Protection individuelle',
@@ -2967,26 +3443,15 @@ function getForbiddenRiskLevelValues() {
 }
 
 function buildStructuredFallbackRiskConclusion(data, language = 'fr') {
-  const risks = data.mainRiskAssessment.initialAssessment
-    .map((row) => row.hazard || row.possibleRiskOrHarm)
-    .filter(Boolean)
-    .slice(0, 4)
-    .join(', ');
-  const blockers = data.blockingPointsBeforeValidation
-    .map((row) => row.point || row.whyBlocking)
-    .filter(Boolean)
-    .slice(0, 3)
-    .join(', ');
-
   const templates = {
     fr:
-      `Le document constitue une base d’analyse de risques, mais il doit être considéré comme un projet à adapter et à valider. Les risques principaux concernent ${risks || 'les situations identifiées dans le tableau principal'}. Plusieurs points bloquants restent à lever, notamment ${blockers || 'les preuves, photos, avis et validations à confirmer'}. Les actions urgentes doivent être intégrées au Plan Annuel d’Action, tandis que les mesures structurelles doivent alimenter le Plan Global de Prévention. Le document peut être présenté au CPPT comme base de discussion et de priorisation, mais il ne peut pas être considéré comme une analyse finalisée tant que la visite terrain, les preuves, les photos, les avis spécialisés et les validations nécessaires ne sont pas complétés.`,
+      'Ce document constitue une base d’analyse de risques destinée à aider le conseiller en prévention dans la préparation, la vérification et le suivi des actions. Il ne peut pas être considéré comme une analyse finalisée tant que la visite terrain, les photos, les preuves documentaires, les avis nécessaires et les validations internes n’ont pas été complétés. Les risques prioritaires doivent être traités dans le Plan Annuel d’Action lorsque l’action est urgente ou corrective. Les actions structurelles doivent être intégrées au Plan Global de Prévention. Le document peut être présenté au CPPT comme base de discussion et de priorisation, mais il doit être validé par l’employeur, le conseiller en prévention et, si nécessaire, le service externe ou un expert compétent.',
     nl:
-      `Het document vormt een basis voor de risicoanalyse, maar moet worden beschouwd als een ontwerp dat moet worden aangepast en gevalideerd. De belangrijkste risico’s hebben betrekking op ${risks || 'de situaties in de hoofdtabel'}. Er blijven blokkerende punten op te heffen, met name ${blockers || 'de te bevestigen bewijzen, foto’s, adviezen en validaties'}. Dringende acties moeten in het Jaaractieplan worden opgenomen, terwijl structurele maatregelen in het Globaal Preventieplan moeten worden opgenomen. Het document kan aan het CPBW worden voorgelegd als basis voor bespreking en prioritering, maar het kan niet als definitieve analyse worden beschouwd zolang het terreinbezoek, de bewijzen, foto’s, gespecialiseerde adviezen en noodzakelijke validaties niet zijn aangevuld.`,
+      'Dit document vormt een basis voor risicoanalyse om de preventieadviseur te helpen bij de voorbereiding, controle en opvolging van acties. Het mag niet als een definitieve analyse worden beschouwd zolang het terreinbezoek, de foto’s, de documentaire bewijzen, de noodzakelijke adviezen en de interne validaties niet zijn aangevuld. Prioritaire risico’s moeten in het Jaaractieplan worden behandeld wanneer de actie dringend of corrigerend is. Structurele acties moeten in het Globaal Preventieplan worden opgenomen. Het document kan aan het CPBW worden voorgelegd als basis voor bespreking en prioritering, maar het moet worden gevalideerd door de werkgever, de preventieadviseur en, indien nodig, de externe dienst of een bevoegde expert.',
     en:
-      `The document is a basis for risk assessment, but it must be considered a draft to be adapted and validated. The main risks concern ${risks || 'the situations listed in the main table'}. Several blocking points still need to be removed, in particular ${blockers || 'the evidence, photos, opinions and validations to be confirmed'}. Urgent actions should feed the Annual Action Plan, while structural measures should feed the Global Prevention Plan. The document may be presented to the health and safety committee as a basis for discussion and prioritisation, but it cannot be considered a final assessment until the site visit, evidence, photos, specialist opinions and necessary validations have been completed.`,
+      'This document is a risk assessment basis intended to help the prevention advisor prepare, verify and follow up actions. It cannot be considered a final assessment until the site visit, photos, documentary evidence, necessary opinions and internal validations have been completed. Priority risks must be addressed in the Annual Action Plan when the action is urgent or corrective. Structural actions must be included in the Global Prevention Plan. The document may be presented to the health and safety committee as a basis for discussion and prioritisation, but it must be validated by the employer, the prevention advisor and, if necessary, the external service or a competent expert.',
     de:
-      `Das Dokument bildet eine Grundlage für die Gefährdungsbeurteilung, muss jedoch als anzupassender und zu validierender Entwurf betrachtet werden. Die Hauptrisiken betreffen ${risks || 'die in der Haupttabelle aufgeführten Situationen'}. Mehrere blockierende Punkte sind noch aufzuheben, insbesondere ${blockers || 'die zu bestätigenden Nachweise, Fotos, Stellungnahmen und Validierungen'}. Dringende Maßnahmen sollen in den Jährlichen Aktionsplan einfließen, während strukturelle Maßnahmen in den Globalen Präventionsplan aufgenommen werden sollen. Das Dokument kann dem AGS/CPPT als Grundlage für Diskussion und Priorisierung vorgelegt werden, gilt jedoch nicht als abgeschlossene Analyse, solange Vor-Ort-Begehung, Nachweise, Fotos, fachliche Stellungnahmen und notwendige Validierungen nicht ergänzt sind.`,
+      'Dieses Dokument bildet eine Grundlage für die Gefährdungsbeurteilung und soll den Präventionsberater bei Vorbereitung, Prüfung und Nachverfolgung der Maßnahmen unterstützen. Es kann nicht als endgültige Beurteilung gelten, solange Vor-Ort-Begehung, Fotos, dokumentierte Nachweise, erforderliche Stellungnahmen und interne Validierungen nicht abgeschlossen sind. Prioritäre Risiken sind im Jährlichen Aktionsplan zu behandeln, wenn die Maßnahme dringend oder korrigierend ist. Strukturelle Maßnahmen sind in den Globalen Präventionsplan aufzunehmen. Das Dokument kann dem AGS/CPPT als Grundlage für Diskussion und Priorisierung vorgelegt werden, muss jedoch vom Arbeitgeber, vom Präventionsberater und erforderlichenfalls vom externen Dienst oder einem zuständigen Experten validiert werden.',
   };
 
   return templates[language] || templates.fr;
@@ -3312,18 +3777,7 @@ function setSectionContent(document, sectionNumber, config, content) {
 }
 
 function buildFallbackRiskConclusion(language = 'fr') {
-  const conclusions = {
-    fr:
-      'Cette analyse reste un projet à adapter et à valider. Les risques principaux, les points bloquants, les actions urgentes, les preuves manquantes, les photos ou annexes à ajouter et les avis externes recommandés doivent être confirmés à partir des tableaux précédents. Les actions à court terme peuvent alimenter le Plan Annuel d’Action, tandis que les mesures structurelles peuvent alimenter le Plan Global de Prévention. Le document peut être présenté au CPPT comme base de discussion, mais il ne peut pas être considéré comme finalisé tant que les validations, preuves et conditions minimales de levée des points bloquants ne sont pas réunies.',
-    nl:
-      'Deze analyse blijft een ontwerp dat moet worden aangepast en gevalideerd. De belangrijkste risico’s, blokkerende punten, dringende acties, ontbrekende bewijzen, toe te voegen foto’s of bijlagen en aanbevolen externe adviezen moeten worden bevestigd op basis van de voorgaande tabellen. Kortetermijnacties kunnen worden opgenomen in het Jaaractieplan, terwijl structurele maatregelen kunnen worden opgenomen in het Globaal Preventieplan. Het document kan aan het CPBW worden voorgelegd als basis voor bespreking, maar het kan niet als definitief worden beschouwd zolang de validaties, bewijzen en minimale voorwaarden voor opheffing van de blokkerende punten niet zijn verzameld.',
-    en:
-      'This assessment remains a draft to be adapted and validated. The main risks, blocking points, urgent actions, missing evidence, photos or annexes to be added and recommended external opinions must be confirmed from the preceding tables. Short-term actions may feed the Annual Action Plan, while structural measures may feed the Global Prevention Plan. The document may be presented to the health and safety committee as a basis for discussion, but it cannot be considered final until the validations, evidence and minimum conditions for removing blocking points have been met.',
-    de:
-      'Diese Beurteilung bleibt ein Entwurf, der anzupassen und zu validieren ist. Die Hauptrisiken, blockierenden Punkte, dringenden Maßnahmen, fehlenden Nachweise, hinzuzufügenden Fotos oder Anhänge und empfohlenen externen Stellungnahmen müssen anhand der vorstehenden Tabellen bestätigt werden. Kurzfristige Maßnahmen können in den Jährlichen Aktionsplan einfließen, strukturelle Maßnahmen in den Globalen Präventionsplan. Das Dokument kann dem AGS/CPPT als Diskussionsgrundlage vorgelegt werden, gilt jedoch nicht als abgeschlossen, solange Validierungen, Nachweise und Mindestbedingungen zur Aufhebung der blockierenden Punkte nicht erfüllt sind.',
-  };
-
-  return conclusions[language] || conclusions.fr;
+  return buildStructuredFallbackRiskConclusion({}, language);
 }
 
 function removeStandaloneMarkdownSeparators(document) {
@@ -3831,6 +4285,15 @@ function runInternalRiskTests() {
   assert.doesNotMatch(renderedRiskDocument, /## 16\. Annexes nécessaires/);
   assert.match(renderedRiskDocument, /## 17\. Documents à créer ou à mettre à jour/);
   assert.match(renderedRiskDocument, /## 22\. Conclusion/);
+  assert.match(renderedRiskDocument, /## 23\. Mention de validation/);
+  assert.doesNotMatch(renderedRiskDocument, /Document Reference:/);
+  assert.doesNotMatch(renderedRiskDocument, /^#?\s*Analyse de risques – Projet à valider\s*$/m);
+  assert.doesNotMatch(renderedRiskDocument, /## 4\. Périmètre de l’analyse\n\n\| Abréviation \| Définition \|/);
+  assert.doesNotMatch(renderedRiskDocument, /## 9\. Tableau principal d’analyse des risques\n\n/);
+  assert.doesNotMatch(renderedRiskDocument, /## 11\. Priorités d’action\n\nScore =/);
+  assert.doesNotMatch(renderedRiskDocument, /## 16\. Annexes nécessaires\n\n.*\bPAA\b/s);
+  assert.doesNotMatch(renderedRiskDocument, /## 17\. Conclusion\n\n\| Document \| Pourquoi/s);
+  assert.doesNotMatch(renderedRiskDocument, /--- ---/);
   assert.equal(
     renderedRiskDocument.split(LANGUAGE_CONFIGS.fr.finalMention).length - 1,
     1,
@@ -3888,8 +4351,44 @@ function runInternalRiskTests() {
   );
   assert.equal(fallbackFireBlockC.mainRiskAssessment.initialAssessment.length, 8);
   assert.match(fallbackFireBlockC.mainRiskAssessment.initialAssessment[0].hazard, /Incendie lié aux produits inflammables/);
-  assert.equal(fallbackFireBlockC.mainRiskAssessment.measuresFollowUpValidation[0].stopLevel, 'Organisationnelle');
+  assert.equal(fallbackFireBlockC.mainRiskAssessment.measuresFollowUpValidation[0].stopLevel, 'Technique + Organisationnelle');
   assert.equal(fallbackFireBlockC.residualRiskAnalysis.length, 8);
+
+  const deterministicFireDocument = finalizeRiskAssessmentMarkdown(renderRiskAssessmentMarkdown(validateRiskAssessmentStructuredData({
+    ...buildRiskAssessmentFixedSections(fallbackFireFormData, 'Analyse de risques incendie et évacuation', 'fr'),
+    ...buildFallbackRiskItems(fallbackFireFormData, 'Analyse de risques incendie et évacuation', 'fr'),
+  }, 'fr'), 'fr'), 'fr');
+  const section122Text = getTextBetween(
+    deterministicFireDocument,
+    '### 12.2 Mesures, suivi et validation',
+    '## 13. Analyse des risques résiduels',
+  );
+
+  [
+    '## 4. Glossaire des abréviations utilisées',
+    '## 5. Périmètre de l’analyse',
+    '## 9. Plan photos',
+    '## 11. Méthode de cotation',
+    '### 12.1 Évaluation initiale des risques',
+    '### 12.2 Mesures, suivi et validation',
+    '## 16. Lien avec le Plan Annuel d’Action et le Plan Global de Prévention',
+    '## 17. Documents à créer ou à mettre à jour',
+    '## 22. Conclusion',
+    '## 23. Mention de validation',
+  ].forEach((expected) => assert.match(deterministicFireDocument, new RegExp(escapeRegExp(expected))));
+  assert.doesNotMatch(deterministicFireDocument, /Document Reference:/);
+  assert.doesNotMatch(deterministicFireDocument, /^#?\s*Analyse de risques – Projet à valider\s*$/m);
+  assert.doesNotMatch(deterministicFireDocument, /## 4\. Périmètre de l’analyse\n\n\| Abréviation \| Définition \|/);
+  assert.doesNotMatch(deterministicFireDocument, /## 9\. Tableau principal d’analyse des risques\n\n/);
+  assert.doesNotMatch(deterministicFireDocument, /## 11\. Priorités d’action\n\nScore =/);
+  assert.doesNotMatch(deterministicFireDocument, /## 16\. Annexes nécessaires\n\n.*\bPAA\b/s);
+  assert.doesNotMatch(deterministicFireDocument, /## 17\. Conclusion\n\n\| Document \| Pourquoi/s);
+  assert.doesNotMatch(deterministicFireDocument, /--- ---/);
+  assert.doesNotMatch(section122Text, /Tâche\s*\|\s*Danger/);
+  assert.doesNotMatch(section122Text, /Score initial/);
+  assert.doesNotMatch(section122Text, /\|\s*Moyen\s*\|/);
+  assert.match(deterministicFireDocument, /Stockage et manutention de solvants/);
+  assert.match(deterministicFireDocument, /Centraliser FDS, vérifier étiquetage CLP/);
 
   const normalizedDutch = normalizeRiskLevels(`| Nr. | Activiteit | Score | Niveau |
 | --- | --- | --- | --- |
@@ -4916,11 +5415,11 @@ function buildFallbackRiskAssessmentBlock(blockKey, language = 'fr', formData = 
 
 function buildUsefulFallbackRiskBlockC(language = 'fr', formData = {}, documentType = '') {
   const sourceContext = buildFallbackRiskSourceContext(formData, language);
-  const risks = getFallbackRiskNamesForDocument(documentType, formData, language);
+  const risks = getFallbackRiskDetailsForDocument(documentType, formData, language);
 
   const simplifiedBlock = {
-    risks: risks.slice(0, 8).map((riskName, index) =>
-      buildFallbackSimplifiedRisk(String(index + 1), riskName, sourceContext, language),
+    risks: risks.slice(0, 8).map((risk, index) =>
+      buildFallbackSimplifiedRisk(String(index + 1), risk, sourceContext, language),
     ),
   };
 
@@ -4929,9 +5428,9 @@ function buildUsefulFallbackRiskBlockC(language = 'fr', formData = {}, documentT
 
 function buildFallbackRiskItems(formData = {}, documentType = '', language = 'fr') {
   const sourceContext = buildFallbackRiskSourceContext(formData, language);
-  const rows = getFallbackRiskNamesForDocument(documentType, formData, language)
+  const rows = getFallbackRiskDetailsForDocument(documentType, formData, language)
     .slice(0, 8)
-    .map((riskName, index) => buildFallbackSimplifiedRisk(String(index + 1), riskName, sourceContext, language))
+    .map((risk, index) => buildFallbackSimplifiedRisk(String(index + 1), risk, sourceContext, language))
     .map((risk) => ({
       initial: risk.initial,
       followUp: {
@@ -4961,7 +5460,18 @@ function buildFallbackRiskSourceContext(formData = {}, language = 'fr') {
 }
 
 function getFallbackRiskNamesForDocument(documentType = '', formData = {}, language = 'fr') {
+  return getFallbackRiskDetailsForDocument(documentType, formData, language).map((risk) => risk.hazard);
+}
+
+function getFallbackRiskDetailsForDocument(documentType = '', formData = {}, language = 'fr') {
   const normalizedType = normalizeDocumentType(documentType);
+
+  if (
+    language === 'fr' &&
+    (normalizedType.includes('incendie') || normalizedType.includes('evacuation') || normalizedType.includes('fire'))
+  ) {
+    return buildFireEvacuationFallbackRiskDetails();
+  }
 
   if (normalizedType.includes('incendie') || normalizedType.includes('evacuation') || normalizedType.includes('fire')) {
     return [
@@ -4973,7 +5483,7 @@ function getFallbackRiskNamesForDocument(documentType = '', formData = {}, langu
       'Évacuation des travailleurs, visiteurs ou intérimaires',
       'Accès pompiers',
       'Produits dangereux / incompatibilités / FDS manquantes',
-    ];
+    ].map((hazard) => ({ hazard }));
   }
 
   if (normalizedType.includes('chimique') || normalizedType.includes('chemical')) {
@@ -4986,7 +5496,7 @@ function getFallbackRiskNamesForDocument(documentType = '', formData = {}, langu
       'Déchets dangereux',
       'EPI inadaptés',
       'Avis médecin du travail ou hygiéniste à prévoir',
-    ];
+    ].map((hazard) => ({ hazard }));
   }
 
   if (normalizedType.includes('machine') || normalizedType.includes('equipement')) {
@@ -4999,10 +5509,10 @@ function getFallbackRiskNamesForDocument(documentType = '', formData = {}, langu
       'Notice ou marquage CE à vérifier',
       'Accès maintenance',
       'EPI ou consignes insuffisants',
-    ];
+    ].map((hazard) => ({ hazard }));
   }
 
-  return buildGenericFallbackRiskNames(formData);
+  return buildGenericFallbackRiskNames(formData).map((hazard) => ({ hazard }));
 }
 
 function buildGenericFallbackRiskNames(formData = {}) {
@@ -5033,11 +5543,114 @@ function buildGenericFallbackRiskNames(formData = {}) {
   return [...new Set(risks)].slice(0, 6);
 }
 
-function buildFallbackSimplifiedRisk(number, riskName, context, language = 'fr') {
-  const stopLevel = getDefaultStopLevel(language);
-  const task = context.activity || context.placeholder;
+function buildFireEvacuationFallbackRiskDetails() {
+  return [
+    {
+      hazard: 'Incendie lié aux produits inflammables',
+      task: 'Stockage et manutention de solvants, aérosols, peintures ou produits inflammables',
+      hazardousSituationOrScenario: 'Fuite, déversement, stockage incompatible, source d’ignition ou ventilation insuffisante',
+      possibleRiskOrHarm: 'Brûlures, intoxication par fumées, propagation incendie, explosion secondaire',
+      existingMeasures: 'Armoires de sécurité, consignes incendie, interdiction de fumer, extincteurs',
+      existingEvidence: 'FDS, inventaire produits, photos stockage, rapport contrôle extincteurs',
+      additionalMeasure: 'Vérifier compatibilité, ventilation, quantités stockées et séparation des produits',
+      stopLevel: 'Technique + Organisationnelle',
+      blockingPoint: 'Oui',
+      externalAdvice: 'Oui',
+    },
+    {
+      hazard: 'Incendie lié à la charge de batteries',
+      task: 'Charge de batteries lithium-ion ou plomb-acide',
+      hazardousSituationOrScenario: 'Chargeur défectueux, local mal ventilé, proximité combustibles',
+      possibleRiskOrHarm: 'Incendie localisé, fumées toxiques, propagation à l’entrepôt',
+      existingMeasures: 'Zone de charge définie, consignes, extincteurs adaptés',
+      existingEvidence: 'Rapport maintenance chargeurs, photos local, notice fabricant',
+      additionalMeasure: 'Contrôler chargeurs, ventilation, éloignement combustibles et procédure incident batterie',
+      stopLevel: 'Technique + Organisationnelle',
+      blockingPoint: 'Oui',
+      externalAdvice: 'Oui',
+    },
+    {
+      hazard: 'Obstruction des issues de secours',
+      task: 'Circulation et évacuation dans les zones de stockage et quais',
+      hazardousSituationOrScenario: 'Palettes, films plastiques, déchets ou marchandises devant une sortie',
+      possibleRiskOrHarm: 'Évacuation retardée, panique, exposition prolongée aux fumées',
+      existingMeasures: 'Consignes évacuation, signalisation, contrôles internes',
+      existingEvidence: 'Photos avant/après, check-list inspection, exercice évacuation',
+      additionalMeasure: 'Dégager les voies, marquer les zones interdites au stockage et contrôler quotidiennement',
+      stopLevel: 'Organisationnelle',
+      blockingPoint: 'Oui',
+      externalAdvice: 'Non',
+    },
+    {
+      hazard: 'Accessibilité des moyens d’extinction',
+      task: 'Intervention initiale en cas de départ de feu',
+      hazardousSituationOrScenario: 'Équipement masqué par palettes, racks ou marchandises',
+      possibleRiskOrHarm: 'Retard d’intervention et aggravation de l’incendie',
+      existingMeasures: 'Extincteurs présents, signalisation, contrôles périodiques',
+      existingEvidence: 'Rapport contrôle extincteurs, photos, registre inspection',
+      additionalMeasure: 'Rendre les équipements visibles et accessibles, ajouter marquage au sol si nécessaire',
+      stopLevel: 'Technique + Organisationnelle',
+      blockingPoint: 'Oui',
+      externalAdvice: 'Non',
+    },
+    {
+      hazard: 'Portes coupe-feu et compartimentage',
+      task: 'Séparation des zones à risque et limitation de propagation',
+      hazardousSituationOrScenario: 'Cale, fermeture automatique défaillante, passage fréquent non contrôlé',
+      possibleRiskOrHarm: 'Propagation rapide du feu et des fumées',
+      existingMeasures: 'Portes coupe-feu existantes, consignes',
+      existingEvidence: 'Rapport contrôle portes, photos, registre maintenance',
+      additionalMeasure: 'Supprimer les cales, vérifier fermeture automatique et sensibiliser le personnel',
+      stopLevel: 'Technique + Organisationnelle',
+      blockingPoint: 'Oui',
+      externalAdvice: 'Oui',
+    },
+    {
+      hazard: 'Évacuation des travailleurs, visiteurs et intérimaires',
+      task: 'Évacuation générale du site',
+      hazardousSituationOrScenario: 'Travailleurs temporaires, chauffeurs externes ou visiteurs mal informés',
+      possibleRiskOrHarm: 'Retard évacuation, personnes manquantes, exposition aux fumées',
+      existingMeasures: 'Plans d’évacuation, consignes affichées, exercice annuel',
+      existingEvidence: 'Registre formation, PV exercice, photos affichages',
+      additionalMeasure: 'Renforcer accueil sécurité, briefing intérimaires et exercice évacuation',
+      stopLevel: 'Organisationnelle',
+      blockingPoint: 'Oui',
+      externalAdvice: 'Non',
+    },
+    {
+      hazard: 'Accès pompiers',
+      task: 'Intervention des secours externes',
+      hazardousSituationOrScenario: 'Camions, déchets, palettes ou véhicules stationnés sur accès',
+      possibleRiskOrHarm: 'Retard intervention secours et aggravation sinistre',
+      existingMeasures: 'Plan d’accès, consignes stationnement, signalisation',
+      existingEvidence: 'Photos accès, plan intervention, contrôle terrain',
+      additionalMeasure: 'Dégager accès, marquer zones interdites et informer chauffeurs/sous-traitants',
+      stopLevel: 'Organisationnelle',
+      blockingPoint: 'Oui',
+      externalAdvice: 'Oui',
+    },
+    {
+      hazard: 'Produits dangereux, incompatibilités et FDS manquantes',
+      task: 'Réception, stockage et manipulation de produits dangereux',
+      hazardousSituationOrScenario: 'FDS absentes, étiquetage incomplet, stockage de produits incompatibles',
+      possibleRiskOrHarm: 'Réaction dangereuse, incendie, exposition chimique, erreur d’intervention',
+      existingMeasures: 'Armoires, bacs de rétention, consignes générales',
+      existingEvidence: 'FDS, inventaire, photos étiquetage, registre formation',
+      additionalMeasure: 'Centraliser FDS, vérifier étiquetage CLP et séparer incompatibilités',
+      stopLevel: 'Suppression/Substitution + Technique + Organisationnelle',
+      blockingPoint: 'Oui',
+      externalAdvice: 'Oui',
+    },
+  ];
+}
+
+function buildFallbackSimplifiedRisk(number, riskInput, context, language = 'fr') {
+  const risk = typeof riskInput === 'string' ? { hazard: riskInput } : ensureObject(riskInput);
+  const riskName = risk.hazard || context.placeholder;
+  const stopLevel = risk.stopLevel || getDefaultStopLevel(language);
+  const task = risk.task || context.activity || context.placeholder;
   const exposed = context.exposed || getFallbackPhrase('exposed', language);
-  const existingMeasures = context.measures || getFallbackPhrase('existingMeasures', language);
+  const existingMeasures = risk.existingMeasures || context.measures || getFallbackPhrase('existingMeasures', language);
   const elementsToConfirm = [
     context.products && `Produits: ${context.products}`,
     context.equipment && `Équipements: ${context.equipment}`,
@@ -5052,11 +5665,11 @@ function buildFallbackSimplifiedRisk(number, riskName, context, language = 'fr')
     initial: {
       task,
       hazard: riskName,
-      hazardousSituationOrScenario: `Situation à confirmer: ${riskName}`,
-      possibleRiskOrHarm: getFallbackPhrase('harm', language),
+      hazardousSituationOrScenario: risk.hazardousSituationOrScenario || `Situation à confirmer: ${riskName}`,
+      possibleRiskOrHarm: risk.possibleRiskOrHarm || getFallbackPhrase('harm', language),
       exposed,
       existingMeasures,
-      existingEvidence: getFallbackPhrase('existingEvidence', language),
+      existingEvidence: risk.existingEvidence || getFallbackPhrase('existingEvidence', language),
       observedOrDeclaredElements: elementsToConfirm,
       elementsToConfirm: getFallbackPhrase('controlEvidence', language),
       severity: '3',
@@ -5067,19 +5680,19 @@ function buildFallbackSimplifiedRisk(number, riskName, context, language = 'fr')
       initialLevel: getRiskLevel(Number(initialScore), language),
     },
     followUp: {
-      additionalMeasure: `Vérifier et documenter ${riskName}`,
+      additionalMeasure: risk.additionalMeasure || `Vérifier et documenter ${riskName}`,
       stopLevel,
       responsible: getFallbackPhrase('responsible', language),
       deadline: getFallbackPhrase('deadline', language),
       residualScore,
       residualLevel: getRiskLevel(Number(residualScore), language),
       residualScoreJustification: getFallbackPhrase('residualJustification', language),
-      expectedEvidence: getFallbackPhrase('expectedEvidence', language),
+      expectedEvidence: risk.expectedEvidence || getFallbackPhrase('expectedEvidence', language),
       photoToInsert: `Photo liée au risque ${number}`,
-      annexToAttach: getFallbackPhrase('annex', language),
+      annexToAttach: risk.annexToAttach || getFallbackPhrase('annex', language),
       priority: getFallbackPhrase('priority', language),
-      blockingPoint: getYesNoValue(true, language),
-      externalAdvice: getFallbackPhrase('toDetermine', language),
+      blockingPoint: risk.blockingPoint || getYesNoValue(true, language),
+      externalAdvice: risk.externalAdvice || getFallbackPhrase('toDetermine', language),
     },
     residual: {
       mainRisk: riskName,
