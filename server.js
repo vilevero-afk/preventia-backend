@@ -321,7 +321,7 @@ const SYSTEM_PROMPT = `Tu es PreventIA Belgique, un assistant spécialisé en pr
 Tu aides à produire des projets d’analyses de risques et documents de prévention selon la logique du Code belge du bien-être au travail. Tu ne remplaces jamais le conseiller en prévention, l’employeur, le SIPPT/SEPPT, le médecin du travail, le CPPT ou les autorités compétentes.
 
 Règles strictes :
-- Répondre uniquement en Markdown, sans JSON ni préambule.
+- Répondre uniquement en Markdown, sans JSON ni préambule, sauf lorsque le prompt utilisateur demande explicitement un JSON structuré interne pour une analyse de risques.
 - Répondre exclusivement dans la langue demandée par le prompt utilisateur, avec un ton professionnel, sans anglicisme inutile et sans formulation familière, approximative ou non professionnelle.
 - Respecter exactement l’ordre, les titres et les tableaux demandés par le template utilisateur.
 - Pour les analyses de risques, conserver exactement les 23 titres numérotés demandés. Ne jamais produire une ancienne structure à 17 ou 18 sections.
@@ -1479,13 +1479,714 @@ function processGeneratedDocument(outputText, documentDefinition, language = 'fr
 }
 
 function normalizeGeneratedDocument(outputText, documentDefinition, language = 'fr') {
-  const normalizedOutput = normalizeRiskLevels(outputText || '');
-
   if (documentDefinition?.family !== 'risk_assessment') {
-    return normalizedOutput;
+    return normalizeRiskLevels(outputText || '');
   }
 
-  return normalizeRiskAssessmentFinalOutput(normalizedOutput, language);
+  const structuredData = parseRiskAssessmentStructuredOutput(outputText || '');
+  const validatedData = validateRiskAssessmentStructuredData(structuredData, language);
+
+  return removeStandaloneMarkdownSeparators(normalizeKnownPhrases(renderRiskAssessmentMarkdown(validatedData, language)));
+}
+
+function parseRiskAssessmentStructuredOutput(outputText) {
+  const cleaned = String(outputText || '')
+    .trim()
+    .replace(/^```(?:json)?/i, '')
+    .replace(/```$/i, '')
+    .trim();
+
+  const candidates = [
+    cleaned,
+    cleaned.slice(cleaned.indexOf('{'), cleaned.lastIndexOf('}') + 1),
+  ].filter((candidate) => candidate.startsWith('{') && candidate.endsWith('}'));
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      try {
+        return JSON.parse(candidate.replace(/,\s*([}\]])/g, '$1'));
+      } catch {
+        // Try the next repair candidate.
+      }
+    }
+  }
+
+  const error = new Error(
+    'La génération structurée de l’analyse de risques a produit un JSON invalide. Aucun document non contrôlé n’a été renvoyé.',
+  );
+  error.status = 502;
+  error.expose = true;
+  throw error;
+}
+
+function validateRiskAssessmentStructuredData(data, language = 'fr') {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    const error = new Error('La génération structurée de l’analyse de risques est vide ou invalide.');
+    error.status = 502;
+    error.expose = true;
+    throw error;
+  }
+
+  const validated = {
+    ...data,
+    documentIdentification: ensureObject(data.documentIdentification),
+    contextObjective: ensureString(data.contextObjective),
+    regulatoryReferences: ensureArray(data.regulatoryReferences),
+    glossary: ensureArray(data.glossary),
+    scope: ensureObject(data.scope),
+    informationSources: ensureArray(data.informationSources),
+    assumptionsLimitations: ensureObject(data.assumptionsLimitations),
+    jobsTasksExposedWorkers: ensureArray(data.jobsTasksExposedWorkers),
+    photoPlan: ensureObject(data.photoPlan),
+    hazardIdentification: ensureArray(data.hazardIdentification),
+    scoringMethod: ensureObject(data.scoringMethod),
+    mainRiskAssessment: ensureObject(data.mainRiskAssessment),
+    residualRiskAnalysis: ensureArray(data.residualRiskAnalysis),
+    actionPriorities: ensureArray(data.actionPriorities),
+    draftActionPlan: ensureArray(data.draftActionPlan),
+    paaPgpLink: ensureObject(data.paaPgpLink),
+    documentsToCreateOrUpdate: ensureArray(data.documentsToCreateOrUpdate),
+    actorsToConsult: ensureArray(data.actorsToConsult),
+    requiredAnnexes: ensureArray(data.requiredAnnexes),
+    level3AdvisorLimits: ensureString(data.level3AdvisorLimits),
+    blockingPointsBeforeValidation: ensureArray(data.blockingPointsBeforeValidation),
+    conclusion: ensureString(data.conclusion),
+    validationStatement: ensureString(data.validationStatement) || (LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr).finalMention,
+  };
+
+  validated.photoPlan.confidentialityRules = ensureArray(validated.photoPlan.confidentialityRules);
+  validated.photoPlan.photos = ensureArray(validated.photoPlan.photos);
+  validated.mainRiskAssessment.initialAssessment = ensureArray(validated.mainRiskAssessment.initialAssessment);
+  validated.mainRiskAssessment.measuresFollowUpValidation = ensureArray(
+    validated.mainRiskAssessment.measuresFollowUpValidation,
+  );
+
+  alignRiskAssessmentRows(validated, language);
+  validated.mainRiskAssessment.measuresFollowUpValidation =
+    validated.mainRiskAssessment.measuresFollowUpValidation.map((row) => ({
+      ...ensureObject(row),
+      stopLevel: normalizeStructuredStopLevel(ensureObject(row).stopLevel, language),
+    }));
+
+  if (looksLikeMarkdownTable(validated.conclusion)) {
+    validated.conclusion = '';
+  }
+
+  validated.validationStatement = (LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr).finalMention;
+
+  return validated;
+}
+
+function alignRiskAssessmentRows(data, language = 'fr') {
+  const placeholder = getLanguagePlaceholder(language);
+  const initialRows = data.mainRiskAssessment.initialAssessment.map(ensureObject);
+  const followUpRows = data.mainRiskAssessment.measuresFollowUpValidation.map(ensureObject);
+  const numbers = new Set();
+
+  initialRows.forEach((row, index) => numbers.add(cleanRiskNumber(row.number, index + 1)));
+  followUpRows.forEach((row, index) => numbers.add(cleanRiskNumber(row.number, index + 1)));
+
+  if (numbers.size === 0) {
+    for (let index = 1; index <= 8; index += 1) {
+      numbers.add(String(index));
+    }
+  }
+
+  const sortedNumbers = [...numbers].sort((left, right) => Number(left) - Number(right));
+  data.mainRiskAssessment.initialAssessment = sortedNumbers.map((number) => ({
+    ...buildEmptyInitialRiskRow(number, placeholder),
+    ...initialRows.find((row) => cleanRiskNumber(row.number) === number),
+    number,
+  }));
+  data.mainRiskAssessment.measuresFollowUpValidation = sortedNumbers.map((number) => ({
+    ...buildEmptyFollowUpRiskRow(number, placeholder),
+    ...followUpRows.find((row) => cleanRiskNumber(row.number) === number),
+    number,
+  }));
+}
+
+function cleanRiskNumber(value, fallback = 1) {
+  const raw = String(value || '').trim();
+  return raw || String(fallback);
+}
+
+function buildEmptyInitialRiskRow(number, placeholder) {
+  return {
+    number,
+    task: placeholder,
+    hazard: placeholder,
+    hazardousSituationOrScenario: placeholder,
+    possibleRiskOrHarm: placeholder,
+    exposed: placeholder,
+    existingMeasures: placeholder,
+    existingEvidence: placeholder,
+    observedOrDeclaredElements: placeholder,
+    elementsToConfirm: placeholder,
+    severity: placeholder,
+    probability: placeholder,
+    exposure: placeholder,
+    scoringJustification: placeholder,
+    initialScore: placeholder,
+    initialLevel: placeholder,
+  };
+}
+
+function buildEmptyFollowUpRiskRow(number, placeholder) {
+  return {
+    number,
+    additionalMeasure: placeholder,
+    stopLevel: placeholder,
+    responsible: placeholder,
+    deadline: placeholder,
+    residualScore: placeholder,
+    residualLevel: placeholder,
+    residualScoreJustification: placeholder,
+    expectedEvidence: placeholder,
+    photoToInsert: placeholder,
+    annexToAttach: placeholder,
+    priority: placeholder,
+    blockingPoint: placeholder,
+    externalAdvice: placeholder,
+  };
+}
+
+function renderRiskAssessmentMarkdown(data, language = 'fr') {
+  const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+  const tableColumns = buildRiskSupportTableColumns(language);
+  const lines = [`# ${config.title}`, ''];
+
+  const section = (index) => {
+    if (lines[lines.length - 1] !== '') {
+      lines.push('');
+    }
+
+    lines.push(`## ${index}. ${config.sections[index - 1]}`);
+    lines.push('');
+  };
+
+  section(1);
+  lines.push(renderKeyValueTable(data.documentIdentification, [
+    ['type', 'Type'],
+    ['reference', 'Reference'],
+    ['company', 'Company'],
+    ['site', 'Site'],
+    ['services', 'Services'],
+    ['author', 'Author'],
+    ['version', 'Version'],
+    ['visitDate', 'Visit date'],
+    ['fieldCheckNote', 'Field check note'],
+  ], language));
+
+  section(2);
+  lines.push(renderParagraph(data.contextObjective, language));
+
+  section(3);
+  lines.push(renderTable(tableColumns.reference, data.regulatoryReferences, [
+    'reference',
+    'whyApplicable',
+    'practicalConsequence',
+    'documentOrEvidence',
+    'validationOrAdvice',
+  ], language));
+
+  section(4);
+  lines.push(renderTable('Abréviation | Définition', data.glossary, ['abbreviation', 'definition'], language));
+
+  section(5);
+  lines.push(renderScope(data.scope, language));
+
+  section(6);
+  lines.push(renderTable(tableColumns.sources, data.informationSources, [
+    'source',
+    'available',
+    'comment',
+    'expectedEvidence',
+    'whereToFile',
+  ], language));
+
+  section(7);
+  lines.push(renderAssumptions(data.assumptionsLimitations, language));
+
+  section(8);
+  lines.push(renderTable(tableColumns.jobs, data.jobsTasksExposedWorkers, [
+    'jobOrTask',
+    'realActivityDescription',
+    'frequency',
+    'exposureDuration',
+    'exposedWorkers',
+    'equipmentOrProductsUsed',
+    'particularities',
+    'photosToTake',
+    'documentsToAttach',
+  ], language));
+
+  section(9);
+  lines.push(renderParagraph(data.photoPlan.intro, language));
+  lines.push(renderBulletList(data.photoPlan.confidentialityRules, language));
+  lines.push(renderTable(tableColumns.photos, data.photoPlan.photos, [
+    'photoNumber',
+    'areaOrTask',
+    'whatPhotoMustShow',
+    'whyUseful',
+    'whereToInsert',
+    'alsoAnnex',
+    'confidentialityPrecautions',
+    'relatedRisk',
+    'relatedAction',
+    'expectedEvidence',
+    'relatedAnnex',
+    'beforeAfter',
+  ], language));
+
+  section(10);
+  lines.push(renderTable(config.hazardTableColumns, data.hazardIdentification, [
+    'hazardFamily',
+    'preciseHazard',
+    'plausibleScenario',
+    'areaOrTask',
+    'exposedPersons',
+    'aggravatingFactors',
+    'knownExistingMeasures',
+    'evidenceToCheck',
+    'whatAdvisorMustDo',
+    'whereToDocumentEvidence',
+    'blockingBeforeValidation',
+    'photosToTake',
+  ], language));
+
+  section(11);
+  lines.push(renderScoringMethod(data.scoringMethod, language));
+
+  section(12);
+  lines.push(config.riskLinkingSentence);
+  lines.push('');
+  lines.push(`### 12.1 ${config.riskInitialSubsectionTitle}`);
+  lines.push('');
+  lines.push(renderTable(config.riskInitialTableColumns, data.mainRiskAssessment.initialAssessment, [
+    'number',
+    'task',
+    'hazard',
+    'hazardousSituationOrScenario',
+    'possibleRiskOrHarm',
+    'exposed',
+    'existingMeasures',
+    'existingEvidence',
+    'observedOrDeclaredElements',
+    'elementsToConfirm',
+    'severity',
+    'probability',
+    'exposure',
+    'scoringJustification',
+    'initialScore',
+    'initialLevel',
+  ], language));
+  lines.push('');
+  lines.push(`### 12.2 ${config.riskFollowUpSubsectionTitle}`);
+  lines.push('');
+  lines.push(renderTable(config.riskFollowUpTableColumns, data.mainRiskAssessment.measuresFollowUpValidation, [
+    'number',
+    'additionalMeasure',
+    'stopLevel',
+    'responsible',
+    'deadline',
+    'residualScore',
+    'residualLevel',
+    'residualScoreJustification',
+    'expectedEvidence',
+    'photoToInsert',
+    'annexToAttach',
+    'priority',
+    'blockingPoint',
+    'externalAdvice',
+  ], language));
+
+  section(13);
+  lines.push(renderTable(config.residualTableColumns, data.residualRiskAnalysis, [
+    'mainRisk',
+    'initialScore',
+    'residualScore',
+    'reductionCondition',
+    'requiredEvidence',
+    'standardStatus',
+    'blockingPoint',
+    'externalAdvice',
+  ], language));
+
+  section(14);
+  lines.push(renderTable(
+    'Action | Risque concerné | Responsable | Échéance | Preuve attendue | Point bloquant oui/non | Avis externe oui/non | Type d’action',
+    data.actionPriorities,
+    ['action', 'relatedRisk', 'responsible', 'deadline', 'expectedEvidence', 'blockingPoint', 'externalAdvice', 'actionType'],
+    language,
+  ));
+
+  section(15);
+  lines.push(renderTable(config.actionTableColumns, data.draftActionPlan, [
+    'relatedRisk',
+    'actionToPerform',
+    'responsible',
+    'deadline',
+    'expectedEvidence',
+    'photoAfterCorrection',
+    'standardStatus',
+    'paaOrPgpLink',
+    'blockingPoint',
+    'externalAdvice',
+  ], language));
+
+  section(16);
+  lines.push(renderPaaPgpLink(data.paaPgpLink, language));
+
+  section(17);
+  lines.push(renderTable(tableColumns.documents, data.documentsToCreateOrUpdate, [
+    'document',
+    'whyCreateOrUpdate',
+    'responsible',
+    'deadline',
+    'expectedEvidence',
+    'relatedAnnex',
+    'priority',
+  ], language));
+
+  section(18);
+  lines.push(renderTable(tableColumns.actors, data.actorsToConsult, [
+    'actor',
+    'expectedRole',
+    'consultationMoment',
+    'expectedEvidence',
+    'mandatoryOrRecommended',
+    'limitForLevel3Advisor',
+  ], language));
+
+  section(19);
+  lines.push(renderTable(tableColumns.annexes, data.requiredAnnexes, [
+    'annex',
+    'mandatoryRecommendedOrDepending',
+    'whyNecessary',
+    'whoProvidesIt',
+    'whereToFile',
+    'status',
+  ], language));
+
+  section(20);
+  lines.push(renderParagraph(data.level3AdvisorLimits, language));
+
+  section(21);
+  lines.push(renderTable(tableColumns.blockers, data.blockingPointsBeforeValidation, [
+    'point',
+    'point',
+    'whyBlocking',
+    'expectedEvidence',
+    'responsible',
+    'deadline',
+    'externalAdvice',
+    'liftingCondition',
+  ], language));
+
+  section(22);
+  lines.push(renderParagraph(data.conclusion || buildStructuredFallbackRiskConclusion(data, language), language));
+
+  section(23);
+  lines.push(config.finalMention);
+
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function renderTable(header, rows, keys, language = 'fr') {
+  const headers = header.split('|').map((value) => value.trim());
+  const safeRows = ensureArray(rows);
+  const renderedRows = safeRows.length > 0 ? safeRows : [{}];
+
+  return [
+    formatMarkdownRow(headers),
+    formatMarkdownRow(headers.map(() => '---')),
+    ...renderedRows.map((row) =>
+      formatMarkdownRow(keys.map((key) => {
+        const value = ensureObject(row)[key];
+        return key === 'stopLevel'
+          ? normalizeStructuredStopLevel(value, language)
+          : sanitizeMarkdownCell(value, language);
+      })),
+    ),
+  ].join('\n');
+}
+
+function renderKeyValueTable(data, entries, language = 'fr') {
+  return renderTable('Champ | Valeur', entries.map(([key, label]) => ({
+    label,
+    value: ensureObject(data)[key],
+  })), ['label', 'value'], language);
+}
+
+function renderScope(scope, language = 'fr') {
+  const labels = {
+    fr: [
+      ['includedPlaces', 'Lieux inclus'],
+      ['excludedPlaces', 'Lieux exclus'],
+      ['activities', 'Services ou activités concernés'],
+      ['exposedJobs', 'Postes exposés'],
+      ['includedSituations', 'Situations incluses'],
+      ['scopeLimits', 'Limites du périmètre'],
+    ],
+    nl: [
+      ['includedPlaces', 'Inbegrepen plaatsen'],
+      ['excludedPlaces', 'Uitgesloten plaatsen'],
+      ['activities', 'Betrokken diensten of activiteiten'],
+      ['exposedJobs', 'Blootgestelde functies'],
+      ['includedSituations', 'Inbegrepen situaties'],
+      ['scopeLimits', 'Grenzen van de afbakening'],
+    ],
+    en: [
+      ['includedPlaces', 'Included places'],
+      ['excludedPlaces', 'Excluded places'],
+      ['activities', 'Services or activities concerned'],
+      ['exposedJobs', 'Exposed jobs'],
+      ['includedSituations', 'Included situations'],
+      ['scopeLimits', 'Scope limits'],
+    ],
+    de: [
+      ['includedPlaces', 'Einbezogene Orte'],
+      ['excludedPlaces', 'Ausgeschlossene Orte'],
+      ['activities', 'Betroffene Dienste oder Tätigkeiten'],
+      ['exposedJobs', 'Exponierte Arbeitsplätze'],
+      ['includedSituations', 'Einbezogene Situationen'],
+      ['scopeLimits', 'Grenzen des Umfangs'],
+    ],
+  };
+
+  return (labels[language] || labels.fr)
+    .map(([key, label]) => `- ${label}: ${sanitizeMarkdownCell(ensureArray(scope[key]).join(', '), language)}`)
+    .join('\n');
+}
+
+function renderAssumptions(value, language = 'fr') {
+  const data = ensureObject(value);
+  return [
+    ['factsProvided', 'Faits fournis'],
+    ['partialObservations', 'Observations partielles'],
+    ['missingInformation', 'Informations manquantes'],
+    ['pointsToValidate', 'Points à valider'],
+    ['limits', 'Limites'],
+  ]
+    .map(([key, label]) => `- ${label}: ${sanitizeMarkdownCell(ensureArray(data[key]).join(', '), language)}`)
+    .join('\n');
+}
+
+function renderScoringMethod(value, language = 'fr') {
+  const data = ensureObject(value);
+  return [
+    sanitizeMarkdownCell(data.formula || 'Score = Gravité × Probabilité × Exposition', language),
+    `- Gravité: ${sanitizeMarkdownCell(ensureArray(data.severityScale).join(', '), language)}`,
+    `- Probabilité: ${sanitizeMarkdownCell(ensureArray(data.probabilityScale).join(', '), language)}`,
+    `- Exposition: ${sanitizeMarkdownCell(ensureArray(data.exposureScale).join(', '), language)}`,
+    `- Seuils: ${sanitizeMarkdownCell(ensureArray(data.thresholds).join(', '), language)}`,
+    `- Confirmation: ${sanitizeMarkdownCell(data.confirmationNote, language)}`,
+  ].join('\n');
+}
+
+function renderPaaPgpLink(value, language = 'fr') {
+  const data = ensureObject(value);
+  return [
+    `- PAA: ${sanitizeMarkdownCell(ensureArray(data.paaActions).join(', '), language)}`,
+    `- PGP: ${sanitizeMarkdownCell(ensureArray(data.pgpActions).join(', '), language)}`,
+    `- CPPT: ${sanitizeMarkdownCell(data.cpptRole, language)}`,
+    `- Suivi direction/service prévention: ${sanitizeMarkdownCell(data.managementFollowUp, language)}`,
+  ].join('\n');
+}
+
+function renderBulletList(values, language = 'fr') {
+  const items = ensureArray(values);
+  return (items.length > 0 ? items : [getLanguagePlaceholder(language)])
+    .map((item) => `- ${sanitizeMarkdownCell(item, language)}`)
+    .join('\n');
+}
+
+function renderParagraph(value, language = 'fr') {
+  return sanitizeMarkdownCell(value, language);
+}
+
+function sanitizeMarkdownCell(value, language = 'fr') {
+  const placeholder = getLanguagePlaceholder(language);
+  const text = Array.isArray(value) ? value.join(', ') : String(value ?? '');
+  const cleaned = text
+    .replace(/\r?\n+/g, ' ')
+    .replace(/\|/g, '/')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned || /^-+$/.test(cleaned)) {
+    return placeholder;
+  }
+
+  return cleaned;
+}
+
+function normalizeStructuredStopLevel(value, language = 'fr') {
+  const raw = sanitizeMarkdownCell(value, language);
+  const normalizedRaw = normalizeTableHeader(raw);
+  const allowedLevels = getAllowedStopLevels(language);
+  const matchingAllowed = allowedLevels.find((level) => normalizeTableHeader(level) === normalizedRaw);
+
+  if (matchingAllowed) {
+    return matchingAllowed;
+  }
+
+  if (getForbiddenRiskLevelValues().includes(normalizedRaw)) {
+    return getDefaultStopLevel(language);
+  }
+
+  if (/technique|technisch|technical|techn/.test(normalizedRaw)) {
+    return getTechnicalStopLevel(language);
+  }
+
+  return getDefaultStopLevel(language);
+}
+
+function getAllowedStopLevels(language = 'fr') {
+  const values = {
+    fr: [
+      'Suppression/Substitution',
+      'Technique',
+      'Organisationnelle',
+      'Protection individuelle',
+      'Technique + Organisationnelle',
+      'Organisationnelle + Protection individuelle',
+      'Technique + Organisationnelle + Protection individuelle',
+    ],
+    nl: [
+      'Eliminatie/substitutie',
+      'Technisch',
+      'Organisatorisch',
+      'Persoonlijke bescherming',
+      'Technisch + Organisatorisch',
+      'Organisatorisch + Persoonlijke bescherming',
+      'Technisch + Organisatorisch + Persoonlijke bescherming',
+    ],
+    en: [
+      'Elimination/substitution',
+      'Technical',
+      'Organisational',
+      'Personal protection',
+      'Technical + Organisational',
+      'Organisational + Personal protection',
+      'Technical + Organisational + Personal protection',
+    ],
+    de: [
+      'Beseitigung/Substitution',
+      'Technisch',
+      'Organisatorisch',
+      'Persönlicher Schutz',
+      'Technisch + Organisatorisch',
+      'Organisatorisch + Persönlicher Schutz',
+      'Technisch + Organisatorisch + Persönlicher Schutz',
+    ],
+  };
+
+  return values[language] || values.fr;
+}
+
+function getDefaultStopLevel(language = 'fr') {
+  return {
+    fr: 'Organisationnelle',
+    nl: 'Organisatorisch',
+    en: 'Organisational',
+    de: 'Organisatorisch',
+  }[language] || 'Organisationnelle';
+}
+
+function getTechnicalStopLevel(language = 'fr') {
+  return {
+    fr: 'Technique',
+    nl: 'Technisch',
+    en: 'Technical',
+    de: 'Technisch',
+  }[language] || 'Technique';
+}
+
+function getForbiddenRiskLevelValues() {
+  return [
+    'faible',
+    'moyen',
+    'eleve',
+    'critique',
+    'low',
+    'medium',
+    'high',
+    'critical',
+    'laag',
+    'gemiddeld',
+    'hoog',
+    'kritiek',
+    'niedrig',
+    'mittel',
+    'hoch',
+    'kritisch',
+  ];
+}
+
+function buildStructuredFallbackRiskConclusion(data, language = 'fr') {
+  const risks = data.mainRiskAssessment.initialAssessment
+    .map((row) => row.hazard || row.possibleRiskOrHarm)
+    .filter(Boolean)
+    .slice(0, 4)
+    .join(', ');
+  const blockers = data.blockingPointsBeforeValidation
+    .map((row) => row.point || row.whyBlocking)
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(', ');
+
+  const templates = {
+    fr:
+      `Le document constitue une base d’analyse de risques, mais il doit être considéré comme un projet à adapter et à valider. Les risques principaux concernent ${risks || 'les situations identifiées dans le tableau principal'}. Plusieurs points bloquants restent à lever, notamment ${blockers || 'les preuves, photos, avis et validations à confirmer'}. Les actions urgentes doivent être intégrées au Plan Annuel d’Action, tandis que les mesures structurelles doivent alimenter le Plan Global de Prévention. Le document peut être présenté au CPPT comme base de discussion et de priorisation, mais il ne peut pas être considéré comme une analyse finalisée tant que la visite terrain, les preuves, les photos, les avis spécialisés et les validations nécessaires ne sont pas complétés.`,
+    nl:
+      `Het document vormt een basis voor de risicoanalyse, maar moet worden beschouwd als een ontwerp dat moet worden aangepast en gevalideerd. De belangrijkste risico’s hebben betrekking op ${risks || 'de situaties in de hoofdtabel'}. Er blijven blokkerende punten op te heffen, met name ${blockers || 'de te bevestigen bewijzen, foto’s, adviezen en validaties'}. Dringende acties moeten in het Jaaractieplan worden opgenomen, terwijl structurele maatregelen in het Globaal Preventieplan moeten worden opgenomen. Het document kan aan het CPBW worden voorgelegd als basis voor bespreking en prioritering, maar het kan niet als definitieve analyse worden beschouwd zolang het terreinbezoek, de bewijzen, foto’s, gespecialiseerde adviezen en noodzakelijke validaties niet zijn aangevuld.`,
+    en:
+      `The document is a basis for risk assessment, but it must be considered a draft to be adapted and validated. The main risks concern ${risks || 'the situations listed in the main table'}. Several blocking points still need to be removed, in particular ${blockers || 'the evidence, photos, opinions and validations to be confirmed'}. Urgent actions should feed the Annual Action Plan, while structural measures should feed the Global Prevention Plan. The document may be presented to the health and safety committee as a basis for discussion and prioritisation, but it cannot be considered a final assessment until the site visit, evidence, photos, specialist opinions and necessary validations have been completed.`,
+    de:
+      `Das Dokument bildet eine Grundlage für die Gefährdungsbeurteilung, muss jedoch als anzupassender und zu validierender Entwurf betrachtet werden. Die Hauptrisiken betreffen ${risks || 'die in der Haupttabelle aufgeführten Situationen'}. Mehrere blockierende Punkte sind noch aufzuheben, insbesondere ${blockers || 'die zu bestätigenden Nachweise, Fotos, Stellungnahmen und Validierungen'}. Dringende Maßnahmen sollen in den Jährlichen Aktionsplan einfließen, während strukturelle Maßnahmen in den Globalen Präventionsplan aufgenommen werden sollen. Das Dokument kann dem AGS/CPPT als Grundlage für Diskussion und Priorisierung vorgelegt werden, gilt jedoch nicht als abgeschlossene Analyse, solange Vor-Ort-Begehung, Nachweise, Fotos, fachliche Stellungnahmen und notwendige Validierungen nicht ergänzt sind.`,
+  };
+
+  return templates[language] || templates.fr;
+}
+
+function looksLikeMarkdownTable(value) {
+  return String(value || '').trim().startsWith('|');
+}
+
+function ensureObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function ensureArray(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (value === undefined || value === null || value === '') {
+    return [];
+  }
+
+  return [value];
+}
+
+function ensureString(value) {
+  if (Array.isArray(value)) {
+    return value.join(', ');
+  }
+
+  return typeof value === 'string' ? value : '';
+}
+
+function getLanguagePlaceholder(language = 'fr') {
+  return {
+    fr: 'À compléter',
+    nl: 'Aan te vullen',
+    en: 'To be completed',
+    de: 'Zu ergänzen',
+  }[language] || 'À compléter';
 }
 
 function normalizeRiskLevels(markdownDocument) {
@@ -2212,84 +2913,70 @@ function runInternalRiskTests() {
   assert.doesNotMatch(normalizeRiskLevels('Avant\n---\nAprès'), /^---$/m);
   assert.doesNotMatch(normalizeRiskLevels('Avant\n| --- |\nAprès'), /^\| --- \|$/m);
 
-  const normalizedRiskDocument = processGeneratedDocument(
-    `# ${LANGUAGE_CONFIGS.fr.title}
+  const structuredRiskSample = getRiskAssessmentJsonSchema();
+  structuredRiskSample.documentIdentification.type = 'Analyse de risques générale';
+  structuredRiskSample.contextObjective = 'Analyse provisoire de risques à valider.';
+  structuredRiskSample.glossary = [{ abbreviation: 'PAA', definition: 'Plan Annuel d’Action.' }];
+  structuredRiskSample.scope.includedPlaces = ['Atelier'];
+  structuredRiskSample.photoPlan.photos = [{ photoNumber: '1', areaOrTask: 'Atelier' }];
+  structuredRiskSample.mainRiskAssessment.initialAssessment = [
+    {
+      number: '1',
+      task: 'Maintenance',
+      hazard: 'Machine',
+      hazardousSituationOrScenario: 'Contact avec organe mobile',
+      possibleRiskOrHarm: 'Blessure',
+      exposed: 'Agents',
+      severity: '3',
+      probability: '3',
+      exposure: '3',
+      scoringJustification: 'Exposition régulière',
+      initialScore: '27',
+      initialLevel: 'Moyen',
+    },
+  ];
+  structuredRiskSample.mainRiskAssessment.measuresFollowUpValidation = [
+    {
+      number: '1',
+      additionalMeasure: 'Vérifier le carter',
+      stopLevel: 'Moyen',
+      responsible: 'SIPPT',
+      residualScore: '9',
+      residualLevel: 'Faible',
+      blockingPoint: 'Oui',
+      externalAdvice: 'Non',
+    },
+  ];
+  structuredRiskSample.conclusion = '| Document | Pourquoi |';
+  structuredRiskSample.validationStatement = 'Texte en trop.';
 
-## 12. ${LANGUAGE_CONFIGS.fr.sections[11]}
-### 12.1 ${LANGUAGE_CONFIGS.fr.riskInitialSubsectionTitle}
-| ${LANGUAGE_CONFIGS.fr.riskInitialTableColumns} |
-| --- |
-| 1 |
-### 12.2 ${LANGUAGE_CONFIGS.fr.riskFollowUpSubsectionTitle}
-| ${LANGUAGE_CONFIGS.fr.riskFollowUpTableColumns} |
-| --- |
-| 1 |
-
-## 23. ${LANGUAGE_CONFIGS.fr.sections[22]}
-${LANGUAGE_CONFIGS.fr.finalMention}
-${LANGUAGE_CONFIGS.fr.finalMention}`,
+  const renderedRiskDocument = processGeneratedDocument(
+    JSON.stringify(structuredRiskSample),
     getDocumentDefinition('Analyse de risques générale'),
     'fr',
   ).document;
 
-  assert.match(normalizedRiskDocument, new RegExp(escapeRegExp(LANGUAGE_CONFIGS.fr.riskLinkingSentence)));
-  assert.match(normalizedRiskDocument, /\n\n### 12\.1 Évaluation initiale des risques/);
-  assert.match(normalizedRiskDocument, /\n\n### 12\.2 Mesures, suivi et validation/);
+  assert.match(renderedRiskDocument, /## 4\. Glossaire des abréviations utilisées/);
+  assert.match(renderedRiskDocument, /## 5\. Périmètre de l’analyse/);
+  assert.match(renderedRiskDocument, /## 9\. Plan photos/);
+  assert.doesNotMatch(renderedRiskDocument, /## 9\. Tableau principal d’analyse des risques/);
+  assert.match(renderedRiskDocument, /## 11\. Méthode de cotation/);
+  assert.doesNotMatch(renderedRiskDocument, /## 11\. Priorités d’action/);
+  assert.match(renderedRiskDocument, new RegExp(escapeRegExp(LANGUAGE_CONFIGS.fr.riskLinkingSentence)));
+  assert.match(renderedRiskDocument, /\n\n### 12\.1 Évaluation initiale des risques/);
+  assert.match(renderedRiskDocument, /\n\n### 12\.2 Mesures, suivi et validation/);
+  assert.match(renderedRiskDocument, new RegExp(escapeRegExp(`| ${LANGUAGE_CONFIGS.fr.riskInitialTableColumns} |`)));
+  assert.match(renderedRiskDocument, new RegExp(escapeRegExp(`| ${LANGUAGE_CONFIGS.fr.riskFollowUpTableColumns} |`)));
+  assert.doesNotMatch(renderedRiskDocument, /\|\s*Vérifier le carter\s*\|\s*Moyen\s*\|/);
+  assert.match(renderedRiskDocument, /\|\s*Vérifier le carter\s*\|\s*Organisationnelle\s*\|/);
+  assert.match(renderedRiskDocument, /## 16\. Lien avec le Plan Annuel d’Action et le Plan Global de Prévention/);
+  assert.doesNotMatch(renderedRiskDocument, /## 16\. Annexes nécessaires/);
+  assert.match(renderedRiskDocument, /## 17\. Documents à créer ou à mettre à jour/);
+  assert.match(renderedRiskDocument, /## 22\. Conclusion/);
   assert.equal(
-    normalizedRiskDocument.split(LANGUAGE_CONFIGS.fr.finalMention).length - 1,
+    renderedRiskDocument.split(LANGUAGE_CONFIGS.fr.finalMention).length - 1,
     1,
     'Final validation statement should appear once in risk assessments',
-  );
-
-  const repairedRiskDocument = processGeneratedDocument(
-    `# ${LANGUAGE_CONFIGS.fr.title}
-
-## 4. Périmètre de l’analyse
-PAA : Plan Annuel d’Action.
-
-## 9. Tableau principal d’analyse des risques
-Le plan photos sert à objectiver les constats.
-
-## 11. Priorités d’action
-Score = Gravité × Probabilité × Exposition.
-
-## 12. Tableau principal d’analyse des risques
-### 12.1 Mauvais titre
-| ${LANGUAGE_CONFIGS.fr.riskInitialTableColumns} |
-| --- |
-| 1 | Tâche | Danger | Scénario | Dommage | Exposés | Mesures | Preuves | Observé | Confirmer | 3 | 3 | 3 | Justification | 27 | Moyen |
-### 12.2 Mesures, suivi et validation
-| ${LANGUAGE_CONFIGS.fr.riskInitialTableColumns} |
-| --- |
-| 1 | Mesure | Moyen | Responsable | Échéance | 9 | Faible | Justification | Preuve | Photo | Annexe | Haute | Oui | Oui |
-
-## 16. Annexes nécessaires
-Lien PAA/PGP.
-
-## 17. Conclusion
-| Document | Pourquoi le créer ou le mettre à jour | Responsable | Échéance | Preuve attendue | Annexe concernée | Priorité |
-| --- | --- | --- | --- | --- | --- | --- |
-| Procédure | Validation | SIPPT | 1 mois | Procédure signée | A1 | Haute |
-
-## 23. Mention de validation
-Texte en trop.
-${LANGUAGE_CONFIGS.fr.finalMention}
-Texte en trop.`,
-    getDocumentDefinition('Analyse de risques générale'),
-    'fr',
-  ).document;
-
-  assert.match(repairedRiskDocument, /## 4\. Glossaire des abréviations utilisées/);
-  assert.match(repairedRiskDocument, /## 9\. Plan photos/);
-  assert.match(repairedRiskDocument, /## 11\. Méthode de cotation/);
-  assert.match(repairedRiskDocument, /## 16\. Lien avec le Plan Annuel d’Action et le Plan Global de Prévention/);
-  assert.match(repairedRiskDocument, /## 17\. Documents à créer ou à mettre à jour/);
-  assert.match(repairedRiskDocument, /## 22\. Conclusion/);
-  assert.match(repairedRiskDocument, new RegExp(escapeRegExp(`| ${LANGUAGE_CONFIGS.fr.riskFollowUpTableColumns} |`)));
-  assert.doesNotMatch(repairedRiskDocument, /\|\s*Mesure\s*\|\s*Moyen\s*\|/);
-  assert.equal(
-    getSectionText(repairedRiskDocument, 23, LANGUAGE_CONFIGS.fr),
-    LANGUAGE_CONFIGS.fr.finalMention,
   );
 
   const normalizedDutch = normalizeRiskLevels(`| Nr. | Activiteit | Score | Niveau |
@@ -2400,130 +3087,65 @@ function runRiskPromptQualityTests() {
     const config = LANGUAGE_CONFIGS[language];
     const prompt = buildUserPrompt(documentType, formData, language, config.label);
 
-    assert.match(prompt, new RegExp(escapeRegExp(`## 4. ${config.sections[3]}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(`## 9. ${config.sections[8]}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(`## 10. ${config.sections[9]}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(`## 13. ${config.sections[12]}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(`## 15. ${config.sections[14]}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(`## 16. ${config.sections[15]}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(`## 19. ${config.sections[18]}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(`## 20. ${config.sections[19]}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(`## 21. ${config.sections[20]}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(`## 22. ${config.sections[21]}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(`## 23. ${config.sections[22]}`)));
-    assert.doesNotMatch(prompt, /## 24\./);
-    assert.match(prompt, new RegExp(escapeRegExp(config.hazardTableColumns)));
-    assert.match(prompt, new RegExp(escapeRegExp(`### 12.1 ${config.riskInitialSubsectionTitle}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(`### 12.2 ${config.riskFollowUpSubsectionTitle}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(config.riskLinkingSentence)));
-    assert.match(prompt, new RegExp(escapeRegExp(config.riskInitialTableColumns)));
-    assert.match(prompt, new RegExp(escapeRegExp(config.riskFollowUpTableColumns)));
-    assert.match(prompt, new RegExp(escapeRegExp(config.stopLevels)));
-    assert.match(prompt, new RegExp(escapeRegExp(config.residualTableColumns)));
-    assert.match(prompt, new RegExp(escapeRegExp(config.actionTableColumns)));
-    assert.match(prompt, new RegExp(escapeRegExp(config.standardStatuses)));
-    assert.match(prompt, /Point bloquant oui\/non|Blokkerend punt ja\/nee|Blocking point yes\/no|Blockierender Punkt ja\/nein/);
-    assert.match(prompt, /Avis externe oui\/non|Extern advies ja\/nee|External opinion yes\/no|Externe Stellungnahme ja\/nein/);
-    assert.match(prompt, /Oui; Non; À déterminer|Ja; Nee; Te bepalen|Yes; No; To be determined|Ja; Nein; Zu bestimmen/);
-    assert.match(prompt, /number of blocking points/);
-    assert.match(prompt, new RegExp(escapeRegExp(config.provisionalScoreText)));
+    assert.match(prompt, /Réponds uniquement avec un JSON valide/);
+    assert.match(prompt, /Ne génère aucun titre markdown/);
+    assert.match(prompt, /aucun tableau markdown/);
+    assert.match(prompt, /Schéma JSON interne obligatoire/);
+    assert.match(prompt, /"documentIdentification"/);
+    assert.match(prompt, /"mainRiskAssessment"/);
+    assert.match(prompt, /"initialAssessment"/);
+    assert.match(prompt, /"measuresFollowUpValidation"/);
+    assert.match(prompt, /"stopLevel"/);
+    assert.match(prompt, /"conclusion"/);
+    assert.match(prompt, /"validationStatement"/);
+    assert.match(prompt, new RegExp(escapeRegExp(config.finalMention)));
+    assert.match(prompt, new RegExp(escapeRegExp(getAllowedStopLevels(language).join('; '))));
+    assert.doesNotMatch(prompt, /## 4\./);
+    assert.doesNotMatch(prompt, /\| N° \|/);
     assert.match(prompt, /Score =|Scoremethode|Risk scoring method|Bewertungsmethode/);
-    assert.match(prompt, /field check|evidence to obtain|photo to take|blocking point|external opinion recommended|immediate action/);
     assert.match(prompt, /1-10/);
     assert.match(prompt, /61-125/);
-    assert.match(prompt, /Residual score|restrisico|Restrisiken|risques? résiduels?|Score résiduel/i);
-    assert.match(prompt, /STOP|stop/i);
-    assert.match(prompt, /Plan photos|Fotoplan|Photo plan/i);
-    assert.match(prompt, /Documents à joindre|Toe te voegen documenten|Documents to attach|Beizufügende Dokumente/);
-    assert.match(prompt, /Photos à ajouter|Toe te voegen foto’s|Photos to add|Hinzuzufügende Fotos/);
-    assert.match(prompt, /Où placer les photos|Waar de foto’s te plaatsen|Where to place the photos|Wo die Fotos einzufügen sind/);
-    assert.match(prompt, /rapport de visite terrain|terreinbezoekverslag|site visit report|Vor-Ort-Begehung/);
-    assert.match(prompt, /photo générale|algemene foto|general photo|Übersichtsbild/);
-    assert.match(prompt, /It must contain only abbreviations and important technical terms actually used/);
-    assert.match(prompt, /write the full term followed by the abbreviation/);
-    assert.match(prompt, /Section 12 must be titled exactly/);
-    assert.match(prompt, /It must not contain one wide main table/);
-    assert.match(prompt, /same 8 risk numbers, in the same order/);
-    assert.match(prompt, /Never write heading 12\.2 before table 12\.1/);
-    assert.match(prompt, /Never use the 12\.1 header for table 12\.2/);
-    assert.match(prompt, /Never write risk levels such as/);
-    assert.match(prompt, /there is no single main table with 25 or more columns/);
-    assert.match(prompt, /Section 13 must be a synthetic residual risk analysis/);
-    assert.match(prompt, /Keep documents to create\/update, actors and annexes\/supporting evidence separate/);
-    assert.match(prompt, /strict placement matrix/);
-    assert.match(prompt, /scope is section 5 and never contains the glossary/);
-    assert.match(prompt, /photo plan is only section 9/);
-    assert.match(prompt, /scoring method is only section 11/);
-    assert.match(prompt, /main risk table is only section 12/);
-    assert.match(prompt, /PAA\/PGP link is only section 16 and never in annexes/);
-    assert.match(prompt, /documents to create\/update are only section 17 and never in the conclusion/);
-    assert.match(prompt, /actors are only section 18/);
-    assert.match(prompt, /annexes are only section 19/);
-    assert.match(prompt, /final statement appears once in section 23/);
-    assert.match(prompt, /Do not include visible Markdown horizontal separators/);
-    assert.match(prompt, /Do not place the list of documents to create or update here/);
-    assert.match(prompt, /Section 17 must contain only one Markdown table/);
-    assert.match(prompt, /Section 18 must contain only one Markdown table/);
-    assert.match(prompt, /Section 19 must contain only one Markdown table/);
-    assert.match(prompt, /Do not explain the G x P x E method here/);
-    assert.match(prompt, /Score must equal Severity\/Gravity x Probability x Exposure/);
-    assert.doesNotMatch(prompt, /all 18 sections/);
   }
 
-  const minimumRequestedCases = [
+  const renderCases = [
     ['Analyse de risques incendie et évacuation', 'fr'],
     ['Analyse de risques produits chimiques', 'fr'],
+    ['Analyse de risques machines et équipements', 'fr'],
     ['Analyse de risques ergonomie', 'fr'],
-    ['Analyse de risques générale', 'en'],
     ['Analyse de risques générale', 'nl'],
+    ['Analyse de risques générale', 'en'],
     ['Analyse de risques générale', 'de'],
   ];
 
-  for (const [documentType, language] of minimumRequestedCases) {
+  for (const [documentType, language] of renderCases) {
     const config = LANGUAGE_CONFIGS[language];
-    const prompt = buildUserPrompt(documentType, formData, language, config.label);
+    const sample = validateRiskAssessmentStructuredData(getRiskAssessmentJsonSchema(), language);
+    sample.documentIdentification.type = documentType;
+    sample.glossary = [{ abbreviation: 'STOP', definition: 'Hiérarchie des mesures de prévention.' }];
+    sample.scope.includedPlaces = ['Atelier'];
+    sample.photoPlan.photos = [{ photoNumber: '1', areaOrTask: 'Atelier' }];
+    sample.mainRiskAssessment.initialAssessment[0].number = '1';
+    sample.mainRiskAssessment.measuresFollowUpValidation[0].number = '1';
+    sample.mainRiskAssessment.measuresFollowUpValidation[0].stopLevel = getDefaultStopLevel(language);
 
-    assert.match(prompt, new RegExp(escapeRegExp(`## 1. ${config.sections[0]}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(`## 23. ${config.sections[22]}`)));
-    assert.match(prompt, new RegExp(escapeRegExp(config.riskInitialTableColumns)));
-    assert.match(prompt, new RegExp(escapeRegExp(config.riskFollowUpTableColumns)));
-    assert.match(prompt, new RegExp(escapeRegExp(config.actionTableColumns)));
-    assert.match(prompt, new RegExp(escapeRegExp(config.standardStatuses)));
-  }
-
-  const requiredCases = [
-    [
-      'Analyse de risques incendie et évacuation',
-      'fr',
-      ['PAA', 'PGP', 'CPPT', 'FDS', 'EPI', 'ATEX', 'STOP'],
-    ],
-    [
-      'Analyse de risques ergonomie',
-      'fr',
-      ['TMS', 'EPI', 'CPPT', 'PAA', 'PGP'],
-    ],
-    [
-      'Analyse de risques produits chimiques',
-      'fr',
-      ['FDS', 'CLP', 'CMR', 'EPI', 'SEPP'],
-    ],
-    [
-      'Analyse de risques machines et équipements',
-      'fr',
-      ['Plan photos', 'arrêt d’urgence', 'protections'],
-    ],
-    ['Analyse de risques générale', 'en', ['Glossary of abbreviations used', 'SDS/FDS', 'PPE/EPI']],
-    ['Analyse de risques générale', 'nl', ['Glossarium van gebruikte afkortingen', 'VIB/FDS', 'PBM/EPI']],
-    ['Analyse de risques générale', 'de', ['Glossar der verwendeten Abkürzungen', 'SDB/FDS', 'PSA/EPI']],
-  ];
-
-  for (const [documentType, language, expectedTerms] of requiredCases) {
-    const config = LANGUAGE_CONFIGS[language];
-    const prompt = buildUserPrompt(documentType, formData, language, config.label);
-
-    for (const term of expectedTerms) {
-      assert.match(prompt, new RegExp(escapeRegExp(term)));
-    }
+    const document = renderRiskAssessmentMarkdown(sample, language);
+    assert.match(document, new RegExp(escapeRegExp(`## 4. ${config.sections[3]}`)));
+    assert.match(document, new RegExp(escapeRegExp(`## 5. ${config.sections[4]}`)));
+    assert.match(document, new RegExp(escapeRegExp(`## 9. ${config.sections[8]}`)));
+    assert.match(document, new RegExp(escapeRegExp(`## 11. ${config.sections[10]}`)));
+    assert.match(document, new RegExp(escapeRegExp(`## 16. ${config.sections[15]}`)));
+    assert.match(document, new RegExp(escapeRegExp(`## 17. ${config.sections[16]}`)));
+    assert.match(document, new RegExp(escapeRegExp(`## 18. ${config.sections[17]}`)));
+    assert.match(document, new RegExp(escapeRegExp(`## 19. ${config.sections[18]}`)));
+    assert.match(document, new RegExp(escapeRegExp(`## 22. ${config.sections[21]}`)));
+    assert.match(document, new RegExp(escapeRegExp(`## 23. ${config.sections[22]}`)));
+    assert.match(document, new RegExp(escapeRegExp(`### 12.1 ${config.riskInitialSubsectionTitle}`)));
+    assert.match(document, new RegExp(escapeRegExp(`### 12.2 ${config.riskFollowUpSubsectionTitle}`)));
+    assert.match(document, new RegExp(escapeRegExp(`| ${config.riskInitialTableColumns} |`)));
+    assert.match(document, new RegExp(escapeRegExp(`| ${config.riskFollowUpTableColumns} |`)));
+    assert.doesNotMatch(document, new RegExp(escapeRegExp(`## 9. ${config.sections[11]}`)));
+    assert.doesNotMatch(document, new RegExp(escapeRegExp(`## 11. ${config.sections[13]}`)));
+    assert.doesNotMatch(document, new RegExp(escapeRegExp(`## 16. ${config.sections[18]}`)));
   }
 }
 
@@ -2554,6 +3176,9 @@ function buildUserPrompt(
 function buildRiskUserPrompt(documentType, formData, language = 'fr', languageLabel = 'Français') {
   const languageConfig = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
   const resolvedLanguageLabel = languageConfig.label || languageLabel;
+
+  return buildStructuredRiskUserPrompt(documentType, formData, language, resolvedLanguageLabel);
+
   const riskScale = formatRiskScale(language);
   const scoringMethodInstruction = buildRiskScoringMethodInstruction(language);
   const abbreviationGlossaryInstruction = buildAbbreviationGlossaryInstruction(language);
@@ -2623,6 +3248,285 @@ ${languageConfig.finalMention}
 29. Before answering, perform a strict mental quality check: all ${languageConfig.sections.length} sections are present and ordered; glossary is only section 4; scope is section 5 and never contains the glossary; photo plan is only section 9; scoring method is only section 11; main risk table is only section 12; section 12 contains both 12.1 "${languageConfig.riskInitialSubsectionTitle}" and 12.2 "${languageConfig.riskFollowUpSubsectionTitle}"; there is no single main table with 25 or more columns; priorities are section 14 and not the scoring method; PAA/PGP link is only section 16 and never in annexes; documents to create/update are only section 17 and never in the conclusion; actors are only section 18; annexes are only section 19; conclusion is separate, drafted, not a table and contains no final validation statement; final statement appears once in section 23. Do not include visible Markdown horizontal separators such as "---", "----" or "| --- |". Headings match the target language exactly; Belgian references are present; abbreviations used are explained in ${resolvedLanguageLabel}; scope, sources, assumptions and limits are clear; jobs/tasks/workers are described; photo plan is present; hazards are detailed; G x P x E scoring and justifications are present; existing measures, existing evidence, complementary measures, STOP level, responsible persons, deadlines, expected proofs, residual risks, action plan, PAA/PGP link, documents, actors, annexes, level 3 limits, blocking points, conclusion and final statement are present. Verify that point bloquant yes/no and external opinion yes/no columns are present where required, standardised statuses are used and no section is empty. If an item is missing, add it or clearly mark it as to be completed with an actionable proof request.
 30. Rappel RGPD dans la langue cible : ${languageConfig.gdprReminder}
 31. Garde une réponse concise pour éviter les timeouts.`;
+}
+
+function buildStructuredRiskUserPrompt(documentType, formData, language = 'fr', languageLabel = 'Français') {
+  const languageConfig = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+  const riskScale = formatRiskScale(language);
+  const specializationInstruction = buildRiskSpecializationInstruction(documentType);
+  const evidenceInstruction = buildRiskEvidenceInstruction(documentType, language);
+  const photoInstruction = buildRiskPhotoInstruction(documentType, language);
+  const photoPlanInstruction = buildRiskPhotoPlanInstruction(documentType, language);
+  const scoringMethodInstruction = buildRiskScoringMethodInstruction(language);
+
+  return `Type de document demandé : ${documentType}
+Langue cible déterminée par le backend : ${language} (${languageLabel})
+
+Données formData à exploiter :
+${JSON.stringify(formData, null, 2)}
+
+Réponds uniquement avec un JSON valide. Ne mets aucun texte avant ou après le JSON. Ne mets pas de bloc markdown.
+Ne génère aucun titre markdown, aucun tableau markdown et aucun séparateur markdown. Le backend reconstruira les titres et tableaux.
+Utilise uniquement les champs du schéma JSON fourni. Remplis chaque section avec du contenu professionnel dans la langue cible.
+Ne déclare jamais le document finalisé, conforme ou juridiquement complet.
+Distingue faits fournis, hypothèses prudentes, preuves manquantes et points à valider.
+
+Schéma JSON interne obligatoire :
+${JSON.stringify(getRiskAssessmentJsonSchema(), null, 2)}
+
+Règles métier :
+- Produis 6 à 8 dangers concrets dans hazardIdentification.
+- Produis 8 risques cohérents dans mainRiskAssessment.initialAssessment.
+- Produis une ligne correspondante dans mainRiskAssessment.measuresFollowUpValidation pour chaque risque initial, avec le même number.
+- Score = Gravité x Probabilité x Exposition. Vérifie les niveaux : ${riskScale}.
+- mainRiskAssessment.measuresFollowUpValidation[].stopLevel doit utiliser uniquement une valeur autorisée : ${getAllowedStopLevels(language).join('; ')}.
+- N’utilise jamais ces valeurs dans stopLevel : ${getForbiddenRiskLevelValues().join('; ')}.
+- Si une information manque, écris une instruction concrète de validation et une preuve attendue, pas un simple placeholder.
+- La conclusion doit être un paragraphe rédigé, jamais un tableau.
+- validationStatement doit reprendre exactement : ${languageConfig.finalMention}
+- Adapte les risques au type demandé : ${specializationInstruction}
+- Preuves et documents attendus : ${evidenceInstruction}
+- Photos attendues : ${photoInstruction}
+- Plan photos : ${photoPlanInstruction}
+- Méthode de cotation à renseigner dans scoringMethod : ${scoringMethodInstruction}`;
+}
+
+function getRiskAssessmentJsonSchema() {
+  return {
+    documentIdentification: {
+      type: '',
+      reference: '',
+      company: '',
+      site: '',
+      services: '',
+      author: '',
+      version: '',
+      visitDate: '',
+      fieldCheckNote: '',
+    },
+    contextObjective: '',
+    regulatoryReferences: [
+      {
+        reference: '',
+        whyApplicable: '',
+        practicalConsequence: '',
+        documentOrEvidence: '',
+        validationOrAdvice: '',
+      },
+    ],
+    glossary: [{ abbreviation: '', definition: '' }],
+    scope: {
+      includedPlaces: [],
+      excludedPlaces: [],
+      activities: [],
+      exposedJobs: [],
+      includedSituations: [],
+      scopeLimits: [],
+    },
+    informationSources: [
+      {
+        source: '',
+        available: '',
+        comment: '',
+        expectedEvidence: '',
+        whereToFile: '',
+      },
+    ],
+    assumptionsLimitations: {
+      factsProvided: [],
+      partialObservations: [],
+      missingInformation: [],
+      pointsToValidate: [],
+      limits: [],
+    },
+    jobsTasksExposedWorkers: [
+      {
+        jobOrTask: '',
+        realActivityDescription: '',
+        frequency: '',
+        exposureDuration: '',
+        exposedWorkers: '',
+        equipmentOrProductsUsed: '',
+        particularities: '',
+        photosToTake: '',
+        documentsToAttach: '',
+      },
+    ],
+    photoPlan: {
+      intro: '',
+      confidentialityRules: [],
+      photos: [
+        {
+          photoNumber: '',
+          areaOrTask: '',
+          whatPhotoMustShow: '',
+          whyUseful: '',
+          whereToInsert: '',
+          alsoAnnex: '',
+          confidentialityPrecautions: '',
+          relatedRisk: '',
+          relatedAction: '',
+          expectedEvidence: '',
+          relatedAnnex: '',
+          beforeAfter: '',
+        },
+      ],
+    },
+    hazardIdentification: [
+      {
+        hazardFamily: '',
+        preciseHazard: '',
+        plausibleScenario: '',
+        areaOrTask: '',
+        exposedPersons: '',
+        aggravatingFactors: '',
+        knownExistingMeasures: '',
+        evidenceToCheck: '',
+        whatAdvisorMustDo: '',
+        whereToDocumentEvidence: '',
+        blockingBeforeValidation: '',
+        photosToTake: '',
+      },
+    ],
+    scoringMethod: {
+      formula: 'Score = Gravité × Probabilité × Exposition',
+      severityScale: [],
+      probabilityScale: [],
+      exposureScale: [],
+      thresholds: [],
+      confirmationNote: '',
+    },
+    mainRiskAssessment: {
+      intro: '',
+      initialAssessment: [
+        {
+          number: '',
+          task: '',
+          hazard: '',
+          hazardousSituationOrScenario: '',
+          possibleRiskOrHarm: '',
+          exposed: '',
+          existingMeasures: '',
+          existingEvidence: '',
+          observedOrDeclaredElements: '',
+          elementsToConfirm: '',
+          severity: '',
+          probability: '',
+          exposure: '',
+          scoringJustification: '',
+          initialScore: '',
+          initialLevel: '',
+        },
+      ],
+      measuresFollowUpValidation: [
+        {
+          number: '',
+          additionalMeasure: '',
+          stopLevel: '',
+          responsible: '',
+          deadline: '',
+          residualScore: '',
+          residualLevel: '',
+          residualScoreJustification: '',
+          expectedEvidence: '',
+          photoToInsert: '',
+          annexToAttach: '',
+          priority: '',
+          blockingPoint: '',
+          externalAdvice: '',
+        },
+      ],
+    },
+    residualRiskAnalysis: [
+      {
+        mainRisk: '',
+        initialScore: '',
+        residualScore: '',
+        reductionCondition: '',
+        requiredEvidence: '',
+        standardStatus: '',
+        blockingPoint: '',
+        externalAdvice: '',
+      },
+    ],
+    actionPriorities: [
+      {
+        action: '',
+        relatedRisk: '',
+        responsible: '',
+        deadline: '',
+        expectedEvidence: '',
+        blockingPoint: '',
+        externalAdvice: '',
+        actionType: '',
+      },
+    ],
+    draftActionPlan: [
+      {
+        relatedRisk: '',
+        actionToPerform: '',
+        responsible: '',
+        deadline: '',
+        expectedEvidence: '',
+        photoAfterCorrection: '',
+        standardStatus: '',
+        paaOrPgpLink: '',
+        blockingPoint: '',
+        externalAdvice: '',
+      },
+    ],
+    paaPgpLink: {
+      paaActions: [],
+      pgpActions: [],
+      cpptRole: '',
+      managementFollowUp: '',
+    },
+    documentsToCreateOrUpdate: [
+      {
+        document: '',
+        whyCreateOrUpdate: '',
+        responsible: '',
+        deadline: '',
+        expectedEvidence: '',
+        relatedAnnex: '',
+        priority: '',
+      },
+    ],
+    actorsToConsult: [
+      {
+        actor: '',
+        expectedRole: '',
+        consultationMoment: '',
+        expectedEvidence: '',
+        mandatoryOrRecommended: '',
+        limitForLevel3Advisor: '',
+      },
+    ],
+    requiredAnnexes: [
+      {
+        annex: '',
+        mandatoryRecommendedOrDepending: '',
+        whyNecessary: '',
+        whoProvidesIt: '',
+        whereToFile: '',
+        status: '',
+      },
+    ],
+    level3AdvisorLimits: '',
+    blockingPointsBeforeValidation: [
+      {
+        point: '',
+        whyBlocking: '',
+        expectedEvidence: '',
+        responsible: '',
+        deadline: '',
+        externalAdvice: '',
+        liftingCondition: '',
+      },
+    ],
+    conclusion: '',
+    validationStatement: '',
+  };
 }
 
 function buildRiskSectionPlacementRules(language) {
