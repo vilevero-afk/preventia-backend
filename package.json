@@ -8,7 +8,8 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "test:renderer": "RUN_INTERNAL_RISK_TESTS=1 node server.js",
-    "test:risk-renderer": "node scripts/test-risk-renderer.js"
+    "test:risk-renderer": "node scripts/test-risk-renderer.js",
+    "test:licenses": "node scripts/test-licenses.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

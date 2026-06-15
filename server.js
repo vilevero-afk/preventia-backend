@@ -6,12 +6,19 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import OpenAI from 'openai';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
 const OPENAI_MAX_OUTPUT_TOKENS = Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || 9000);
 const JSON_LIMIT = process.env.JSON_LIMIT || '100kb';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const LICENSE_STORE_PATH = process.env.LICENSE_STORE_PATH || path.join(__dirname, 'data', 'licenses.json');
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:3000')
   .split(',')
   .map((origin) => origin.trim())
@@ -1255,7 +1262,7 @@ app.use(
       callback(error);
     },
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type'],
+    allowedHeaders: ['Content-Type', 'x-admin-secret'],
   }),
 );
 app.use(express.json({ limit: JSON_LIMIT }));
@@ -1279,9 +1286,149 @@ app.get('/health', (_req, res) => {
   });
 });
 
+app.post('/api/licenses/create', (req, res, next) => {
+  try {
+    const configuredSecret = process.env.ADMIN_LICENSE_SECRET;
+
+    if (!configuredSecret) {
+      return res.status(403).json({
+        success: false,
+        error: 'ADMIN_LICENSE_SECRET n’est pas défini côté serveur.',
+      });
+    }
+
+    if (req.get('x-admin-secret') !== configuredSecret) {
+      return res.status(403).json({
+        success: false,
+        error: 'Secret administrateur invalide.',
+      });
+    }
+
+    const store = loadLicenses();
+    const license = createLicenseRecord(req.body || {});
+    store.licenses.push(license);
+    saveLicenses(store);
+
+    return res.json({
+      success: true,
+      license: {
+        licenseKey: license.licenseKey,
+        companyName: license.companyName,
+        plan: license.plan,
+        status: license.status,
+        endDate: license.endDate,
+        maxDevices: license.maxDevices,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/licenses/activate', (req, res) => {
+  const { licenseKey, deviceId, deviceName, platform, appVersion } = req.body || {};
+  const validation = validateLicenseAccess({
+    licenseKey,
+    deviceId,
+    registerDevice: true,
+    deviceInfo: { deviceName, platform, appVersion },
+  });
+
+  if (!validation.ok) {
+    return res.json({
+      success: false,
+      error: validation.error,
+    });
+  }
+
+  return res.json({
+    success: true,
+    licenseStatus: licenseStatusPayload(validation.license),
+  });
+});
+
+app.post('/api/licenses/status', (req, res) => {
+  const { licenseKey, deviceId } = req.body || {};
+  const validation = validateLicenseAccess({ licenseKey, deviceId });
+
+  if (!validation.ok) {
+    return res.json({
+      success: false,
+      error: validation.error,
+    });
+  }
+
+  return res.json({
+    success: true,
+    licenseStatus: licenseStatusPayload(validation.license),
+  });
+});
+
+app.post('/api/licenses/deactivate-device', (req, res) => {
+  const { licenseKey, deviceId } = req.body || {};
+  const store = loadLicenses();
+  const license = store.licenses.find((item) => normalizeLicenseKey(item.licenseKey) === normalizeLicenseKey(licenseKey));
+
+  if (!license) {
+    return res.json({
+      success: false,
+      error: 'Licence requise ou invalide.',
+    });
+  }
+
+  const normalizedDeviceId = normalizeDeviceId(deviceId);
+  license.activatedDevices = ensureArray(license.activatedDevices)
+    .filter((device) => normalizeDeviceId(device.deviceId) !== normalizedDeviceId);
+  license.updatedAt = new Date().toISOString();
+  saveLicenses(store);
+
+  return res.json({
+    success: true,
+    licenseStatus: licenseStatusPayload(license),
+  });
+});
+
+app.post('/api/licenses/validate-generation', (req, res) => {
+  const { licenseKey, deviceId, documentType } = req.body || {};
+  const validation = validateLicenseAccess({ licenseKey, deviceId, documentType });
+
+  if (!validation.ok) {
+    return res.json({
+      success: false,
+      canGenerate: false,
+      error: validation.error,
+    });
+  }
+
+  return res.json({
+    success: true,
+    canGenerate: true,
+  });
+});
+
 app.post('/api/generate-document', async (req, res, next) => {
   try {
     console.log('[RISK_RENDER_TRACE] route generate-document');
+    const { documentType, formData, language, languageLabel, licenseKey, deviceId } = req.body || {};
+    const documentDefinition = validateGenerateDocumentPayload(documentType, formData);
+    const targetLanguage = resolveTargetLanguage(language, languageLabel, formData);
+    let licenseValidation = null;
+
+    if (licenseKey || deviceId) {
+      licenseValidation = validateLicenseAccess({ licenseKey, deviceId, documentType });
+      if (!licenseValidation.ok) {
+        return res.json({
+          success: false,
+          error: licenseValidation.error || 'Licence requise ou invalide.',
+        });
+      }
+    } else if (!isUnlicensedGenerationAllowed()) {
+      return res.json({
+        success: false,
+        error: 'Licence requise ou invalide.',
+      });
+    }
+
     if (!process.env.OPENAI_API_KEY) {
       const error = new Error('Configuration OpenAI manquante côté serveur.');
       error.status = 500;
@@ -1289,9 +1436,6 @@ app.post('/api/generate-document', async (req, res, next) => {
       throw error;
     }
 
-    const { documentType, formData, language, languageLabel } = req.body || {};
-    const documentDefinition = validateGenerateDocumentPayload(documentType, formData);
-    const targetLanguage = resolveTargetLanguage(language, languageLabel, formData);
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
@@ -1388,6 +1532,11 @@ app.post('/api/generate-document', async (req, res, next) => {
       const error = new Error('La génération du document n’a pas produit de contenu.');
       error.status = 502;
       throw error;
+    }
+
+    if (licenseValidation?.license && licenseValidation?.store) {
+      incrementUsage(licenseValidation.license, documentType);
+      saveLicenses(licenseValidation.store);
     }
 
     res.json({
@@ -1608,6 +1757,415 @@ function countLanguageMarkers(text, markers) {
     const matches = text.match(new RegExp(`\\b${escapedMarker}\\b`, 'gu'));
     return score + (matches?.length || 0);
   }, 0);
+}
+
+const SIMPLE_PREVENTION_DOCUMENT_TYPES = [
+  'Plan annuel d’action',
+  'Plan global de prévention',
+  'Rapport de visite sécurité',
+  'Fiche de poste',
+  'Fiche d’instruction sécurité',
+  'Rapport d’accident ou d’incident',
+];
+
+const RISK_ANALYSIS_DOCUMENT_TYPES = [
+  'Analyse de risques générale',
+  'Analyse de risques incendie et évacuation',
+  'Analyse de risques produits chimiques',
+  'Analyse de risques machines et équipements',
+  'Analyse de risques ergonomie',
+  'Analyse de risques manutention manuelle',
+  'Analyse de risques travail en hauteur',
+  'Analyse de risques travail isolé',
+  'Analyse de risques psychosociaux',
+  'Analyse de risques maternité',
+  'Analyse de risques jeunes travailleurs',
+  'Analyse de risques intérimaires',
+];
+
+const LICENSE_PLAN_DEFAULTS = {
+  documents: {
+    maxDevices: 2,
+    monthlySimpleDocumentsLimit: 100,
+    monthlyRiskAnalysisLimit: 0,
+    allowedFeatures: ['documents'],
+  },
+  risks: {
+    maxDevices: 2,
+    monthlySimpleDocumentsLimit: 0,
+    monthlyRiskAnalysisLimit: 40,
+    allowedFeatures: ['riskAnalysis'],
+  },
+  pro: {
+    maxDevices: 3,
+    monthlySimpleDocumentsLimit: 100,
+    monthlyRiskAnalysisLimit: 40,
+    allowedFeatures: ['documents', 'riskAnalysis'],
+  },
+  enterprise: {
+    maxDevices: 3,
+    monthlySimpleDocumentsLimit: 100,
+    monthlyRiskAnalysisLimit: 40,
+    allowedFeatures: ['documents', 'riskAnalysis'],
+  },
+};
+
+function loadLicenses() {
+  try {
+    if (!fs.existsSync(LICENSE_STORE_PATH)) {
+      return { licenses: [] };
+    }
+
+    const parsed = JSON.parse(fs.readFileSync(LICENSE_STORE_PATH, 'utf8'));
+    return {
+      licenses: Array.isArray(parsed.licenses) ? parsed.licenses : [],
+    };
+  } catch (error) {
+    console.error('[LICENSE_TRACE] load failed', { message: error.message });
+    return { licenses: [] };
+  }
+}
+
+function saveLicenses(store) {
+  fs.mkdirSync(path.dirname(LICENSE_STORE_PATH), { recursive: true });
+  fs.writeFileSync(
+    LICENSE_STORE_PATH,
+    `${JSON.stringify({ licenses: ensureArray(store.licenses) }, null, 2)}\n`,
+    'utf8',
+  );
+}
+
+function findLicenseByKey(licenseKey) {
+  const normalizedKey = normalizeLicenseKey(licenseKey);
+  const store = loadLicenses();
+  return store.licenses.find((license) => normalizeLicenseKey(license.licenseKey) === normalizedKey) || null;
+}
+
+function normalizeLicenseKey(value) {
+  return String(value || '').trim().toUpperCase().replace(/\s+/g, '');
+}
+
+function generateLicenseKey() {
+  const chunks = Array.from({ length: 4 }, () =>
+    crypto.randomBytes(2).toString('hex').toUpperCase(),
+  );
+  return `PREV-${chunks.join('-')}`;
+}
+
+function getCurrentPeriod(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function resetMonthlyUsageIfNeeded(license) {
+  const currentPeriod = getCurrentPeriod();
+
+  if (license.currentPeriod !== currentPeriod) {
+    license.currentPeriod = currentPeriod;
+    license.usedSimpleDocumentsThisMonth = 0;
+    license.usedRiskAnalysisThisMonth = 0;
+    license.updatedAt = new Date().toISOString();
+    return true;
+  }
+
+  return false;
+}
+
+function isRiskAnalysisDocument(documentType = '') {
+  const normalized = normalizeDocumentType(documentType);
+  return RISK_ANALYSIS_DOCUMENT_TYPES.some((type) => normalizeDocumentType(type) === normalized) ||
+    normalized.startsWith('analyse de risques') ||
+    normalized.startsWith('risk assessment') ||
+    normalized.startsWith('risicoanalyse') ||
+    normalized.startsWith('gefahrdungsbeurteilung');
+}
+
+function isSimplePreventionDocument(documentType = '') {
+  const normalized = normalizeDocumentType(documentType);
+  return SIMPLE_PREVENTION_DOCUMENT_TYPES.some((type) => normalizeDocumentType(type) === normalized);
+}
+
+function canUseDocumentType(license, documentType) {
+  const features = ensureArray(license?.allowedFeatures);
+
+  if (isRiskAnalysisDocument(documentType)) {
+    return features.includes('riskAnalysis');
+  }
+
+  if (isSimplePreventionDocument(documentType)) {
+    return features.includes('documents');
+  }
+
+  return false;
+}
+
+function canUseDevice(license, deviceId) {
+  const normalizedDeviceId = normalizeDeviceId(deviceId);
+  if (!normalizedDeviceId) {
+    return false;
+  }
+
+  const devices = ensureArray(license?.activatedDevices);
+  return devices.some((device) => normalizeDeviceId(device.deviceId) === normalizedDeviceId) ||
+    devices.length < Number(license?.maxDevices || 0);
+}
+
+function registerDeviceIfAllowed(license, deviceInfo = {}) {
+  const deviceId = normalizeDeviceId(deviceInfo.deviceId);
+
+  if (!deviceId) {
+    return {
+      ok: false,
+      error: 'Identifiant appareil requis.',
+    };
+  }
+
+  license.activatedDevices = ensureArray(license.activatedDevices);
+  const now = new Date().toISOString();
+  const existingDevice = license.activatedDevices.find((device) => normalizeDeviceId(device.deviceId) === deviceId);
+
+  if (existingDevice) {
+    existingDevice.deviceName = sanitizeLicenseText(deviceInfo.deviceName, 120) || existingDevice.deviceName || '';
+    existingDevice.platform = sanitizeLicenseText(deviceInfo.platform, 60) || existingDevice.platform || '';
+    existingDevice.appVersion = sanitizeLicenseText(deviceInfo.appVersion, 40) || existingDevice.appVersion || '';
+    existingDevice.lastSeenAt = now;
+    license.updatedAt = now;
+    return { ok: true, activated: false };
+  }
+
+  if (license.activatedDevices.length >= Number(license.maxDevices || 0)) {
+    return {
+      ok: false,
+      error: 'Limite d’appareils atteinte pour cette licence.',
+    };
+  }
+
+  license.activatedDevices.push({
+    deviceId,
+    deviceName: sanitizeLicenseText(deviceInfo.deviceName, 120),
+    platform: sanitizeLicenseText(deviceInfo.platform, 60),
+    appVersion: sanitizeLicenseText(deviceInfo.appVersion, 40),
+    activatedAt: now,
+    lastSeenAt: now,
+  });
+  license.updatedAt = now;
+
+  return { ok: true, activated: true };
+}
+
+function incrementUsage(license, documentType) {
+  resetMonthlyUsageIfNeeded(license);
+
+  if (isRiskAnalysisDocument(documentType)) {
+    license.usedRiskAnalysisThisMonth = Number(license.usedRiskAnalysisThisMonth || 0) + 1;
+  } else if (isSimplePreventionDocument(documentType)) {
+    license.usedSimpleDocumentsThisMonth = Number(license.usedSimpleDocumentsThisMonth || 0) + 1;
+  }
+
+  license.updatedAt = new Date().toISOString();
+}
+
+function createLicenseRecord(payload = {}) {
+  const plan = String(payload.plan || '').trim();
+  const defaults = LICENSE_PLAN_DEFAULTS[plan];
+
+  if (!defaults) {
+    const error = new Error('Plan de licence invalide.');
+    error.status = 400;
+    throw error;
+  }
+
+  if (!hasUsableStringValue(payload.companyName) || !hasUsableStringValue(payload.adminEmail)) {
+    const error = new Error('companyName et adminEmail sont requis.');
+    error.status = 400;
+    throw error;
+  }
+
+  if (!isValidIsoDate(payload.endDate)) {
+    const error = new Error('endDate doit être au format YYYY-MM-DD.');
+    error.status = 400;
+    throw error;
+  }
+
+  const now = new Date().toISOString();
+
+  return {
+    licenseKey: generateUniqueLicenseKey(),
+    companyName: sanitizeLicenseText(payload.companyName, 160),
+    adminEmail: sanitizeLicenseText(payload.adminEmail, 160),
+    plan,
+    status: 'active',
+    startDate: formatIsoDate(new Date()),
+    endDate: payload.endDate,
+    maxDevices: Number(payload.maxDevices || defaults.maxDevices),
+    monthlySimpleDocumentsLimit: Number(payload.monthlySimpleDocumentsLimit ?? defaults.monthlySimpleDocumentsLimit),
+    monthlyRiskAnalysisLimit: Number(payload.monthlyRiskAnalysisLimit ?? defaults.monthlyRiskAnalysisLimit),
+    usedSimpleDocumentsThisMonth: 0,
+    usedRiskAnalysisThisMonth: 0,
+    currentPeriod: getCurrentPeriod(),
+    allowedFeatures: [...defaults.allowedFeatures],
+    activatedDevices: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function generateUniqueLicenseKey() {
+  const store = loadLicenses();
+  let licenseKey = generateLicenseKey();
+
+  while (store.licenses.some((license) => normalizeLicenseKey(license.licenseKey) === licenseKey)) {
+    licenseKey = generateLicenseKey();
+  }
+
+  return licenseKey;
+}
+
+function validateLicenseAccess({ licenseKey, deviceId, documentType = '', registerDevice = false, deviceInfo = {} }) {
+  const store = loadLicenses();
+  const license = store.licenses.find((item) => normalizeLicenseKey(item.licenseKey) === normalizeLicenseKey(licenseKey));
+
+  if (!license) {
+    return { ok: false, error: 'Licence requise ou invalide.' };
+  }
+
+  const monthlyReset = resetMonthlyUsageIfNeeded(license);
+  const activeError = getLicenseActiveError(license);
+
+  if (activeError) {
+    if (monthlyReset) {
+      saveLicenses(store);
+    }
+    return { ok: false, error: activeError };
+  }
+
+  if (registerDevice) {
+    const registration = registerDeviceIfAllowed(license, { ...deviceInfo, deviceId });
+    if (!registration.ok) {
+      if (monthlyReset) {
+        saveLicenses(store);
+      }
+      return { ok: false, error: registration.error };
+    }
+  } else if (!isDeviceActivated(license, deviceId)) {
+    if (monthlyReset) {
+      saveLicenses(store);
+    }
+    return { ok: false, error: 'Appareil non activé pour cette licence.' };
+  } else {
+    touchDevice(license, deviceId);
+  }
+
+  if (documentType) {
+    if (!canUseDocumentType(license, documentType)) {
+      saveLicenses(store);
+      return {
+        ok: false,
+        error: 'Votre abonnement ne permet pas de générer ce type de document.',
+      };
+    }
+
+    const quotaError = getQuotaError(license, documentType);
+    if (quotaError) {
+      saveLicenses(store);
+      return { ok: false, error: quotaError };
+    }
+  }
+
+  saveLicenses(store);
+  return { ok: true, license, store };
+}
+
+function getLicenseActiveError(license) {
+  if (license.status !== 'active') {
+    return 'Licence inactive.';
+  }
+
+  if (isLicenseExpired(license)) {
+    return 'Licence expirée.';
+  }
+
+  return '';
+}
+
+function isLicenseExpired(license) {
+  if (!isValidIsoDate(license.endDate)) {
+    return true;
+  }
+
+  return license.endDate < formatIsoDate(new Date());
+}
+
+function getQuotaError(license, documentType) {
+  if (isRiskAnalysisDocument(documentType)) {
+    return Number(license.usedRiskAnalysisThisMonth || 0) >= Number(license.monthlyRiskAnalysisLimit || 0)
+      ? 'Quota mensuel d’analyses de risques atteint.'
+      : '';
+  }
+
+  if (isSimplePreventionDocument(documentType)) {
+    return Number(license.usedSimpleDocumentsThisMonth || 0) >= Number(license.monthlySimpleDocumentsLimit || 0)
+      ? 'Quota mensuel de documents atteint.'
+      : '';
+  }
+
+  return 'Type de document non autorisé par la licence.';
+}
+
+function isDeviceActivated(license, deviceId) {
+  const normalizedDeviceId = normalizeDeviceId(deviceId);
+  return Boolean(normalizedDeviceId) &&
+    ensureArray(license?.activatedDevices)
+      .some((device) => normalizeDeviceId(device.deviceId) === normalizedDeviceId);
+}
+
+function touchDevice(license, deviceId) {
+  const normalizedDeviceId = normalizeDeviceId(deviceId);
+  const device = ensureArray(license.activatedDevices)
+    .find((item) => normalizeDeviceId(item.deviceId) === normalizedDeviceId);
+
+  if (device) {
+    device.lastSeenAt = new Date().toISOString();
+    license.updatedAt = device.lastSeenAt;
+  }
+}
+
+function licenseStatusPayload(license) {
+  resetMonthlyUsageIfNeeded(license);
+  return {
+    plan: license.plan,
+    companyName: license.companyName,
+    endDate: license.endDate,
+    maxDevices: license.maxDevices,
+    activatedDevices: ensureArray(license.activatedDevices).length,
+    monthlySimpleDocumentsLimit: license.monthlySimpleDocumentsLimit,
+    monthlyRiskAnalysisLimit: license.monthlyRiskAnalysisLimit,
+    usedSimpleDocumentsThisMonth: license.usedSimpleDocumentsThisMonth,
+    usedRiskAnalysisThisMonth: license.usedRiskAnalysisThisMonth,
+    allowedFeatures: ensureArray(license.allowedFeatures),
+  };
+}
+
+function normalizeDeviceId(value) {
+  return String(value || '').trim().slice(0, 160);
+}
+
+function sanitizeLicenseText(value, maxLength = 160) {
+  return String(value || '')
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .trim()
+    .slice(0, maxLength);
+}
+
+function isValidIsoDate(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function formatIsoDate(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
+function isUnlicensedGenerationAllowed() {
+  return String(process.env.ALLOW_UNLICENSED_GENERATION || '').toLowerCase() === 'true';
 }
 
 function getRiskLevel(score, language = 'fr') {
@@ -7470,8 +8028,22 @@ export {
   assertRiskAssessmentMarkdownIsValid,
   buildFallbackRiskItems,
   buildRiskAssessmentFixedSections,
+  canUseDocumentType,
+  canUseDevice,
+  createLicenseRecord,
   ensureCompleteRiskAssessmentData,
+  findLicenseByKey,
   finalizeRiskAssessmentMarkdown,
+  getCurrentPeriod,
+  incrementUsage,
+  isRiskAnalysisDocument,
+  isSimplePreventionDocument,
+  loadLicenses,
+  normalizeLicenseKey,
+  registerDeviceIfAllowed,
   renderRiskAssessmentFinalMarkdown,
+  resetMonthlyUsageIfNeeded,
+  saveLicenses,
+  validateLicenseAccess,
   validateRiskAssessmentStructuredData,
 };
