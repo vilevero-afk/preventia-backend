@@ -1314,10 +1314,16 @@ app.post('/api/generate-document', async (req, res, next) => {
         languageLabel: targetLanguage.label,
       });
       const reference = generatedRiskAssessment.reference;
+      const structuredData = ensureCompleteRiskAssessmentData(
+        generatedRiskAssessment.structuredData,
+        documentType,
+        targetLanguage.code,
+        formData,
+      );
 
       console.log('[RISK_RENDER_TRACE] using function: renderRiskAssessmentFinalMarkdown');
       let markdown = renderRiskAssessmentFinalMarkdown(
-        generatedRiskAssessment.structuredData,
+        structuredData,
         targetLanguage.code,
       );
       console.log('[RISK_RENDER_TRACE] using function: finalizeRiskAssessmentMarkdown');
@@ -1764,10 +1770,20 @@ async function generateRiskAssessmentFast({
     }
   }
 
-  const validatedData = validateRiskAssessmentStructuredData({
+  const completedRiskData = completeRiskAssessmentWithFallback({
     ...fixedSections,
     ...riskItems,
+  }, {
+    ...fixedSections,
+    ...fallbackRiskItems,
   }, languageCode);
+
+  const validatedData = ensureCompleteRiskAssessmentData(
+    validateRiskAssessmentStructuredData(completedRiskData, languageCode),
+    documentType,
+    languageCode,
+    formData,
+  );
 
   console.info('Données structurées analyse de risques OK');
   console.info('Durée totale génération en ms', {
@@ -1909,6 +1925,13 @@ function transformFlatRiskItems(data, language = 'fr') {
 }
 
 function buildRiskCollectionsFromRows(rows, language = 'fr') {
+  const riskLabel = (risk) => {
+    const residualRisk = String(risk.residual.mainRisk || '').trim();
+    return /^\d{1,2}\.\s+/.test(residualRisk)
+      ? residualRisk
+      : `${risk.initial.number}. ${residualRisk || risk.initial.hazard}`;
+  };
+
   return {
     mainRiskAssessment: {
       initialAssessment: rows.map((risk) => risk.initial),
@@ -1917,7 +1940,7 @@ function buildRiskCollectionsFromRows(rows, language = 'fr') {
     residualRiskAnalysis: rows.map((risk) => risk.residual),
     actionPriorities: rows.map((risk) => ({
       action: risk.followUp.additionalMeasure,
-      relatedRisk: risk.initial.number,
+      relatedRisk: riskLabel(risk),
       responsible: risk.followUp.responsible,
       deadline: risk.followUp.deadline,
       expectedEvidence: risk.followUp.expectedEvidence,
@@ -1926,7 +1949,7 @@ function buildRiskCollectionsFromRows(rows, language = 'fr') {
       actionType: risk.followUp.stopLevel,
     })),
     draftActionPlan: rows.map((risk) => ({
-      relatedRisk: risk.initial.number,
+      relatedRisk: riskLabel(risk),
       actionToPerform: risk.followUp.additionalMeasure,
       responsible: risk.followUp.responsible,
       deadline: risk.followUp.deadline,
@@ -1947,6 +1970,387 @@ function buildRiskCollectionsFromRows(rows, language = 'fr') {
       liftingCondition: risk.residual.reductionCondition,
     })),
   };
+}
+
+function completeRiskAssessmentWithFallback(data, fallbackData, language = 'fr') {
+  const fallback = ensureObject(fallbackData);
+  const completed = {
+    ...ensureObject(data),
+    photoPlan: {
+      ...ensureObject(data.photoPlan),
+      photos: completeRowsWithFallback(
+        ensureArray(ensureObject(data.photoPlan).photos),
+        ensureArray(ensureObject(fallback.photoPlan).photos),
+        language,
+        'photoNumber',
+      ),
+    },
+    hazardIdentification: completeRowsWithFallback(
+      ensureArray(data.hazardIdentification),
+      ensureArray(fallback.hazardIdentification),
+      language,
+    ),
+    mainRiskAssessment: {
+      ...ensureObject(data.mainRiskAssessment),
+      initialAssessment: completeRowsWithFallback(
+        ensureArray(ensureObject(data.mainRiskAssessment).initialAssessment),
+        ensureArray(ensureObject(fallback.mainRiskAssessment).initialAssessment),
+        language,
+        'number',
+      ),
+      measuresFollowUpValidation: completeRowsWithFallback(
+        ensureArray(ensureObject(data.mainRiskAssessment).measuresFollowUpValidation),
+        ensureArray(ensureObject(fallback.mainRiskAssessment).measuresFollowUpValidation),
+        language,
+        'number',
+      ),
+    },
+    residualRiskAnalysis: completeRowsWithFallback(
+      ensureArray(data.residualRiskAnalysis),
+      ensureArray(fallback.residualRiskAnalysis),
+      language,
+    ),
+    actionPriorities: completeRowsWithFallback(
+      ensureArray(data.actionPriorities),
+      ensureArray(fallback.actionPriorities),
+      language,
+    ),
+    draftActionPlan: completeRowsWithFallback(
+      ensureArray(data.draftActionPlan),
+      ensureArray(fallback.draftActionPlan),
+      language,
+    ),
+  };
+
+  return completed;
+}
+
+function ensureCompleteRiskAssessmentData(structuredData, documentType = '', language = 'fr', formData = {}) {
+  const data = {
+    ...ensureObject(structuredData),
+    mainRiskAssessment: ensureObject(ensureObject(structuredData).mainRiskAssessment),
+    photoPlan: ensureObject(ensureObject(structuredData).photoPlan),
+  };
+
+  if (!isFrenchFireEvacuationRiskAssessment(documentType, language)) {
+    return data;
+  }
+
+  const canonical = buildCanonicalFireRiskAssessmentData(formData, documentType, language);
+  data.mainRiskAssessment = {
+    ...data.mainRiskAssessment,
+    initialAssessment: shouldReplaceRiskTable(data.mainRiskAssessment.initialAssessment, 'initialAssessment')
+      ? canonical.mainRiskAssessment.initialAssessment
+      : data.mainRiskAssessment.initialAssessment,
+    measuresFollowUpValidation: shouldReplaceRiskTable(
+      data.mainRiskAssessment.measuresFollowUpValidation,
+      'measuresFollowUpValidation',
+    )
+      ? canonical.mainRiskAssessment.measuresFollowUpValidation
+      : data.mainRiskAssessment.measuresFollowUpValidation,
+  };
+  data.residualRiskAnalysis = shouldReplaceRiskTable(data.residualRiskAnalysis, 'residualRiskAnalysis')
+    ? canonical.residualRiskAnalysis
+    : data.residualRiskAnalysis;
+  data.actionPriorities = shouldReplaceRiskTable(data.actionPriorities, 'actionPriorities')
+    ? canonical.actionPriorities
+    : data.actionPriorities;
+  data.draftActionPlan = shouldReplaceRiskTable(data.draftActionPlan, 'draftActionPlan')
+    ? canonical.draftActionPlan
+    : data.draftActionPlan;
+  data.photoPlan = {
+    ...data.photoPlan,
+    photos: shouldReplaceRiskTable(data.photoPlan.photos, 'photoPlan')
+      ? canonical.photoPlan.photos
+      : data.photoPlan.photos,
+  };
+  data.hazardIdentification = shouldReplaceRiskTable(data.hazardIdentification, 'hazardIdentification')
+    ? canonical.hazardIdentification
+    : data.hazardIdentification;
+
+  console.info('[RISK_COMPLETION_TRACE] ensureCompleteRiskAssessmentData applied: true');
+  console.info(`[RISK_COMPLETION_TRACE] initialAssessment rows: ${data.mainRiskAssessment.initialAssessment.length}`);
+  console.info(`[RISK_COMPLETION_TRACE] followUp rows: ${data.mainRiskAssessment.measuresFollowUpValidation.length}`);
+  console.info(`[RISK_COMPLETION_TRACE] residual rows: ${data.residualRiskAnalysis.length}`);
+  console.info(`[RISK_COMPLETION_TRACE] actionPriorities rows: ${data.actionPriorities.length}`);
+  console.info(`[RISK_COMPLETION_TRACE] draftActionPlan rows: ${data.draftActionPlan.length}`);
+
+  return data;
+}
+
+function isFrenchFireEvacuationRiskAssessment(documentType = '', language = 'fr') {
+  const normalizedType = normalizeDocumentType(documentType);
+  return language === 'fr' &&
+    (normalizedType.includes('incendie') || normalizedType.includes('evacuation') || normalizedType.includes('fire'));
+}
+
+function buildCanonicalFireRiskAssessmentData(formData = {}, documentType = '', language = 'fr') {
+  const fixedSections = buildRiskAssessmentFixedSections(formData, documentType, language);
+  const risks = buildCanonicalFireEvacuationRiskRows();
+
+  return {
+    mainRiskAssessment: {
+      initialAssessment: risks.map((risk) => ({
+        number: risk.number,
+        task: risk.task,
+        hazard: risk.hazard,
+        hazardousSituationOrScenario: risk.hazardousSituationOrScenario,
+        possibleRiskOrHarm: risk.possibleRiskOrHarm,
+        exposed: risk.exposed,
+        existingMeasures: risk.existingMeasures,
+        existingEvidence: risk.existingEvidence,
+        observedOrDeclaredElements: risk.observedOrDeclaredElements,
+        elementsToConfirm: risk.elementsToConfirm,
+        severity: risk.severity,
+        probability: risk.probability,
+        exposure: risk.exposure,
+        scoringJustification: risk.scoringJustification,
+        initialScore: risk.initialScore,
+        initialLevel: risk.initialLevel,
+      })),
+      measuresFollowUpValidation: risks.map((risk) => ({
+        number: risk.number,
+        additionalMeasure: risk.additionalMeasure,
+        stopLevel: risk.stopLevel,
+        responsible: risk.responsible,
+        deadline: risk.deadline,
+        residualScore: risk.residualScore,
+        residualLevel: risk.residualLevel,
+        residualScoreJustification: risk.residualScoreJustification,
+        expectedEvidence: risk.expectedEvidence,
+        photoToInsert: risk.photoToInsert,
+        annexToAttach: risk.annexToAttach,
+        priority: risk.priority,
+        blockingPoint: risk.blockingPoint,
+        externalAdvice: risk.externalAdvice,
+      })),
+    },
+    residualRiskAnalysis: risks.map((risk) => ({
+      mainRisk: risk.hazard,
+      initialScore: risk.initialScore,
+      residualScore: risk.residualScore,
+      reductionCondition: risk.residualScoreJustification,
+      requiredEvidence: risk.expectedEvidence,
+      standardStatus: getFallbackPhrase('standardStatus', language),
+      blockingPoint: risk.blockingPoint,
+      externalAdvice: risk.externalAdvice,
+    })),
+    actionPriorities: risks.map((risk) => ({
+      action: risk.additionalMeasure,
+      relatedRisk: risk.hazard,
+      responsible: risk.responsible,
+      deadline: risk.deadline,
+      expectedEvidence: risk.expectedEvidence,
+      blockingPoint: risk.blockingPoint,
+      externalAdvice: risk.externalAdvice,
+      actionType: risk.stopLevel,
+    })),
+    draftActionPlan: risks.map((risk) => ({
+      relatedRisk: risk.hazard,
+      actionToPerform: risk.additionalMeasure,
+      responsible: risk.responsible,
+      deadline: risk.deadline,
+      expectedEvidence: risk.expectedEvidence,
+      photoAfterCorrection: risk.photoToInsert,
+      standardStatus: getFallbackPhrase('standardStatus', language),
+      paaOrPgpLink: getFallbackPhrase('priority', language),
+      blockingPoint: risk.blockingPoint,
+      externalAdvice: risk.externalAdvice,
+    })),
+    photoPlan: {
+      ...fixedSections.photoPlan,
+      photos: risks.map((risk) => ({
+        photoNumber: risk.number,
+        areaOrTask: risk.task,
+        whatPhotoMustShow: risk.photoToInsert,
+        whyUseful: 'Confirmer le danger, les mesures existantes et la priorité.',
+        whereToInsert: `Risque ${risk.number} et annexe photos.`,
+        alsoAnnex: 'Oui',
+        confidentialityPrecautions: 'Cadrage sans personne identifiable si possible.',
+        relatedRisk: risk.hazard,
+        relatedAction: risk.additionalMeasure,
+        expectedEvidence: risk.expectedEvidence,
+        relatedAnnex: risk.annexToAttach,
+        beforeAfter: 'Avant et après correction si action réalisée.',
+      })),
+    },
+    hazardIdentification: risks.map((risk) => ({
+      hazardFamily: getRiskFamilyLabel(documentType, language),
+      preciseHazard: risk.hazard,
+      plausibleScenario: risk.hazardousSituationOrScenario,
+      areaOrTask: risk.task,
+      exposedPersons: risk.exposed,
+      aggravatingFactors: risk.elementsToConfirm,
+      knownExistingMeasures: risk.existingMeasures,
+      evidenceToCheck: risk.existingEvidence,
+      whatAdvisorMustDo: risk.elementsToConfirm,
+      whereToDocumentEvidence: `Risque ${risk.number}, plan d’action et annexes.`,
+      blockingBeforeValidation: risk.blockingPoint,
+      photosToTake: risk.photoToInsert,
+    })),
+  };
+}
+
+function buildCanonicalFireEvacuationRiskRows() {
+  return buildFireEvacuationFallbackRiskDetails().map((risk, index) => ({
+    number: String(index + 1),
+    ...risk,
+    riskName: risk.hazard,
+    hazard: risk.danger || risk.hazard,
+  }));
+}
+
+function shouldReplaceRiskTable(rows, rowType = '') {
+  const values = ensureArray(rows);
+
+  if (values.length < 8) {
+    return true;
+  }
+
+  const firstEight = values.slice(0, 8);
+  return firstEight.some((row) => isIncompleteRiskRow(row, rowType));
+}
+
+function isIncompleteRiskRow(row, rowType = '') {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) {
+    return true;
+  }
+
+  const entries = Object.entries(row);
+  if (entries.length === 0) {
+    return true;
+  }
+
+  const meaningfulEntries = entries.filter(([key]) => key !== 'number' && key !== 'photoNumber');
+  const incompleteCount = meaningfulEntries.filter(([_key, value]) => isIncompleteRiskCell(value)).length;
+  const incompleteRatio = meaningfulEntries.length === 0 ? 1 : incompleteCount / meaningfulEntries.length;
+
+  if (incompleteRatio > 0.4) {
+    return true;
+  }
+
+  if (meaningfulEntries.every(([_key, value]) => isIncompleteRiskCell(value))) {
+    return true;
+  }
+
+  if (
+    rowType === 'initialAssessment' &&
+    ['task', 'hazard', 'hazardousSituationOrScenario', 'possibleRiskOrHarm'].some((key) => isIncompleteRiskCell(row[key]))
+  ) {
+    return true;
+  }
+
+  if (
+    rowType === 'measuresFollowUpValidation' &&
+    ['additionalMeasure', 'responsible', 'expectedEvidence'].some((key) => isIncompleteRiskCell(row[key]))
+  ) {
+    return true;
+  }
+
+  if (
+    (rowType === 'actionPriorities' || rowType === 'draftActionPlan') &&
+    isIncompleteRiskCell(row.relatedRisk)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function isIncompleteRiskCell(value) {
+  const normalized = normalizeTableHeader(String(value ?? '').trim());
+  const incompleteValues = new Set([
+    '',
+    'a completer',
+    'à completer',
+    'à compléter',
+    'to complete',
+    'to be completed',
+    'aan te vullen',
+    'zu ergänzen',
+    'zu erganzen',
+    'a determiner',
+    'à déterminer',
+    'to be determined',
+    'te bepalen',
+    'zu bestimmen',
+    'undefined',
+    'null',
+  ].map(normalizeTableHeader));
+
+  return incompleteValues.has(normalized);
+}
+
+function completeRowsWithFallback(rows, fallbackRows, language = 'fr', numberKey = null) {
+  const sourceRows = ensureArray(rows).map(ensureObject);
+  const fallback = ensureArray(fallbackRows).map(ensureObject);
+  const maxLength = Math.max(sourceRows.length, fallback.length);
+
+  return Array.from({ length: maxLength }, (_unused, index) => {
+    const fallbackRow = fallback[index] || {};
+    const sourceRow = findMatchingRiskRow(sourceRows, fallbackRow, index, numberKey) || {};
+    return mergeRiskFallbackRow(sourceRow, fallbackRow, language);
+  }).slice(0, 8);
+}
+
+function findMatchingRiskRow(rows, fallbackRow, index, numberKey = null) {
+  if (numberKey) {
+    const fallbackNumber = cleanRiskNumber(fallbackRow[numberKey], index + 1);
+    return rows.find((row, rowIndex) => cleanRiskNumber(row[numberKey], rowIndex + 1) === fallbackNumber) || rows[index];
+  }
+
+  const fallbackNumber = extractRiskNumberFromRow(fallbackRow);
+  if (fallbackNumber) {
+    return rows.find((row) => extractRiskNumberFromRow(row) === fallbackNumber) || rows[index];
+  }
+
+  return rows[index];
+}
+
+function extractRiskNumberFromRow(row) {
+  const values = Object.values(ensureObject(row)).map((value) => String(value || '').trim());
+  const numbered = values.find((value) => /^\d{1,2}(?:\.|\s)/.test(value));
+  return numbered?.match(/^(\d{1,2})/)?.[1] || '';
+}
+
+function mergeRiskFallbackRow(row, fallbackRow, language = 'fr') {
+  const merged = { ...ensureObject(fallbackRow), ...ensureObject(row) };
+
+  for (const key of Object.keys(ensureObject(fallbackRow))) {
+    if (isIncompleteRiskValueForKey(key, merged[key], language)) {
+      merged[key] = fallbackRow[key];
+    }
+  }
+
+  return merged;
+}
+
+function isIncompleteRiskValueForKey(key, value, language = 'fr') {
+  const cleaned = String(value ?? '').trim();
+
+  if ((key === 'relatedRisk' || key === 'mainRisk') && /^\d{1,2}$/.test(cleaned)) {
+    return true;
+  }
+
+  return isIncompleteRiskValue(value, language);
+}
+
+function isIncompleteRiskValue(value, language = 'fr') {
+  const cleaned = String(value ?? '').trim();
+  const placeholders = [
+    getLanguagePlaceholder(language),
+    getFallbackPhrase('toDetermine', language),
+    'À compléter',
+    'À déterminer',
+    'To be completed',
+    'To be determined',
+    'Aan te vullen',
+    'Te bepalen',
+    'Zu ergänzen',
+    'Zu bestimmen',
+  ];
+
+  return !cleaned || placeholders.includes(cleaned);
 }
 
 function buildStructuredRiskRowsFromFlatRisk(row, language = 'fr') {
@@ -2119,31 +2523,31 @@ function buildRiskAssessmentFixedSections(formData = {}, documentType = '', lang
       photos: riskDetails.map((risk, index) => ({
         photoNumber: String(index + 1),
         areaOrTask: risk.task || activity,
-        whatPhotoMustShow: risk.hazard,
+        whatPhotoMustShow: risk.photoToInsert || risk.hazard,
         whyUseful: 'Confirmer le danger, les mesures existantes et la priorité.',
         whereToInsert: `Risque ${index + 1} et annexe photos.`,
         alsoAnnex: 'Oui',
         confidentialityPrecautions: 'Cadrage sans personne identifiable si possible.',
-        relatedRisk: String(index + 1),
-        relatedAction: 'Mesure complémentaire correspondante.',
-        expectedEvidence: 'Photo datée avant/après et preuve documentaire.',
-        relatedAnnex: `Annexe photo ${index + 1}`,
+        relatedRisk: `${index + 1}. ${risk.hazard}`,
+        relatedAction: risk.additionalMeasure || 'Mesure complémentaire correspondante.',
+        expectedEvidence: risk.expectedEvidence || 'Photo datée avant/après et preuve documentaire.',
+        relatedAnnex: risk.annexToAttach || `Annexe photo ${index + 1}`,
         beforeAfter: 'Avant et après correction si action réalisée.',
       })),
     },
     hazardIdentification: riskDetails.map((risk, index) => ({
       hazardFamily: getRiskFamilyLabel(documentType, language),
-      preciseHazard: risk.hazard,
+      preciseHazard: risk.danger || risk.hazard,
       plausibleScenario: risk.hazardousSituationOrScenario || `Scénario lié à ${risk.hazard}.`,
       areaOrTask: risk.task || activity,
-      exposedPersons: exposed,
+      exposedPersons: risk.exposed || exposed,
       aggravatingFactors: constraints,
       knownExistingMeasures: risk.existingMeasures || measures,
       evidenceToCheck: risk.existingEvidence || 'Photo, rapport de contrôle, registre ou procédure applicable.',
-      whatAdvisorMustDo: 'Vérifier sur site, documenter les preuves et ajuster la cotation.',
+      whatAdvisorMustDo: risk.elementsToConfirm || 'Vérifier sur site, documenter les preuves et ajuster la cotation.',
       whereToDocumentEvidence: `Risque ${index + 1}, plan d’action et annexes.`,
-      blockingBeforeValidation: 'Oui si preuve ou visite terrain manquante.',
-      photosToTake: `Photo du risque ${index + 1}.`,
+      blockingBeforeValidation: risk.blockingPoint || 'Oui si preuve ou visite terrain manquante.',
+      photosToTake: risk.photoToInsert || `Photo du risque ${index + 1}.`,
     })),
     scoringMethod: {
       formula: 'Score = Gravité x Probabilité x Exposition',
@@ -2534,6 +2938,7 @@ function validateRiskAssessmentStructuredData(data, language = 'fr') {
       ...ensureObject(row),
       stopLevel: normalizeStructuredStopLevel(ensureObject(row).stopLevel, language),
     }));
+  hydrateRiskDerivedCollections(validated, language);
   cleanRiskAssessmentBlockCFields(validated, language);
   console.info('Nombre de risques dans bloc C final', {
     count: validated.mainRiskAssessment.initialAssessment.length,
@@ -2574,6 +2979,71 @@ function alignRiskAssessmentRows(data, language = 'fr') {
     ...followUpRows.find((row) => cleanRiskNumber(row.number) === number),
     number,
   }));
+}
+
+function hydrateRiskDerivedCollections(data, language = 'fr') {
+  const initialRows = ensureArray(ensureObject(data.mainRiskAssessment).initialAssessment).map(ensureObject);
+  const followUpRows = ensureArray(ensureObject(data.mainRiskAssessment).measuresFollowUpValidation).map(ensureObject);
+  const rows = initialRows.slice(0, 8).map((initial, index) => {
+    const number = cleanRiskNumber(initial.number, index + 1);
+    const followUp = followUpRows.find((row) => cleanRiskNumber(row.number) === number) || followUpRows[index] || {};
+    const mainRisk = `${number}. ${initial.hazard || initial.possibleRiskOrHarm || getLanguagePlaceholder(language)}`;
+
+    return {
+      number,
+      mainRisk,
+      initial,
+      followUp,
+      residual: {
+        mainRisk,
+        initialScore: initial.initialScore,
+        residualScore: followUp.residualScore,
+        reductionCondition: followUp.residualScoreJustification || followUp.additionalMeasure,
+        requiredEvidence: followUp.expectedEvidence,
+        standardStatus: getFallbackPhrase('standardStatus', language),
+        blockingPoint: followUp.blockingPoint,
+        externalAdvice: followUp.externalAdvice,
+      },
+      actionPriority: {
+        action: followUp.additionalMeasure,
+        relatedRisk: mainRisk,
+        responsible: followUp.responsible,
+        deadline: followUp.deadline,
+        expectedEvidence: followUp.expectedEvidence,
+        blockingPoint: followUp.blockingPoint,
+        externalAdvice: followUp.externalAdvice,
+        actionType: followUp.stopLevel,
+      },
+      draftAction: {
+        relatedRisk: mainRisk,
+        actionToPerform: followUp.additionalMeasure,
+        responsible: followUp.responsible,
+        deadline: followUp.deadline,
+        expectedEvidence: followUp.expectedEvidence,
+        photoAfterCorrection: followUp.photoToInsert,
+        standardStatus: getFallbackPhrase('standardStatus', language),
+        paaOrPgpLink: followUp.priority,
+        blockingPoint: followUp.blockingPoint,
+        externalAdvice: followUp.externalAdvice,
+      },
+    };
+  });
+
+  data.residualRiskAnalysis = completeRowsWithFallback(
+    ensureArray(data.residualRiskAnalysis),
+    rows.map((row) => row.residual),
+    language,
+  );
+  data.actionPriorities = completeRowsWithFallback(
+    ensureArray(data.actionPriorities),
+    rows.map((row) => row.actionPriority),
+    language,
+  );
+  data.draftActionPlan = completeRowsWithFallback(
+    ensureArray(data.draftActionPlan),
+    rows.map((row) => row.draftAction),
+    language,
+  );
 }
 
 function cleanRiskNumber(value, fallback = 1) {
@@ -3157,12 +3627,50 @@ function finalizeRiskAssessmentMarkdown(markdown, language = 'fr', reference = '
     normalized = stripMarkdownHeadingMarkers(normalized);
   }
 
+  normalized = removeDuplicateConsecutiveReferenceDateBlocks(normalized);
+
   return normalized
     .split('\n')
     .filter((line) => line.trim() !== '---')
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+function removeDuplicateConsecutiveReferenceDateBlocks(markdown) {
+  const lines = String(markdown || '').split('\n');
+  const blocks = [];
+
+  for (let index = 0; index < lines.length - 1; index += 1) {
+    const referenceMatch = lines[index].trim().match(/^(Référence|Reference)\s*:\s*(.+)$/i);
+    const dateMatch = lines[index + 1].trim().match(/^Date\s*:\s*(.+)$/i);
+
+    if (referenceMatch && dateMatch) {
+      blocks.push({
+        start: index,
+        end: index + 1,
+        reference: referenceMatch[2].trim(),
+        date: dateMatch[1].trim(),
+      });
+    }
+  }
+
+  if (
+    blocks.length < 2 ||
+    blocks[0].reference !== blocks[1].reference ||
+    blocks[0].date !== blocks[1].date
+  ) {
+    return markdown;
+  }
+
+  const between = lines.slice(blocks[0].end + 1, blocks[1].start);
+  if (between.some((line) => line.trim())) {
+    return markdown;
+  }
+
+  return lines
+    .filter((_line, index) => index < blocks[1].start || index > blocks[1].end)
+    .join('\n');
 }
 
 function replaceSecondaryRiskReferences(markdown, reference) {
@@ -5647,7 +6155,8 @@ function buildUsefulFallbackRiskBlockC(language = 'fr', formData = {}, documentT
 
 function buildFallbackRiskItems(formData = {}, documentType = '', language = 'fr') {
   const sourceContext = buildFallbackRiskSourceContext(formData, language);
-  const rows = getFallbackRiskDetailsForDocument(documentType, formData, language)
+  const fallbackDetails = getFallbackRiskDetailsForDocument(documentType, formData, language);
+  const rows = fallbackDetails
     .slice(0, 8)
     .map((risk, index) => buildFallbackSimplifiedRisk(String(index + 1), risk, sourceContext, language))
     .map((risk) => ({
@@ -5659,7 +6168,23 @@ function buildFallbackRiskItems(formData = {}, documentType = '', language = 'fr
       residual: risk.residual,
     }));
 
-  return buildRiskCollectionsFromRows(rows, language);
+  const collections = buildRiskCollectionsFromRows(rows, language);
+
+  if (
+    language === 'fr' &&
+    rows.length === 8 &&
+    fallbackDetails[0]?.hazard === 'Incendie lié aux produits inflammables'
+  ) {
+    console.info('[RISK_FALLBACK_TRACE] complete fire fallback risks count: 8');
+    console.info(
+      `[RISK_FALLBACK_TRACE] initialAssessment: ${collections.mainRiskAssessment.initialAssessment.length} ` +
+      `followUp: ${collections.mainRiskAssessment.measuresFollowUpValidation.length} ` +
+      `residual: ${collections.residualRiskAnalysis.length} ` +
+      `actions: ${collections.actionPriorities.length} draft: ${collections.draftActionPlan.length}`,
+    );
+  }
+
+  return collections;
 }
 
 function buildFallbackRiskSourceContext(formData = {}, language = 'fr') {
@@ -5767,96 +6292,248 @@ function buildFireEvacuationFallbackRiskDetails() {
     {
       hazard: 'Incendie lié aux produits inflammables',
       task: 'Stockage et manutention de solvants, aérosols, peintures ou produits inflammables',
+      danger: 'Inflammation de produits combustibles ou inflammables',
       hazardousSituationOrScenario: 'Fuite, déversement, stockage incompatible, source d’ignition ou ventilation insuffisante',
       possibleRiskOrHarm: 'Brûlures, intoxication par fumées, propagation incendie, explosion secondaire',
+      exposed: 'Caristes, préparateurs, réceptionnaires, techniciens, agents nettoyage, chauffeurs externes',
       existingMeasures: 'Armoires de sécurité, consignes incendie, interdiction de fumer, extincteurs',
       existingEvidence: 'FDS, inventaire produits, photos stockage, rapport contrôle extincteurs',
+      observedOrDeclaredElements: 'Produits inflammables déclarés, incidents mineurs signalés, FDS incomplètes possibles',
+      elementsToConfirm: 'Quantités stockées, ventilation, compatibilité, séparation et sources d’ignition',
+      severity: '5',
+      probability: '3',
+      exposure: '4',
+      scoringJustification: 'Gravité élevée en raison du potentiel de propagation et d’exposition aux fumées',
+      initialScore: '60',
+      initialLevel: 'Élevé',
       additionalMeasure: 'Vérifier compatibilité, ventilation, quantités stockées et séparation des produits',
       stopLevel: 'Technique + Organisationnelle',
+      responsible: 'SIPPT / responsable de site',
+      deadline: 'À planifier avant validation',
+      residualScore: '20',
+      residualLevel: 'Moyen',
+      residualScoreJustification: 'Réduction attendue après preuves, séparation et contrôle des sources d’ignition',
+      expectedEvidence: 'FDS centralisées, photos stockage, rapport de vérification',
+      photoToInsert: 'Photo du local produits inflammables avant/après correction',
+      annexToAttach: 'Annexe photos et FDS',
+      priority: 'Haute',
       blockingPoint: 'Oui',
       externalAdvice: 'Oui',
     },
     {
       hazard: 'Incendie lié à la charge de batteries',
       task: 'Charge de batteries lithium-ion ou plomb-acide',
-      hazardousSituationOrScenario: 'Chargeur défectueux, local mal ventilé, proximité combustibles',
+      danger: 'Échauffement, court-circuit, dégagement de gaz ou départ de feu',
+      hazardousSituationOrScenario: 'Chargeur défectueux, local mal ventilé, proximité de matières combustibles',
       possibleRiskOrHarm: 'Incendie localisé, fumées toxiques, propagation à l’entrepôt',
+      exposed: 'Caristes, techniciens maintenance, équipiers d’intervention, travailleurs proches du local',
       existingMeasures: 'Zone de charge définie, consignes, extincteurs adaptés',
-      existingEvidence: 'Rapport maintenance chargeurs, photos local, notice fabricant',
+      existingEvidence: 'Rapport maintenance chargeurs, photos du local, notice fabricant',
+      observedOrDeclaredElements: 'Début d’échauffement batterie déclaré en 2025',
+      elementsToConfirm: 'Ventilation, éloignement combustibles, état chargeurs et procédure incident batterie',
+      severity: '5',
+      probability: '3',
+      exposure: '3',
+      scoringJustification: 'Risque élevé en cas d’échauffement ou de court-circuit dans une zone de charge',
+      initialScore: '45',
+      initialLevel: 'Élevé',
       additionalMeasure: 'Contrôler chargeurs, ventilation, éloignement combustibles et procédure incident batterie',
       stopLevel: 'Technique + Organisationnelle',
+      responsible: 'Maintenance / SIPPT',
+      deadline: 'À planifier avant validation',
+      residualScore: '15',
+      residualLevel: 'Moyen',
+      residualScoreJustification: 'Réduction attendue après contrôle technique et procédure spécifique',
+      expectedEvidence: 'Rapport maintenance, photo local batteries, procédure incident batterie',
+      photoToInsert: 'Photo zone de charge batteries et dégagement autour des chargeurs',
+      annexToAttach: 'Annexe maintenance batteries',
+      priority: 'Haute',
       blockingPoint: 'Oui',
       externalAdvice: 'Oui',
     },
     {
       hazard: 'Obstruction des issues de secours',
       task: 'Circulation et évacuation dans les zones de stockage et quais',
+      danger: 'Issue, couloir ou voie d’évacuation encombré',
       hazardousSituationOrScenario: 'Palettes, films plastiques, déchets ou marchandises devant une sortie',
       possibleRiskOrHarm: 'Évacuation retardée, panique, exposition prolongée aux fumées',
+      exposed: 'Tous les travailleurs, visiteurs, chauffeurs externes et intérimaires',
       existingMeasures: 'Consignes évacuation, signalisation, contrôles internes',
       existingEvidence: 'Photos avant/après, check-list inspection, exercice évacuation',
+      observedOrDeclaredElements: 'Issue de secours obstruée par film plastique déclarée',
+      elementsToConfirm: 'État réel des issues, marquage au sol, fréquence des contrôles',
+      severity: '5',
+      probability: '4',
+      exposure: '4',
+      scoringJustification: 'Risque critique car l’évacuation peut être retardée en situation d’urgence',
+      initialScore: '80',
+      initialLevel: 'Critique',
       additionalMeasure: 'Dégager les voies, marquer les zones interdites au stockage et contrôler quotidiennement',
       stopLevel: 'Organisationnelle',
+      responsible: 'Responsable logistique / ligne hiérarchique',
+      deadline: 'Immédiat',
+      residualScore: '20',
+      residualLevel: 'Moyen',
+      residualScoreJustification: 'Réduction après dégagement permanent et contrôle quotidien documenté',
+      expectedEvidence: 'Photos avant/après, check-list de contrôle, consigne stockage',
+      photoToInsert: 'Photo de chaque issue avant/après dégagement',
+      annexToAttach: 'Annexe évacuation',
+      priority: 'Urgente',
       blockingPoint: 'Oui',
       externalAdvice: 'Non',
     },
     {
       hazard: 'Accessibilité des moyens d’extinction',
       task: 'Intervention initiale en cas de départ de feu',
+      danger: 'Extincteur, dévidoir ou bouton d’alarme inaccessible',
       hazardousSituationOrScenario: 'Équipement masqué par palettes, racks ou marchandises',
       possibleRiskOrHarm: 'Retard d’intervention et aggravation de l’incendie',
+      exposed: 'Équipiers d’intervention, travailleurs proches, visiteurs',
       existingMeasures: 'Extincteurs présents, signalisation, contrôles périodiques',
       existingEvidence: 'Rapport contrôle extincteurs, photos, registre inspection',
+      observedOrDeclaredElements: 'Extincteur partiellement masqué par palettes déclaré',
+      elementsToConfirm: 'Accessibilité réelle, signalisation, marquage et contrôle périodique',
+      severity: '5',
+      probability: '3',
+      exposure: '3',
+      scoringJustification: 'Intervention initiale retardée si l’équipement est inaccessible',
+      initialScore: '45',
+      initialLevel: 'Élevé',
       additionalMeasure: 'Rendre les équipements visibles et accessibles, ajouter marquage au sol si nécessaire',
       stopLevel: 'Technique + Organisationnelle',
+      responsible: 'Responsable site / SIPPT',
+      deadline: 'Court terme',
+      residualScore: '15',
+      residualLevel: 'Moyen',
+      residualScoreJustification: 'Réduction après accessibilité prouvée et contrôle périodique',
+      expectedEvidence: 'Photo, rapport extincteurs, registre d’inspection',
+      photoToInsert: 'Photo extincteurs avant/après dégagement',
+      annexToAttach: 'Annexe moyens d’extinction',
+      priority: 'Haute',
       blockingPoint: 'Oui',
       externalAdvice: 'Non',
     },
     {
       hazard: 'Portes coupe-feu et compartimentage',
       task: 'Séparation des zones à risque et limitation de propagation',
+      danger: 'Porte coupe-feu maintenue ouverte ou compartimentage non vérifié',
       hazardousSituationOrScenario: 'Cale, fermeture automatique défaillante, passage fréquent non contrôlé',
       possibleRiskOrHarm: 'Propagation rapide du feu et des fumées',
+      exposed: 'Travailleurs entrepôt, bureaux attenants, équipes d’intervention',
       existingMeasures: 'Portes coupe-feu existantes, consignes',
       existingEvidence: 'Rapport contrôle portes, photos, registre maintenance',
+      observedOrDeclaredElements: 'Porte coupe-feu maintenue ouverte par une cale déclarée',
+      elementsToConfirm: 'Fermeture automatique, état joints, absence de cales, compartimentage',
+      severity: '5',
+      probability: '3',
+      exposure: '4',
+      scoringJustification: 'Risque élevé de propagation si le compartimentage ne joue pas son rôle',
+      initialScore: '60',
+      initialLevel: 'Élevé',
       additionalMeasure: 'Supprimer les cales, vérifier fermeture automatique et sensibiliser le personnel',
       stopLevel: 'Technique + Organisationnelle',
+      responsible: 'Maintenance / responsable bâtiment',
+      deadline: 'Court terme',
+      residualScore: '20',
+      residualLevel: 'Moyen',
+      residualScoreJustification: 'Réduction après suppression des cales et vérification technique',
+      expectedEvidence: 'Photo portes, rapport maintenance, preuve sensibilisation',
+      photoToInsert: 'Photo porte coupe-feu ouverte/fermée et dispositif de fermeture',
+      annexToAttach: 'Annexe compartimentage',
+      priority: 'Haute',
       blockingPoint: 'Oui',
       externalAdvice: 'Oui',
     },
     {
       hazard: 'Évacuation des travailleurs, visiteurs et intérimaires',
       task: 'Évacuation générale du site',
+      danger: 'Méconnaissance des consignes ou du point de rassemblement',
       hazardousSituationOrScenario: 'Travailleurs temporaires, chauffeurs externes ou visiteurs mal informés',
       possibleRiskOrHarm: 'Retard évacuation, personnes manquantes, exposition aux fumées',
+      exposed: 'Intérimaires, nouveaux travailleurs, visiteurs, chauffeurs externes, personnel administratif',
       existingMeasures: 'Plans d’évacuation, consignes affichées, exercice annuel',
       existingEvidence: 'Registre formation, PV exercice, photos affichages',
+      observedOrDeclaredElements: 'Confusion de certains intérimaires sur le point de rassemblement déclarée',
+      elementsToConfirm: 'Accueil sécurité, affichage, briefing visiteurs et exercice évacuation',
+      severity: '4',
+      probability: '4',
+      exposure: '4',
+      scoringJustification: 'Risque critique si les personnes temporaires ne connaissent pas les consignes',
+      initialScore: '64',
+      initialLevel: 'Critique',
       additionalMeasure: 'Renforcer accueil sécurité, briefing intérimaires et exercice évacuation',
       stopLevel: 'Organisationnelle',
+      responsible: 'RH / ligne hiérarchique / SIPPT',
+      deadline: 'Court terme',
+      residualScore: '16',
+      residualLevel: 'Moyen',
+      residualScoreJustification: 'Réduction attendue après briefing, affichage et exercice documenté',
+      expectedEvidence: 'Registre accueil, PV exercice, photos affichages',
+      photoToInsert: 'Photo consignes et point de rassemblement sans visage identifiable',
+      annexToAttach: 'Annexe évacuation formation',
+      priority: 'Haute',
       blockingPoint: 'Oui',
       externalAdvice: 'Non',
     },
     {
       hazard: 'Accès pompiers',
       task: 'Intervention des secours externes',
+      danger: 'Accès pompier encombré ou mal identifié',
       hazardousSituationOrScenario: 'Camions, déchets, palettes ou véhicules stationnés sur accès',
-      possibleRiskOrHarm: 'Retard intervention secours et aggravation sinistre',
+      possibleRiskOrHarm: 'Retard intervention secours et aggravation du sinistre',
+      exposed: 'Tous les occupants du site et services de secours',
       existingMeasures: 'Plan d’accès, consignes stationnement, signalisation',
       existingEvidence: 'Photos accès, plan intervention, contrôle terrain',
+      observedOrDeclaredElements: 'Accès pompiers parfois encombré par camions déclaré',
+      elementsToConfirm: 'Largeur accès, signalisation, zones interdites, information chauffeurs',
+      severity: '5',
+      probability: '3',
+      exposure: '3',
+      scoringJustification: 'Risque élevé si les secours externes sont retardés',
+      initialScore: '45',
+      initialLevel: 'Élevé',
       additionalMeasure: 'Dégager accès, marquer zones interdites et informer chauffeurs/sous-traitants',
       stopLevel: 'Organisationnelle',
+      responsible: 'Responsable logistique / accueil chauffeurs',
+      deadline: 'Court terme',
+      residualScore: '15',
+      residualLevel: 'Moyen',
+      residualScoreJustification: 'Réduction après marquage, information et contrôle terrain',
+      expectedEvidence: 'Photos accès dégagés, consigne stationnement, plan intervention',
+      photoToInsert: 'Photo accès pompiers et zones de stationnement interdit',
+      annexToAttach: 'Annexe accès secours',
+      priority: 'Haute',
       blockingPoint: 'Oui',
       externalAdvice: 'Oui',
     },
     {
       hazard: 'Produits dangereux, incompatibilités et FDS manquantes',
       task: 'Réception, stockage et manipulation de produits dangereux',
+      danger: 'Incompatibilités chimiques ou absence d’information sécurité',
       hazardousSituationOrScenario: 'FDS absentes, étiquetage incomplet, stockage de produits incompatibles',
       possibleRiskOrHarm: 'Réaction dangereuse, incendie, exposition chimique, erreur d’intervention',
+      exposed: 'Magasiniers, préparateurs, techniciens maintenance, agents nettoyage, équipiers intervention',
       existingMeasures: 'Armoires, bacs de rétention, consignes générales',
       existingEvidence: 'FDS, inventaire, photos étiquetage, registre formation',
+      observedOrDeclaredElements: 'Documentation FDS incomplète ou dispersée déclarée',
+      elementsToConfirm: 'Inventaire complet, FDS à jour, CLP, compatibilités, déchets dangereux',
+      severity: '5',
+      probability: '4',
+      exposure: '4',
+      scoringJustification: 'Risque critique en cas de stockage incompatible ou absence d’information sécurité',
+      initialScore: '80',
+      initialLevel: 'Critique',
       additionalMeasure: 'Centraliser FDS, vérifier étiquetage CLP et séparer incompatibilités',
       stopLevel: 'Suppression/Substitution + Technique + Organisationnelle',
+      responsible: 'Responsable produits dangereux / SIPPT',
+      deadline: 'Court terme',
+      residualScore: '20',
+      residualLevel: 'Moyen',
+      residualScoreJustification: 'Réduction attendue après inventaire, FDS, séparation et validation',
+      expectedEvidence: 'Inventaire, FDS, photos étiquetage, preuve séparation',
+      photoToInsert: 'Photo étiquetage CLP, armoires et incompatibilités corrigées',
+      annexToAttach: 'Annexe FDS produits dangereux',
+      priority: 'Urgente',
       blockingPoint: 'Oui',
       externalAdvice: 'Oui',
     },
@@ -5868,7 +6545,7 @@ function buildFallbackSimplifiedRisk(number, riskInput, context, language = 'fr'
   const riskName = risk.hazard || context.placeholder;
   const stopLevel = risk.stopLevel || getDefaultStopLevel(language);
   const task = risk.task || context.activity || context.placeholder;
-  const exposed = context.exposed || getFallbackPhrase('exposed', language);
+  const exposed = risk.exposed || context.exposed || getFallbackPhrase('exposed', language);
   const existingMeasures = risk.existingMeasures || context.measures || getFallbackPhrase('existingMeasures', language);
   const elementsToConfirm = [
     context.products && `Produits: ${context.products}`,
@@ -5876,52 +6553,54 @@ function buildFallbackSimplifiedRisk(number, riskInput, context, language = 'fr'
     context.incidents && `Incidents: ${context.incidents}`,
     context.constraints && `Contraintes: ${context.constraints}`,
   ].filter(Boolean).join('. ') || getFallbackPhrase('elementsToConfirm', language);
-  const initialScore = '27';
-  const residualScore = '9';
+  const initialScore = risk.initialScore || '27';
+  const residualScore = risk.residualScore || '9';
 
   return {
     number,
     initial: {
+      number,
       task,
-      hazard: riskName,
+      hazard: risk.danger || riskName,
       hazardousSituationOrScenario: risk.hazardousSituationOrScenario || `Situation à confirmer: ${riskName}`,
       possibleRiskOrHarm: risk.possibleRiskOrHarm || getFallbackPhrase('harm', language),
       exposed,
       existingMeasures,
       existingEvidence: risk.existingEvidence || getFallbackPhrase('existingEvidence', language),
-      observedOrDeclaredElements: elementsToConfirm,
-      elementsToConfirm: getFallbackPhrase('controlEvidence', language),
-      severity: '3',
-      probability: '3',
-      exposure: '3',
-      scoringJustification: getFallbackPhrase('scoringJustification', language),
+      observedOrDeclaredElements: risk.observedOrDeclaredElements || elementsToConfirm,
+      elementsToConfirm: risk.elementsToConfirm || getFallbackPhrase('controlEvidence', language),
+      severity: risk.severity || '3',
+      probability: risk.probability || '3',
+      exposure: risk.exposure || '3',
+      scoringJustification: risk.scoringJustification || `${risk.severity || '3'} x ${risk.probability || '3'} x ${risk.exposure || '3'} = ${initialScore}`,
       initialScore,
-      initialLevel: getRiskLevel(Number(initialScore), language),
+      initialLevel: risk.initialLevel || getRiskLevel(Number(initialScore), language),
     },
     followUp: {
+      number,
       additionalMeasure: risk.additionalMeasure || `Vérifier et documenter ${riskName}`,
       stopLevel,
-      responsible: getFallbackPhrase('responsible', language),
-      deadline: getFallbackPhrase('deadline', language),
+      responsible: risk.responsible || getFallbackPhrase('responsible', language),
+      deadline: risk.deadline || getFallbackPhrase('deadline', language),
       residualScore,
-      residualLevel: getRiskLevel(Number(residualScore), language),
-      residualScoreJustification: getFallbackPhrase('residualJustification', language),
+      residualLevel: risk.residualLevel || getRiskLevel(Number(residualScore), language),
+      residualScoreJustification: risk.residualScoreJustification || getFallbackPhrase('residualJustification', language),
       expectedEvidence: risk.expectedEvidence || getFallbackPhrase('expectedEvidence', language),
-      photoToInsert: `Photo liée au risque ${number}`,
+      photoToInsert: risk.photoToInsert || `Photo liée au risque ${number}`,
       annexToAttach: risk.annexToAttach || getFallbackPhrase('annex', language),
-      priority: getFallbackPhrase('priority', language),
+      priority: risk.priority || getFallbackPhrase('priority', language),
       blockingPoint: risk.blockingPoint || getYesNoValue(true, language),
       externalAdvice: risk.externalAdvice || getFallbackPhrase('toDetermine', language),
     },
     residual: {
-      mainRisk: riskName,
+      mainRisk: `${number}. ${riskName}`,
       initialScore,
       residualScore,
-      reductionCondition: getFallbackPhrase('reductionCondition', language),
-      requiredEvidence: getFallbackPhrase('datedEvidence', language),
+      reductionCondition: risk.residualScoreJustification || risk.additionalMeasure || getFallbackPhrase('reductionCondition', language),
+      requiredEvidence: risk.expectedEvidence || getFallbackPhrase('datedEvidence', language),
       standardStatus: getFallbackPhrase('standardStatus', language),
-      blockingPoint: getYesNoValue(true, language),
-      externalAdvice: getFallbackPhrase('toDetermine', language),
+      blockingPoint: risk.blockingPoint || getYesNoValue(true, language),
+      externalAdvice: risk.externalAdvice || getFallbackPhrase('toDetermine', language),
     },
   };
 }
@@ -6791,6 +7470,7 @@ export {
   assertRiskAssessmentMarkdownIsValid,
   buildFallbackRiskItems,
   buildRiskAssessmentFixedSections,
+  ensureCompleteRiskAssessmentData,
   finalizeRiskAssessmentMarkdown,
   renderRiskAssessmentFinalMarkdown,
   validateRiskAssessmentStructuredData,
