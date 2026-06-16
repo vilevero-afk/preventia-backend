@@ -9,14 +9,17 @@
     "dev": "node --watch server.js",
     "test:renderer": "RUN_INTERNAL_RISK_TESTS=1 node server.js",
     "test:risk-renderer": "node scripts/test-risk-renderer.js",
-    "test:licenses": "node scripts/test-licenses.js"
+    "test:licenses": "node scripts/test-licenses.js",
+    "test:user-licenses": "node tests/userLicenses.test.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.3",
     "openai": "^4.78.1"
   },
   "engines": {

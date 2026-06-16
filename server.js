@@ -1,7 +1,9 @@
 import 'dotenv/config';
 
+import bcrypt from 'bcryptjs';
 import cors from 'cors';
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import OpenAI from 'openai';
@@ -19,6 +21,7 @@ const JSON_LIMIT = process.env.JSON_LIMIT || '100kb';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const LICENSE_STORE_PATH = process.env.LICENSE_STORE_PATH || path.join(__dirname, 'data', 'licenses.json');
+const USER_LICENSE_STORE_PATH = process.env.USER_LICENSE_STORE_PATH || path.join(__dirname, 'data', 'user_licenses.json');
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:3000')
   .split(',')
   .map((origin) => origin.trim())
@@ -1262,7 +1265,7 @@ app.use(
       callback(error);
     },
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'x-admin-secret'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-secret'],
   }),
 );
 app.use(express.json({ limit: JSON_LIMIT }));
@@ -1406,6 +1409,245 @@ app.post('/api/licenses/validate-generation', (req, res) => {
   });
 });
 
+app.post('/api/auth/register-license', async (req, res, next) => {
+  try {
+    const configuredSecret = process.env.ADMIN_LICENSE_SECRET;
+
+    if (!configuredSecret) {
+      return res.json({
+        success: false,
+        error: 'ADMIN_LICENSE_SECRET est obligatoire pour créer une licence.',
+      });
+    }
+
+    if (req.get('x-admin-secret') !== configuredSecret) {
+      return res.json({
+        success: false,
+        error: 'Secret administrateur invalide.',
+      });
+    }
+
+    ensureJwtSecretAvailable();
+
+    const payload = req.body || {};
+    const email = normalizeEmail(payload.email);
+
+    if (!email || !isValidEmail(email)) {
+      return res.json({
+        success: false,
+        error: 'Email obligatoire et valide requis.',
+      });
+    }
+
+    if (typeof payload.password !== 'string' || payload.password.length < 8) {
+      return res.json({
+        success: false,
+        error: 'Mot de passe obligatoire de minimum 8 caractères.',
+      });
+    }
+
+    if (findUserLicenseByEmail(email)) {
+      return res.json({
+        success: false,
+        error: 'Une licence existe déjà pour cet email.',
+      });
+    }
+
+    if (payload.plan !== 'pro') {
+      return res.json({
+        success: false,
+        error: 'Plan invalide. Seul le plan pro est disponible.',
+      });
+    }
+
+    if (!['primary', 'additional'].includes(payload.licenseType)) {
+      return res.json({
+        success: false,
+        error: 'licenseType obligatoire: primary ou additional.',
+      });
+    }
+
+    if (!['monthly', 'yearly'].includes(payload.billingCycle)) {
+      return res.json({
+        success: false,
+        error: 'billingCycle obligatoire: monthly ou yearly.',
+      });
+    }
+
+    if (!isValidIsoDate(payload.endDate)) {
+      return res.json({
+        success: false,
+        error: 'endDate obligatoire au format YYYY-MM-DD.',
+      });
+    }
+
+    const defaults = getPlanDefaults(payload.plan, payload.licenseType, payload.billingCycle);
+    const now = new Date().toISOString();
+    const userLicense = {
+      id: crypto.randomUUID(),
+      email,
+      passwordHash: await hashPassword(payload.password),
+      plan: 'pro',
+      licenseType: payload.licenseType,
+      billingCycle: payload.billingCycle,
+      price: defaults.price,
+      currency: 'EUR',
+      status: 'active',
+      startDate: formatIsoDate(new Date()),
+      endDate: payload.endDate,
+      maxDevices: Number(payload.maxDevices ?? defaults.maxDevices),
+      activatedDevices: [],
+      monthlySimpleDocumentsLimit: Number(payload.monthlySimpleDocumentsLimit ?? defaults.monthlySimpleDocumentsLimit),
+      monthlyRiskAnalysisLimit: Number(payload.monthlyRiskAnalysisLimit ?? defaults.monthlyRiskAnalysisLimit),
+      usedSimpleDocumentsThisMonth: 0,
+      usedRiskAnalysisThisMonth: 0,
+      currentPeriod: getCurrentPeriod(),
+      allowedFeatures: [...defaults.allowedFeatures],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const store = loadUserLicenses();
+    store.userLicenses.push(userLicense);
+    saveUserLicenses(store);
+
+    return res.json({
+      success: true,
+      userLicense: publicRegisteredUserLicensePayload(userLicense),
+    });
+  } catch (error) {
+    if (error.isAuthConfigurationError) {
+      return res.json({
+        success: false,
+        error: error.message,
+      });
+    }
+    next(error);
+  }
+});
+
+app.post('/api/auth/login', async (req, res, next) => {
+  try {
+    ensureJwtSecretAvailable();
+
+    const { email, password, deviceId, deviceName, platform, appVersion } = req.body || {};
+    const store = loadUserLicenses();
+    const userLicense = store.userLicenses.find((item) => item.email === normalizeEmail(email));
+
+    if (!userLicense) {
+      return res.json({
+        success: false,
+        error: 'Email ou mot de passe incorrect.',
+      });
+    }
+
+    if (!(await verifyPassword(password, userLicense.passwordHash))) {
+      return res.json({
+        success: false,
+        error: 'Email ou mot de passe incorrect.',
+      });
+    }
+
+    const activeError = getLicenseActiveError(userLicense);
+    if (activeError) {
+      return res.json({
+        success: false,
+        error: activeError,
+      });
+    }
+
+    const registration = registerDeviceIfAllowed(userLicense, { deviceId, deviceName, platform, appVersion });
+    if (!registration.ok) {
+      return res.json({
+        success: false,
+        error: registration.error,
+      });
+    }
+
+    resetMonthlyUsageIfNeeded(userLicense);
+    saveUserLicenses(store);
+
+    return res.json({
+      success: true,
+      token: generateAuthToken(userLicense),
+      licenseStatus: userLicenseStatusPayload(userLicense),
+    });
+  } catch (error) {
+    if (error.isAuthConfigurationError) {
+      return res.json({
+        success: false,
+        error: error.message,
+      });
+    }
+    next(error);
+  }
+});
+
+app.get('/api/auth/me', (req, res) => {
+  const validation = validateUserLicenseFromRequest(req);
+
+  if (!validation.ok) {
+    return res.json({
+      success: false,
+      error: validation.error,
+    });
+  }
+
+  return res.json({
+    success: true,
+    licenseStatus: userLicenseStatusPayload(validation.userLicense),
+  });
+});
+
+app.post('/api/auth/logout-device', (req, res) => {
+  const validation = validateUserLicenseFromRequest(req);
+
+  if (!validation.ok) {
+    return res.json({
+      success: false,
+      error: validation.error,
+    });
+  }
+
+  const normalizedDeviceId = normalizeDeviceId(req.body?.deviceId);
+  if (!normalizedDeviceId) {
+    return res.json({
+      success: false,
+      error: 'Identifiant appareil requis.',
+    });
+  }
+
+  validation.userLicense.activatedDevices = ensureArray(validation.userLicense.activatedDevices)
+    .filter((device) => normalizeDeviceId(device.deviceId) !== normalizedDeviceId);
+  validation.userLicense.updatedAt = new Date().toISOString();
+  saveUserLicenses(validation.store);
+
+  return res.json({
+    success: true,
+    licenseStatus: userLicenseStatusPayload(validation.userLicense),
+  });
+});
+
+app.post('/api/auth/validate-generation', (req, res) => {
+  const validation = validateUserGenerationAccess(req, {
+    deviceId: req.body?.deviceId,
+    documentType: req.body?.documentType,
+  });
+
+  if (!validation.ok) {
+    return res.json({
+      success: false,
+      canGenerate: false,
+      error: validation.error,
+    });
+  }
+
+  return res.json({
+    success: true,
+    canGenerate: true,
+  });
+});
+
 app.post('/api/generate-document', async (req, res, next) => {
   try {
     console.log('[RISK_RENDER_TRACE] route generate-document');
@@ -1413,8 +1655,18 @@ app.post('/api/generate-document', async (req, res, next) => {
     const documentDefinition = validateGenerateDocumentPayload(documentType, formData);
     const targetLanguage = resolveTargetLanguage(language, languageLabel, formData);
     let licenseValidation = null;
+    let userLicenseValidation = null;
+    const bearerToken = getBearerTokenFromRequest(req);
 
-    if (licenseKey || deviceId) {
+    if (bearerToken) {
+      userLicenseValidation = validateUserGenerationAccess(req, { deviceId, documentType });
+      if (!userLicenseValidation.ok) {
+        return res.json({
+          success: false,
+          error: userLicenseValidation.error || 'Connexion requise.',
+        });
+      }
+    } else if (licenseKey && deviceId) {
       licenseValidation = validateLicenseAccess({ licenseKey, deviceId, documentType });
       if (!licenseValidation.ok) {
         return res.json({
@@ -1425,7 +1677,7 @@ app.post('/api/generate-document', async (req, res, next) => {
     } else if (!isUnlicensedGenerationAllowed()) {
       return res.json({
         success: false,
-        error: 'Licence requise ou invalide.',
+        error: 'Connexion requise.',
       });
     }
 
@@ -1537,6 +1789,10 @@ app.post('/api/generate-document', async (req, res, next) => {
     if (licenseValidation?.license && licenseValidation?.store) {
       incrementUsage(licenseValidation.license, documentType);
       saveLicenses(licenseValidation.store);
+    }
+    if (userLicenseValidation?.userLicense && userLicenseValidation?.store) {
+      incrementUsage(userLicenseValidation.userLicense, documentType);
+      saveUserLicenses(userLicenseValidation.store);
     }
 
     res.json({
@@ -1810,6 +2066,23 @@ const LICENSE_PLAN_DEFAULTS = {
   },
 };
 
+const USER_LICENSE_PLAN_DEFAULTS = {
+  pro: {
+    primary: {
+      monthly: { price: 79 },
+      yearly: { price: 790 },
+    },
+    additional: {
+      monthly: { price: 39 },
+      yearly: { price: 390 },
+    },
+    maxDevices: 3,
+    monthlySimpleDocumentsLimit: 100,
+    monthlyRiskAnalysisLimit: 40,
+    allowedFeatures: ['documents', 'riskAnalysis'],
+  },
+};
+
 function loadLicenses() {
   try {
     if (!fs.existsSync(LICENSE_STORE_PATH)) {
@@ -1833,6 +2106,232 @@ function saveLicenses(store) {
     `${JSON.stringify({ licenses: ensureArray(store.licenses) }, null, 2)}\n`,
     'utf8',
   );
+}
+
+function loadUserLicenses() {
+  try {
+    if (!fs.existsSync(USER_LICENSE_STORE_PATH)) {
+      return { userLicenses: [] };
+    }
+
+    const parsed = JSON.parse(fs.readFileSync(USER_LICENSE_STORE_PATH, 'utf8'));
+    return {
+      userLicenses: Array.isArray(parsed.userLicenses) ? parsed.userLicenses : [],
+    };
+  } catch (error) {
+    console.error('[USER_LICENSE_TRACE] load failed', { message: error.message });
+    return { userLicenses: [] };
+  }
+}
+
+function saveUserLicenses(store) {
+  fs.mkdirSync(path.dirname(USER_LICENSE_STORE_PATH), { recursive: true });
+  fs.writeFileSync(
+    USER_LICENSE_STORE_PATH,
+    `${JSON.stringify({ userLicenses: ensureArray(store.userLicenses) }, null, 2)}\n`,
+    'utf8',
+  );
+}
+
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(email));
+}
+
+function findUserLicenseByEmail(email) {
+  const normalizedEmail = normalizeEmail(email);
+  const store = loadUserLicenses();
+  return store.userLicenses.find((userLicense) => userLicense.email === normalizedEmail) || null;
+}
+
+async function hashPassword(password) {
+  return bcrypt.hash(String(password || ''), 12);
+}
+
+async function verifyPassword(password, passwordHash) {
+  if (!passwordHash || typeof password !== 'string') {
+    return false;
+  }
+
+  return bcrypt.compare(password, passwordHash);
+}
+
+function generateAuthToken(userLicense) {
+  return jwt.sign(
+    {
+      sub: userLicense.id,
+      email: userLicense.email,
+      plan: userLicense.plan,
+      licenseType: userLicense.licenseType,
+    },
+    getJwtSecret(),
+    { expiresIn: '30d' },
+  );
+}
+
+function verifyAuthToken(token) {
+  try {
+    return {
+      ok: true,
+      payload: jwt.verify(token, getJwtSecret()),
+    };
+  } catch (_error) {
+    return {
+      ok: false,
+      error: 'Session invalide ou expirée.',
+    };
+  }
+}
+
+function getJwtSecret() {
+  const secret = process.env.JWT_SECRET;
+
+  if (secret) {
+    return secret;
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    return 'preventia-dev-jwt-secret';
+  }
+
+  const error = new Error('JWT_SECRET est obligatoire en production pour utiliser les sessions.');
+  error.isAuthConfigurationError = true;
+  throw error;
+}
+
+function ensureJwtSecretAvailable() {
+  getJwtSecret();
+}
+
+function getPlanDefaults(plan, licenseType, billingCycle) {
+  const planDefaults = USER_LICENSE_PLAN_DEFAULTS[plan];
+  const price = planDefaults?.[licenseType]?.[billingCycle]?.price;
+
+  if (!planDefaults || !Number.isFinite(price)) {
+    const error = new Error('Configuration de plan invalide.');
+    error.status = 400;
+    throw error;
+  }
+
+  return {
+    price,
+    maxDevices: planDefaults.maxDevices,
+    monthlySimpleDocumentsLimit: planDefaults.monthlySimpleDocumentsLimit,
+    monthlyRiskAnalysisLimit: planDefaults.monthlyRiskAnalysisLimit,
+    allowedFeatures: [...planDefaults.allowedFeatures],
+  };
+}
+
+function getBearerTokenFromRequest(req) {
+  const authorization = req.get('Authorization') || '';
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || '';
+}
+
+function validateUserLicenseFromRequest(req) {
+  const token = getBearerTokenFromRequest(req);
+
+  if (!token) {
+    return { ok: false, error: 'Session requise.' };
+  }
+
+  const tokenValidation = verifyAuthToken(token);
+  if (!tokenValidation.ok) {
+    return tokenValidation;
+  }
+
+  const store = loadUserLicenses();
+  const userLicense = store.userLicenses.find((item) => item.id === tokenValidation.payload.sub);
+
+  if (!userLicense) {
+    return { ok: false, error: 'Licence utilisateur introuvable.' };
+  }
+
+  const monthlyReset = resetMonthlyUsageIfNeeded(userLicense);
+  const activeError = getLicenseActiveError(userLicense);
+  if (activeError) {
+    if (monthlyReset) {
+      saveUserLicenses(store);
+    }
+    return { ok: false, error: activeError };
+  }
+
+  if (monthlyReset) {
+    saveUserLicenses(store);
+  }
+
+  return { ok: true, userLicense, store };
+}
+
+function validateUserGenerationAccess(req, { deviceId, documentType }) {
+  const validation = validateUserLicenseFromRequest(req);
+
+  if (!validation.ok) {
+    return validation;
+  }
+
+  if (!normalizeDeviceId(deviceId)) {
+    return { ok: false, error: 'Identifiant appareil requis.' };
+  }
+
+  if (!isDeviceActivated(validation.userLicense, deviceId)) {
+    return { ok: false, error: 'Appareil non activé pour cette licence.' };
+  }
+
+  touchDevice(validation.userLicense, deviceId);
+
+  if (!canUseDocumentType(validation.userLicense, documentType)) {
+    saveUserLicenses(validation.store);
+    return {
+      ok: false,
+      error: 'Votre abonnement ne permet pas de générer ce type de document.',
+    };
+  }
+
+  const quotaError = getQuotaError(validation.userLicense, documentType);
+  if (quotaError) {
+    saveUserLicenses(validation.store);
+    return { ok: false, error: quotaError };
+  }
+
+  saveUserLicenses(validation.store);
+  return validation;
+}
+
+function publicRegisteredUserLicensePayload(userLicense) {
+  return {
+    email: userLicense.email,
+    plan: userLicense.plan,
+    licenseType: userLicense.licenseType,
+    billingCycle: userLicense.billingCycle,
+    price: userLicense.price,
+    currency: userLicense.currency,
+    endDate: userLicense.endDate,
+    maxDevices: userLicense.maxDevices,
+  };
+}
+
+function userLicenseStatusPayload(userLicense) {
+  resetMonthlyUsageIfNeeded(userLicense);
+  return {
+    email: userLicense.email,
+    plan: userLicense.plan,
+    licenseType: userLicense.licenseType,
+    billingCycle: userLicense.billingCycle,
+    price: userLicense.price,
+    currency: userLicense.currency,
+    endDate: userLicense.endDate,
+    maxDevices: userLicense.maxDevices,
+    activatedDevices: ensureArray(userLicense.activatedDevices).length,
+    monthlySimpleDocumentsLimit: userLicense.monthlySimpleDocumentsLimit,
+    monthlyRiskAnalysisLimit: userLicense.monthlyRiskAnalysisLimit,
+    usedSimpleDocumentsThisMonth: userLicense.usedSimpleDocumentsThisMonth,
+    usedRiskAnalysisThisMonth: userLicense.usedRiskAnalysisThisMonth,
+    allowedFeatures: ensureArray(userLicense.allowedFeatures),
+  };
 }
 
 function findLicenseByKey(licenseKey) {
@@ -2165,7 +2664,8 @@ function formatIsoDate(date = new Date()) {
 }
 
 function isUnlicensedGenerationAllowed() {
-  return String(process.env.ALLOW_UNLICENSED_GENERATION || '').toLowerCase() === 'true';
+  return process.env.NODE_ENV !== 'production' &&
+    String(process.env.ALLOW_UNLICENSED_GENERATION || '').toLowerCase() === 'true';
 }
 
 function getRiskLevel(score, language = 'fr') {
@@ -8025,6 +8525,7 @@ function formatRiskScale(language) {
 }
 
 export {
+  app,
   assertRiskAssessmentMarkdownIsValid,
   buildFallbackRiskItems,
   buildRiskAssessmentFixedSections,
@@ -8033,17 +8534,28 @@ export {
   createLicenseRecord,
   ensureCompleteRiskAssessmentData,
   findLicenseByKey,
+  findUserLicenseByEmail,
   finalizeRiskAssessmentMarkdown,
+  generateAuthToken,
   getCurrentPeriod,
+  getPlanDefaults,
+  hashPassword,
   incrementUsage,
+  isDeviceActivated,
   isRiskAnalysisDocument,
   isSimplePreventionDocument,
+  isValidEmail,
   loadLicenses,
+  loadUserLicenses,
+  normalizeEmail,
   normalizeLicenseKey,
   registerDeviceIfAllowed,
   renderRiskAssessmentFinalMarkdown,
   resetMonthlyUsageIfNeeded,
   saveLicenses,
+  saveUserLicenses,
   validateLicenseAccess,
+  verifyAuthToken,
+  verifyPassword,
   validateRiskAssessmentStructuredData,
 };
