@@ -1251,6 +1251,7 @@ const PROMPT_LOCALIZATION = {
 
 const app = express();
 
+app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(helmet());
 app.use(
@@ -1322,6 +1323,13 @@ app.post('/api/billing/create-checkout-session', async (req, res, next) => {
       checkoutUrl: session.url,
     });
   } catch (error) {
+    console.error('[billing] create checkout session failed', {
+      message: error.message,
+      type: error.type,
+      code: error.code,
+      param: error.param,
+      raw: error.raw?.message,
+    });
     next(error);
   }
 });
@@ -2470,7 +2478,6 @@ async function createStripeCheckoutSession(payload, stripe) {
     customer_email: payload.email,
     success_url: successUrl,
     cancel_url: cancelUrl,
-    automatic_payment_methods: { enabled: true },
     line_items: [
       {
         quantity: 1,
