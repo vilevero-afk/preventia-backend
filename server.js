@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import OpenAI from 'openai';
+import Stripe from 'stripe';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -1268,6 +1269,7 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-secret'],
   }),
 );
+app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
 app.use(express.json({ limit: JSON_LIMIT }));
 app.use(
   rateLimit({
@@ -1287,6 +1289,80 @@ app.get('/health', (_req, res) => {
     status: 'ok',
     service: 'preventia-backend',
   });
+});
+
+app.get('/api/billing/plans', (_req, res) => {
+  res.json({
+    success: true,
+    plans: getPublicBillingPlans(),
+  });
+});
+
+app.post('/api/billing/create-checkout-session', async (req, res, next) => {
+  try {
+    const validation = await validateCheckoutPayload(req.body || {});
+    if (!validation.ok) {
+      return res.json({
+        success: false,
+        error: validation.error,
+      });
+    }
+
+    const stripeAvailability = getStripeAvailability();
+    if (!stripeAvailability.ok) {
+      return res.json({
+        success: false,
+        error: stripeAvailability.error,
+      });
+    }
+
+    const session = await createStripeCheckoutSession(validation.normalized, stripeAvailability.stripe);
+    return res.json({
+      success: true,
+      checkoutUrl: session.url,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/billing/create-portal-session', async (req, res, next) => {
+  try {
+    const stripeAvailability = getStripeAvailability();
+    if (!stripeAvailability.ok) {
+      return res.json({
+        success: false,
+        error: stripeAvailability.error,
+      });
+    }
+
+    const validation = validateUserLicenseFromRequest(req);
+    if (!validation.ok) {
+      return res.json({
+        success: false,
+        error: validation.error,
+      });
+    }
+
+    if (!validation.userLicense.stripeCustomerId) {
+      return res.json({
+        success: false,
+        error: 'Aucun client Stripe associé à cette licence.',
+      });
+    }
+
+    const portalSession = await stripeAvailability.stripe.billingPortal.sessions.create({
+      customer: validation.userLicense.stripeCustomerId,
+      return_url: getBillingReturnUrl(),
+    });
+
+    return res.json({
+      success: true,
+      portalUrl: portalSession.url,
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post('/api/licenses/create', (req, res, next) => {
@@ -2141,6 +2217,52 @@ const USER_LICENSE_PLAN_DEFAULTS = {
   },
 };
 
+const BILLING_PLANS = {
+  primary_monthly: {
+    id: 'primary_monthly',
+    name: 'Licence principale',
+    plan: 'pro',
+    licenseType: 'primary',
+    billingCycle: 'monthly',
+    price: 79,
+    amountCents: 7900,
+    currency: 'eur',
+  },
+  primary_yearly: {
+    id: 'primary_yearly',
+    name: 'Licence principale',
+    plan: 'pro',
+    licenseType: 'primary',
+    billingCycle: 'yearly',
+    price: 790,
+    amountCents: 79000,
+    currency: 'eur',
+  },
+  additional_monthly: {
+    id: 'additional_monthly',
+    name: 'Licence supplémentaire',
+    plan: 'pro',
+    licenseType: 'additional',
+    billingCycle: 'monthly',
+    price: 39,
+    amountCents: 3900,
+    currency: 'eur',
+  },
+  additional_yearly: {
+    id: 'additional_yearly',
+    name: 'Licence supplémentaire',
+    plan: 'pro',
+    licenseType: 'additional',
+    billingCycle: 'yearly',
+    price: 390,
+    amountCents: 39000,
+    currency: 'eur',
+  },
+};
+
+let stripeClientCache = null;
+let stripeClientSecret = null;
+
 function loadLicenses() {
   try {
     if (!fs.existsSync(LICENSE_STORE_PATH)) {
@@ -2242,6 +2364,436 @@ function verifyAuthToken(token) {
       error: 'Session invalide ou expirée.',
     };
   }
+}
+
+function getPublicBillingPlans() {
+  return Object.values(BILLING_PLANS).map((plan) => ({
+    id: plan.id,
+    name: plan.name,
+    licenseType: plan.licenseType,
+    billingCycle: plan.billingCycle,
+    price: plan.price,
+    currency: plan.currency.toUpperCase(),
+  }));
+}
+
+function getStripeAvailability() {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return {
+      ok: false,
+      error: 'STRIPE_SECRET_KEY n’est pas défini côté serveur. La facturation Stripe est indisponible.',
+    };
+  }
+
+  return {
+    ok: true,
+    stripe: getStripeClient(),
+  };
+}
+
+function getStripeClient() {
+  const secret = process.env.STRIPE_SECRET_KEY;
+
+  if (!stripeClientCache || stripeClientSecret !== secret) {
+    stripeClientCache = new Stripe(secret);
+    stripeClientSecret = secret;
+  }
+
+  return stripeClientCache;
+}
+
+async function validateCheckoutPayload(payload = {}) {
+  const email = normalizeEmail(payload.email);
+
+  if (!email || !isValidEmail(email)) {
+    return { ok: false, error: 'Email obligatoire et valide requis.' };
+  }
+
+  if (typeof payload.password !== 'string' || payload.password.length < 8) {
+    return { ok: false, error: 'Mot de passe obligatoire de minimum 8 caractères.' };
+  }
+
+  if (payload.password !== payload.passwordConfirmation) {
+    return { ok: false, error: 'La confirmation du mot de passe ne correspond pas.' };
+  }
+
+  const firstName = sanitizeLicenseText(payload.firstName, 100);
+  if (!firstName) {
+    return { ok: false, error: 'Prénom obligatoire.' };
+  }
+
+  const lastName = sanitizeLicenseText(payload.lastName, 100);
+  if (!lastName) {
+    return { ok: false, error: 'Nom obligatoire.' };
+  }
+
+  const companyName = sanitizeLicenseText(payload.companyName, 160);
+  if (!companyName) {
+    return { ok: false, error: 'Nom de société obligatoire.' };
+  }
+
+  const plan = BILLING_PLANS[String(payload.planId || '').trim()];
+  if (!plan) {
+    return { ok: false, error: 'Offre de facturation invalide.' };
+  }
+
+  if (findUserLicenseByEmail(email)) {
+    return { ok: false, error: 'Une licence existe déjà pour cet email.' };
+  }
+
+  return {
+    ok: true,
+    normalized: {
+      email,
+      passwordHash: await hashPassword(payload.password),
+      firstName,
+      lastName,
+      companyName,
+      vatNumber: sanitizeLicenseText(payload.vatNumber, 60),
+      addressLine1: sanitizeLicenseText(payload.addressLine1, 200),
+      postalCode: sanitizeLicenseText(payload.postalCode, 30),
+      city: sanitizeLicenseText(payload.city, 100),
+      country: sanitizeLicenseText(payload.country || 'BE', 2).toUpperCase() || 'BE',
+      plan,
+    },
+  };
+}
+
+async function createStripeCheckoutSession(payload, stripe) {
+  const metadata = buildCheckoutMetadata(payload);
+  const successUrl = process.env.PREVENTIA_SUCCESS_URL ||
+    `${getAppPublicUrl()}/billing/success?session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = process.env.PREVENTIA_CANCEL_URL || `${getAppPublicUrl()}/billing/cancel`;
+
+  return stripe.checkout.sessions.create({
+    mode: 'subscription',
+    customer_email: payload.email,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    automatic_payment_methods: { enabled: true },
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: payload.plan.currency,
+          unit_amount: payload.plan.amountCents,
+          recurring: {
+            interval: payload.plan.billingCycle === 'yearly' ? 'year' : 'month',
+          },
+          product_data: {
+            name: `PreventIA Pro - ${payload.plan.name}`,
+          },
+        },
+      },
+    ],
+    metadata,
+    subscription_data: {
+      metadata: {
+        email: metadata.email,
+        plan: metadata.plan,
+        licenseType: metadata.licenseType,
+        billingCycle: metadata.billingCycle,
+      },
+    },
+  });
+}
+
+function buildCheckoutMetadata(payload) {
+  const defaults = getPlanDefaults(payload.plan.plan, payload.plan.licenseType, payload.plan.billingCycle);
+  return {
+    email: payload.email,
+    passwordHash: payload.passwordHash,
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    companyName: payload.companyName,
+    vatNumber: payload.vatNumber,
+    addressLine1: payload.addressLine1,
+    postalCode: payload.postalCode,
+    city: payload.city,
+    country: payload.country,
+    plan: payload.plan.plan,
+    licenseType: payload.plan.licenseType,
+    billingCycle: payload.plan.billingCycle,
+    price: String(payload.plan.price),
+    amountCents: String(payload.plan.amountCents),
+    currency: payload.plan.currency.toUpperCase(),
+    maxDevices: String(defaults.maxDevices),
+    monthlySimpleDocumentsLimit: String(defaults.monthlySimpleDocumentsLimit),
+    monthlyRiskAnalysisLimit: String(defaults.monthlyRiskAnalysisLimit),
+    allowedFeatures: defaults.allowedFeatures.join(','),
+  };
+}
+
+function getAppPublicUrl() {
+  return String(process.env.APP_PUBLIC_URL || 'http://localhost:3000').replace(/\/+$/, '');
+}
+
+function getBillingReturnUrl() {
+  return process.env.PREVENTIA_SUCCESS_URL || `${getAppPublicUrl()}/billing`;
+}
+
+async function handleStripeWebhook(req, res) {
+  const stripeAvailability = getStripeAvailability();
+  if (!stripeAvailability.ok) {
+    return res.status(503).json({
+      success: false,
+      error: stripeAvailability.error,
+    });
+  }
+
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    return res.status(503).json({
+      success: false,
+      error: 'STRIPE_WEBHOOK_SECRET n’est pas défini côté serveur. Le webhook Stripe est indisponible.',
+    });
+  }
+
+  let event;
+  try {
+    event = stripeAvailability.stripe.webhooks.constructEvent(
+      req.body,
+      req.get('stripe-signature') || '',
+      process.env.STRIPE_WEBHOOK_SECRET,
+    );
+  } catch (_error) {
+    return res.status(400).json({
+      success: false,
+      error: 'Signature Stripe invalide.',
+    });
+  }
+
+  try {
+    await processStripeWebhookEvent(event, stripeAvailability.stripe);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('[STRIPE_WEBHOOK_TRACE] processing failed', {
+      message: error.message,
+      type: event?.type,
+    });
+    return res.status(500).json({
+      success: false,
+      error: 'Erreur lors du traitement du webhook Stripe.',
+    });
+  }
+}
+
+async function processStripeWebhookEvent(event, stripe) {
+  const object = event?.data?.object || {};
+
+  if (event.type === 'checkout.session.completed') {
+    await handleCheckoutSessionCompleted(object, stripe);
+    return;
+  }
+
+  if (event.type === 'invoice.paid') {
+    await updateLicenseFromInvoice(object, stripe, 'active');
+    return;
+  }
+
+  if (event.type === 'invoice.payment_failed') {
+    await updateLicenseFromInvoice(object, stripe, 'past_due');
+    return;
+  }
+
+  if (event.type === 'customer.subscription.deleted') {
+    updateUserLicenseBySubscription(object, 'cancelled');
+    return;
+  }
+
+  if (event.type === 'customer.subscription.updated') {
+    updateUserLicenseBySubscription(object, mapStripeSubscriptionStatus(object.status));
+  }
+}
+
+async function handleCheckoutSessionCompleted(session, stripe) {
+  if (session.mode !== 'subscription') {
+    return null;
+  }
+
+  let subscription = null;
+  if (session.subscription && stripe) {
+    subscription = await retrieveStripeSubscription(stripe, session.subscription);
+  }
+
+  return createUserLicenseFromCheckoutMetadata(session.metadata || {}, {
+    stripeCustomerId: getStripeObjectId(session.customer),
+    stripeSubscriptionId: getStripeObjectId(session.subscription),
+    currentPeriodEnd: subscription?.current_period_end,
+  });
+}
+
+function createUserLicenseFromCheckoutMetadata(metadata = {}, stripeContext = {}) {
+  const email = normalizeEmail(metadata.email);
+  if (!email || !isValidEmail(email)) {
+    const error = new Error('Metadata Stripe incomplète: email invalide.');
+    error.status = 400;
+    throw error;
+  }
+
+  const store = loadUserLicenses();
+  const existing = store.userLicenses.find((item) => item.email === email);
+  if (existing) {
+    return existing;
+  }
+
+  const plan = String(metadata.plan || 'pro');
+  const licenseType = String(metadata.licenseType || '');
+  const billingCycle = String(metadata.billingCycle || '');
+  const defaults = getPlanDefaults(plan, licenseType, billingCycle);
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const billingAddress = buildBillingAddressFromMetadata(metadata);
+  const userLicense = {
+    id: crypto.randomUUID(),
+    email,
+    passwordHash: String(metadata.passwordHash || ''),
+    firstName: sanitizeLicenseText(metadata.firstName, 100),
+    lastName: sanitizeLicenseText(metadata.lastName, 100),
+    companyName: sanitizeLicenseText(metadata.companyName, 160),
+    vatNumber: sanitizeLicenseText(metadata.vatNumber, 60),
+    ...(billingAddress ? { billingAddress } : {}),
+    plan,
+    licenseType,
+    billingCycle,
+    price: Number(metadata.price || defaults.price),
+    currency: String(metadata.currency || 'EUR').toUpperCase(),
+    status: 'active',
+    startDate: formatIsoDate(now),
+    endDate: resolveBillingEndDate(stripeContext.currentPeriodEnd, billingCycle, now),
+    stripeCustomerId: stripeContext.stripeCustomerId || '',
+    stripeSubscriptionId: stripeContext.stripeSubscriptionId || '',
+    maxDevices: Number(metadata.maxDevices || defaults.maxDevices),
+    activatedDevices: [],
+    monthlySimpleDocumentsLimit: Number(metadata.monthlySimpleDocumentsLimit || defaults.monthlySimpleDocumentsLimit),
+    monthlyRiskAnalysisLimit: Number(metadata.monthlyRiskAnalysisLimit || defaults.monthlyRiskAnalysisLimit),
+    usedSimpleDocumentsThisMonth: 0,
+    usedRiskAnalysisThisMonth: 0,
+    currentPeriod: getCurrentPeriod(),
+    allowedFeatures: parseAllowedFeatures(metadata.allowedFeatures, defaults.allowedFeatures),
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  };
+
+  if (!userLicense.passwordHash) {
+    const error = new Error('Metadata Stripe incomplète: passwordHash manquant.');
+    error.status = 400;
+    throw error;
+  }
+
+  store.userLicenses.push(userLicense);
+  saveUserLicenses(store);
+  return userLicense;
+}
+
+function buildBillingAddressFromMetadata(metadata = {}) {
+  const billingAddress = {
+    addressLine1: sanitizeLicenseText(metadata.addressLine1, 200),
+    postalCode: sanitizeLicenseText(metadata.postalCode, 30),
+    city: sanitizeLicenseText(metadata.city, 100),
+    country: sanitizeLicenseText(metadata.country || 'BE', 2).toUpperCase(),
+  };
+
+  return Object.values(billingAddress).some(Boolean) ? billingAddress : null;
+}
+
+function parseAllowedFeatures(value, fallback) {
+  const features = String(value || '')
+    .split(',')
+    .map((feature) => feature.trim())
+    .filter(Boolean);
+  return features.length > 0 ? features : [...fallback];
+}
+
+function resolveBillingEndDate(currentPeriodEnd, billingCycle, startDate = new Date()) {
+  if (Number.isFinite(Number(currentPeriodEnd)) && Number(currentPeriodEnd) > 0) {
+    return formatIsoDate(new Date(Number(currentPeriodEnd) * 1000));
+  }
+
+  const endDate = new Date(startDate);
+  if (billingCycle === 'yearly') {
+    endDate.setFullYear(endDate.getFullYear() + 1);
+  } else {
+    endDate.setMonth(endDate.getMonth() + 1);
+  }
+  return formatIsoDate(endDate);
+}
+
+async function updateLicenseFromInvoice(invoice, stripe, status) {
+  const subscriptionId = getStripeObjectId(invoice.subscription) ||
+    getStripeObjectId(invoice.parent?.subscription_details?.subscription);
+  let subscription = null;
+
+  if (subscriptionId && stripe) {
+    subscription = await retrieveStripeSubscription(stripe, subscriptionId);
+  }
+
+  updateUserLicenseBySubscription(
+    {
+      id: subscriptionId,
+      customer: getStripeObjectId(invoice.customer),
+      current_period_end: subscription?.current_period_end,
+    },
+    status,
+  );
+}
+
+function getStripeObjectId(value) {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  return typeof value?.id === 'string' ? value.id : '';
+}
+
+async function retrieveStripeSubscription(stripe, subscriptionId) {
+  try {
+    return await stripe.subscriptions.retrieve(subscriptionId);
+  } catch (error) {
+    console.error('[STRIPE_WEBHOOK_TRACE] subscription retrieve failed', { message: error.message });
+    return null;
+  }
+}
+
+function updateUserLicenseBySubscription(subscription, status) {
+  const subscriptionId = typeof subscription?.id === 'string' ? subscription.id : '';
+  const customerId = typeof subscription?.customer === 'string' ? subscription.customer : subscription?.customer?.id;
+  const store = loadUserLicenses();
+  const userLicense = store.userLicenses.find((item) =>
+    (subscriptionId && item.stripeSubscriptionId === subscriptionId) ||
+    (customerId && item.stripeCustomerId === customerId),
+  );
+
+  if (!userLicense) {
+    return null;
+  }
+
+  userLicense.status = status;
+  if (Number.isFinite(Number(subscription?.current_period_end)) && Number(subscription.current_period_end) > 0) {
+    userLicense.endDate = formatIsoDate(new Date(Number(subscription.current_period_end) * 1000));
+  }
+  userLicense.updatedAt = new Date().toISOString();
+  saveUserLicenses(store);
+  return userLicense;
+}
+
+function mapStripeSubscriptionStatus(status) {
+  if (status === 'active') {
+    return 'active';
+  }
+
+  if (status === 'past_due' || status === 'unpaid') {
+    return 'past_due';
+  }
+
+  if (status === 'canceled') {
+    return 'cancelled';
+  }
+
+  if (status === 'incomplete_expired') {
+    return 'expired';
+  }
+
+  return String(status || 'past_due');
 }
 
 function getJwtSecret() {
@@ -2376,9 +2928,14 @@ function userLicenseStatusPayload(userLicense) {
   resetMonthlyUsageIfNeeded(userLicense);
   return {
     email: userLicense.email,
+    firstName: userLicense.firstName,
+    lastName: userLicense.lastName,
+    companyName: userLicense.companyName,
+    vatNumber: userLicense.vatNumber,
     plan: userLicense.plan,
     licenseType: userLicense.licenseType,
     billingCycle: userLicense.billingCycle,
+    status: userLicense.status,
     price: userLicense.price,
     currency: userLicense.currency,
     endDate: userLicense.endDate,
@@ -8587,12 +9144,15 @@ export {
   assertRiskAssessmentMarkdownIsValid,
   buildFallbackRiskItems,
   buildRiskAssessmentFixedSections,
+  BILLING_PLANS,
   canUseDocumentType,
   canUseDevice,
   createLicenseRecord,
+  createUserLicenseFromCheckoutMetadata,
   ensureCompleteRiskAssessmentData,
   findLicenseByKey,
   findUserLicenseByEmail,
+  getPublicBillingPlans,
   finalizeRiskAssessmentMarkdown,
   generateAuthToken,
   getCurrentPeriod,
