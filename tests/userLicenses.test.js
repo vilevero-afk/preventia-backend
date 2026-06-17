@@ -63,6 +63,28 @@ try {
   assert.ok(storedPrimary.passwordHash);
   assert.equal(Object.hasOwn(storedPrimary, 'password'), false);
 
+  const resetPassword = await adminResetPassword(baseUrl, {
+    email: 'PRIMARY.MONTHLY@example.test',
+    newPassword: 'new-correct-password',
+  });
+  assert.equal(resetPassword.success, true);
+  assert.equal(resetPassword.message, 'Mot de passe réinitialisé.');
+  assert.equal(Object.hasOwn(resetPassword, 'passwordHash'), false);
+
+  const oldPasswordAfterReset = await postJson(baseUrl, '/api/auth/login', {
+    email: 'primary.monthly@example.test',
+    password: 'correct-password',
+    deviceId: 'reset-device-old',
+  });
+  assert.equal(oldPasswordAfterReset.success, false);
+
+  const newPasswordAfterReset = await postJson(baseUrl, '/api/auth/login', {
+    email: 'primary.monthly@example.test',
+    password: 'new-correct-password',
+    deviceId: 'device-1',
+  });
+  assert.equal(newPasswordAfterReset.success, true);
+
   const duplicate = await register(baseUrl, {
     email: 'PRIMARY.MONTHLY@example.test',
     password: 'another-password',
@@ -83,7 +105,7 @@ try {
 
   const login = await postJson(baseUrl, '/api/auth/login', {
     email: 'primary.monthly@example.test',
-    password: 'correct-password',
+    password: 'new-correct-password',
     deviceId: 'device-1',
     deviceName: 'Portable',
     platform: 'ios',
@@ -98,21 +120,21 @@ try {
 
   const device2 = await postJson(baseUrl, '/api/auth/login', {
     email: 'primary.monthly@example.test',
-    password: 'correct-password',
+    password: 'new-correct-password',
     deviceId: 'device-2',
   });
   assert.equal(device2.success, true);
 
   const device3 = await postJson(baseUrl, '/api/auth/login', {
     email: 'primary.monthly@example.test',
-    password: 'correct-password',
+    password: 'new-correct-password',
     deviceId: 'device-3',
   });
   assert.equal(device3.success, true);
 
   const device4 = await postJson(baseUrl, '/api/auth/login', {
     email: 'primary.monthly@example.test',
-    password: 'correct-password',
+    password: 'new-correct-password',
     deviceId: 'device-4',
   });
   assert.equal(device4.success, false);
@@ -180,6 +202,12 @@ console.info('User license tests passed.');
 
 function register(baseUrl, payload) {
   return postJson(baseUrl, '/api/auth/register-license', payload, null, {
+    'x-admin-secret': process.env.ADMIN_LICENSE_SECRET,
+  });
+}
+
+function adminResetPassword(baseUrl, payload) {
+  return postJson(baseUrl, '/api/auth/admin-reset-password', payload, null, {
     'x-admin-secret': process.env.ADMIN_LICENSE_SECRET,
   });
 }

@@ -1526,6 +1526,64 @@ app.post('/api/auth/register-license', async (req, res, next) => {
   }
 });
 
+app.post('/api/auth/admin-reset-password', async (req, res, next) => {
+  try {
+    const configuredSecret = process.env.ADMIN_LICENSE_SECRET;
+
+    if (!configuredSecret) {
+      return res.json({
+        success: false,
+        error: 'ADMIN_LICENSE_SECRET est obligatoire pour réinitialiser un mot de passe.',
+      });
+    }
+
+    if (req.get('x-admin-secret') !== configuredSecret) {
+      return res.json({
+        success: false,
+        error: 'Secret administrateur invalide.',
+      });
+    }
+
+    const payload = req.body || {};
+    const email = normalizeEmail(payload.email);
+
+    if (!email || !isValidEmail(email)) {
+      return res.json({
+        success: false,
+        error: 'Email obligatoire et valide requis.',
+      });
+    }
+
+    if (typeof payload.newPassword !== 'string' || payload.newPassword.length < 8) {
+      return res.json({
+        success: false,
+        error: 'Nouveau mot de passe obligatoire de minimum 8 caractères.',
+      });
+    }
+
+    const store = loadUserLicenses();
+    const userLicense = store.userLicenses.find((item) => item.email === email);
+
+    if (!userLicense) {
+      return res.json({
+        success: false,
+        error: 'Licence utilisateur introuvable.',
+      });
+    }
+
+    userLicense.passwordHash = await hashPassword(payload.newPassword);
+    userLicense.updatedAt = new Date().toISOString();
+    saveUserLicenses(store);
+
+    return res.json({
+      success: true,
+      message: 'Mot de passe réinitialisé.',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post('/api/auth/login', async (req, res, next) => {
   try {
     ensureJwtSecretAvailable();
