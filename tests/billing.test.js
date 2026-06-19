@@ -43,6 +43,27 @@ try {
   assert.equal(plans.plans.length, 4);
   assert.equal(plans.plans.some((plan) => plan.id === 'primary_monthly' && plan.price === 79), true);
 
+  const legalIndex = await getText(baseUrl, '/legal');
+  assert.match(legalIndex.body, /Informations légales — PreventIA Belgique/);
+  assert.match(legalIndex.body, /Conditions d’utilisation/);
+  assert.match(legalIndex.body, /Politique de confidentialité/);
+  assert.match(legalIndex.body, /Annulation et remboursement/);
+
+  const terms = await getText(baseUrl, '/legal/terms');
+  assert.match(terms.headers['content-type'], /text\/html/);
+  assert.match(terms.body, /Conditions d’utilisation — PreventIA Belgique/);
+  assert.match(terms.body, /La licence principale coûte 79 €\/mois ou 790 €\/an/);
+  assert.match(terms.body, /Une licence supplémentaire coûte 39 €\/mois ou 390 €\/an/);
+
+  const privacy = await getText(baseUrl, '/legal/privacy');
+  assert.match(privacy.body, /Politique de confidentialité — PreventIA Belgique/);
+  assert.match(privacy.body, /mot de passe hashé, jamais le mot de passe en clair/);
+  assert.match(privacy.body, /PreventIA ne stocke pas les données de carte bancaire/);
+
+  const cancellation = await getText(baseUrl, '/legal/cancellation');
+  assert.match(cancellation.body, /Annulation et remboursement — PreventIA Belgique/);
+  assert.match(cancellation.body, /Les abonnements sont mensuels ou annuels/);
+
   const invalidEmail = await createCheckout(baseUrl, {
     ...validCheckoutPayload(),
     email: 'not-an-email',
@@ -312,6 +333,10 @@ function getJson(baseUrl, pathName) {
   return requestJson(baseUrl, pathName, { method: 'GET' });
 }
 
+function getText(baseUrl, pathName) {
+  return requestText(baseUrl, pathName, { method: 'GET' });
+}
+
 function postJson(baseUrl, pathName, payload) {
   return requestJson(baseUrl, pathName, {
     method: 'POST',
@@ -340,6 +365,25 @@ function requestJson(baseUrl, pathName, options) {
     if (options.body) {
       req.write(options.body);
     }
+    req.end();
+  });
+}
+
+function requestText(baseUrl, pathName, options) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(pathName, baseUrl);
+    const req = http.request(url, options, (res) => {
+      const chunks = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        resolve({
+          body: Buffer.concat(chunks).toString('utf8'),
+          headers: res.headers,
+          statusCode: res.statusCode,
+        });
+      });
+    });
+    req.on('error', reject);
     req.end();
   });
 }

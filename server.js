@@ -1292,6 +1292,165 @@ app.get('/health', (_req, res) => {
   });
 });
 
+app.get('/legal', (_req, res) => {
+  res.type('html').send(renderLegalIndexPage());
+});
+
+app.get('/legal/terms', (_req, res) => {
+  res.type('html').send(renderLegalPage({
+    title: 'Conditions d’utilisation — PreventIA Belgique',
+    sections: [
+      {
+        items: [
+          'PreventIA Belgique est une application d’aide à la génération de documents de prévention, rapports, plans d’action et analyses de risques.',
+          'Les documents générés sont des projets de travail.',
+          'Ils doivent être vérifiés, adaptés et validés par l’utilisateur, le conseiller en prévention, l’employeur ou toute personne compétente avant utilisation officielle.',
+          'PreventIA ne remplace pas un conseiller en prévention, un service SIPPT/SEPPT, un expert technique, un avocat ou une autorité compétente.',
+          'L’utilisateur reste responsable des informations saisies, de la vérification terrain, des preuves, photos, documents annexes et validations internes.',
+          'L’abonnement est personnel : 1 licence = 1 adresse e-mail + 1 mot de passe.',
+          'Une licence peut être utilisée sur plusieurs appareils autorisés.',
+          'La licence principale coûte 79 €/mois ou 790 €/an.',
+          'Une licence supplémentaire coûte 39 €/mois ou 390 €/an.',
+          'L’accès peut être suspendu en cas d’abus, fraude, partage non autorisé de compte, non-paiement ou usage contraire aux présentes conditions.',
+          'Les prix sont exprimés hors TVA sauf mention contraire.',
+          'Les documents générés peuvent contenir des erreurs ou nécessiter adaptation.',
+          'L’utilisateur doit respecter les lois applicables, notamment en matière de bien-être au travail, sécurité, prévention et protection des données.',
+          'Droit applicable : Belgique.',
+          'Contact : vilevero@gmail.com.',
+        ],
+      },
+    ],
+  }));
+});
+
+app.get('/legal/privacy', (_req, res) => {
+  res.type('html').send(renderLegalPage({
+    title: 'Politique de confidentialité — PreventIA Belgique',
+    sections: [
+      {
+        heading: 'Responsable du traitement',
+        paragraphs: [
+          'PreventIA Belgique / Vincent Legrand',
+          'Contact : vilevero@gmail.com',
+        ],
+      },
+      {
+        heading: 'Données collectées',
+        items: [
+          'prénom',
+          'nom',
+          'entreprise',
+          'numéro de TVA',
+          'adresse de facturation',
+          'code postal',
+          'ville',
+          'pays',
+          'adresse e-mail',
+          'mot de passe hashé, jamais le mot de passe en clair',
+          'type d’abonnement',
+          'statut de licence',
+          'quotas utilisés',
+          'appareils activés : deviceId généré par l’application, plateforme, version app, date d’activation',
+          'données nécessaires au paiement gérées par Stripe',
+          'contenu fourni volontairement pour générer les documents',
+        ],
+      },
+      {
+        heading: 'Finalités',
+        items: [
+          'création et gestion du compte',
+          'gestion de la licence',
+          'authentification',
+          'paiement et facturation',
+          'respect des obligations comptables et fiscales',
+          'facturation électronique B2B',
+          'génération des documents demandés',
+          'sécurité, prévention des abus et support technique',
+        ],
+      },
+      {
+        heading: 'Bases légales',
+        items: [
+          'exécution du contrat',
+          'obligation légale pour la facturation et comptabilité',
+          'intérêt légitime pour la sécurité et la prévention des abus',
+          'consentement lorsque requis',
+        ],
+      },
+      {
+        heading: 'Sous-traitants',
+        items: [
+          'Stripe pour les paiements',
+          'Render pour l’hébergement backend',
+          'OpenAI pour la génération assistée des contenus si utilisé',
+          'éventuels services techniques nécessaires au fonctionnement de l’application',
+        ],
+      },
+      {
+        heading: 'Paiement',
+        paragraphs: [
+          'PreventIA ne stocke pas les données de carte bancaire. Les paiements sont traités par Stripe.',
+        ],
+      },
+      {
+        heading: 'Conservation',
+        items: [
+          'données de compte conservées pendant la durée de la relation contractuelle',
+          'données de facturation conservées selon les obligations légales applicables',
+          'données d’appareils conservées tant que la licence est active ou jusqu’à déconnexion/suppression',
+          'contenus de génération conservés uniquement si nécessaire au fonctionnement, support ou historique selon l’implémentation',
+        ],
+      },
+      {
+        heading: 'Droits',
+        items: [
+          'accès',
+          'rectification',
+          'effacement',
+          'limitation',
+          'opposition',
+          'portabilité',
+          'réclamation auprès de l’Autorité de protection des données belge',
+        ],
+      },
+      {
+        heading: 'Sécurité',
+        items: [
+          'mots de passe hashés',
+          'tokens de session',
+          'limitation des données collectées',
+          'pas d’adresse MAC, IMEI, numéro de série matériel ou fingerprint intrusif',
+        ],
+      },
+      {
+        heading: 'Contact RGPD',
+        paragraphs: [
+          'vilevero@gmail.com',
+        ],
+      },
+    ],
+  }));
+});
+
+app.get('/legal/cancellation', (_req, res) => {
+  res.type('html').send(renderLegalPage({
+    title: 'Annulation et remboursement — PreventIA Belgique',
+    sections: [
+      {
+        items: [
+          'Les abonnements sont mensuels ou annuels.',
+          'L’utilisateur peut demander l’annulation de son abonnement.',
+          'L’accès reste actif jusqu’à la fin de la période déjà payée, sauf cas particulier.',
+          'Les paiements déjà effectués ne sont pas automatiquement remboursés, sauf erreur technique, double paiement, obligation légale ou décision commerciale.',
+          'Pour toute demande : vilevero@gmail.com.',
+          'Les entreprises sont invitées à vérifier leur choix d’abonnement avant paiement.',
+          'Les licences supplémentaires sont liées à une adresse e-mail personnelle distincte.',
+        ],
+      },
+    ],
+  }));
+});
+
 app.get('/api/billing/plans', (_req, res) => {
   res.json({
     success: true,
@@ -2383,6 +2542,66 @@ function getPublicBillingPlans() {
     price: plan.price,
     currency: plan.currency.toUpperCase(),
   }));
+}
+
+function renderLegalIndexPage() {
+  return renderLegalPage({
+    title: 'Informations légales — PreventIA Belgique',
+    sections: [
+      {
+        paragraphs: [
+          'Documents publics liés aux conditions d’utilisation, à la confidentialité et à l’annulation des abonnements PreventIA Belgique.',
+        ],
+      },
+    ],
+  });
+}
+
+function renderLegalPage({ title, sections }) {
+  const body = sections
+    .map((section) => {
+      const heading = section.heading ? `<h2>${escapeHtml(section.heading)}</h2>` : '';
+      const paragraphs = ensureArray(section.paragraphs)
+        .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`)
+        .join('');
+      const items = ensureArray(section.items);
+      const list = items.length > 0
+        ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+        : '';
+      return `<section>${heading}${paragraphs}${list}</section>`;
+    })
+    .join('');
+
+  return `<!doctype html>
+<html lang="fr-BE">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(title)}</title>
+</head>
+<body>
+  <main>
+    <h1>${escapeHtml(title)}</h1>
+    ${body}
+  </main>
+  <footer>
+    <nav aria-label="Pages légales">
+      <a href="/legal/terms">Conditions d’utilisation</a>
+      <a href="/legal/privacy">Politique de confidentialité</a>
+      <a href="/legal/cancellation">Annulation et remboursement</a>
+    </nav>
+  </footer>
+</body>
+</html>`;
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function getStripeAvailability() {
