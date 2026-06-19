@@ -13,12 +13,14 @@ delete process.env.STRIPE_WEBHOOK_SECRET;
 const {
   app,
   BILLING_PLANS,
+  buildCheckoutMetadata,
   createUserLicenseFromCheckoutMetadata,
   findUserLicenseByEmail,
   getPublicBillingPlans,
   hashPassword,
   loadUserLicenses,
   saveUserLicenses,
+  validateCheckoutPayload,
 } = await import('../server.js');
 
 saveUserLicenses({ userLicenses: [] });
@@ -69,6 +71,104 @@ try {
   });
   assert.equal(unknownPlan.success, false);
   assert.match(unknownPlan.error, /Offre/);
+
+  const missingVatNumber = await createCheckout(baseUrl, {
+    ...validCheckoutPayload(),
+    vatNumber: '',
+  });
+  assert.equal(missingVatNumber.success, false);
+  assert.equal(missingVatNumber.error, 'Numéro de TVA obligatoire.');
+
+  const missingAddressLine1 = await createCheckout(baseUrl, {
+    ...validCheckoutPayload(),
+    addressLine1: '',
+  });
+  assert.equal(missingAddressLine1.success, false);
+  assert.equal(missingAddressLine1.error, 'Adresse de facturation obligatoire.');
+
+  const missingPostalCode = await createCheckout(baseUrl, {
+    ...validCheckoutPayload(),
+    postalCode: '',
+  });
+  assert.equal(missingPostalCode.success, false);
+  assert.equal(missingPostalCode.error, 'Code postal obligatoire.');
+
+  const missingCity = await createCheckout(baseUrl, {
+    ...validCheckoutPayload(),
+    city: '',
+  });
+  assert.equal(missingCity.success, false);
+  assert.equal(missingCity.error, 'Ville obligatoire.');
+
+  const missingCountry = await createCheckout(baseUrl, {
+    ...validCheckoutPayload(),
+    country: '',
+  });
+  assert.equal(missingCountry.success, false);
+  assert.equal(missingCountry.error, 'Pays obligatoire.');
+
+  const missingTerms = await createCheckout(baseUrl, {
+    ...validCheckoutPayload(),
+    acceptTerms: false,
+  });
+  assert.equal(missingTerms.success, false);
+  assert.equal(missingTerms.error, 'Vous devez accepter les conditions d’utilisation.');
+
+  const absentTermsPayload = validCheckoutPayload();
+  delete absentTermsPayload.acceptTerms;
+  const absentTerms = await createCheckout(baseUrl, absentTermsPayload);
+  assert.equal(absentTerms.success, false);
+  assert.equal(absentTerms.error, 'Vous devez accepter les conditions d’utilisation.');
+
+  const missingPrivacy = await createCheckout(baseUrl, {
+    ...validCheckoutPayload(),
+    acceptPrivacy: false,
+  });
+  assert.equal(missingPrivacy.success, false);
+  assert.equal(missingPrivacy.error, 'Vous devez accepter la politique de confidentialité.');
+
+  const absentPrivacyPayload = validCheckoutPayload();
+  delete absentPrivacyPayload.acceptPrivacy;
+  const absentPrivacy = await createCheckout(baseUrl, absentPrivacyPayload);
+  assert.equal(absentPrivacy.success, false);
+  assert.equal(absentPrivacy.error, 'Vous devez accepter la politique de confidentialité.');
+
+  const normalizedWithPhone = await validateCheckoutPayload({
+    ...validCheckoutPayload({ email: 'phone.ignored@example.test' }),
+    phone: '+32470000000',
+    telephone: '+32471111111',
+  });
+  assert.equal(normalizedWithPhone.ok, true);
+  assert.equal(Object.hasOwn(normalizedWithPhone.normalized, 'phone'), false);
+  assert.equal(Object.hasOwn(normalizedWithPhone.normalized, 'telephone'), false);
+  assert.ok(normalizedWithPhone.normalized.acceptTermsAt);
+  assert.ok(normalizedWithPhone.normalized.acceptPrivacyAt);
+
+  const metadataWithPhone = buildCheckoutMetadata(normalizedWithPhone.normalized);
+  assert.equal(Object.hasOwn(metadataWithPhone, 'phone'), false);
+  assert.equal(Object.hasOwn(metadataWithPhone, 'telephone'), false);
+  assert.equal(Object.hasOwn(metadataWithPhone, 'password'), false);
+  assert.deepEqual(Object.keys(metadataWithPhone).sort(), [
+    'acceptPrivacyAt',
+    'acceptTermsAt',
+    'addressLine1',
+    'billingCycle',
+    'city',
+    'companyName',
+    'country',
+    'email',
+    'firstName',
+    'lastName',
+    'licenseType',
+    'maxDevices',
+    'monthlyRiskAnalysisLimit',
+    'monthlySimpleDocumentsLimit',
+    'passwordHash',
+    'plan',
+    'postalCode',
+    'price',
+    'vatNumber',
+  ]);
 
   const existingPasswordHash = await hashPassword('existing-password');
   createUserLicenseFromCheckoutMetadata(
@@ -121,6 +221,16 @@ try {
   assert.ok(created.passwordHash);
   assert.equal(Object.hasOwn(created, 'password'), false);
   assert.equal(created.passwordHash, passwordHash);
+  assert.deepEqual(created.billingAddress, {
+    addressLine1: 'Rue de Test 1',
+    postalCode: '1000',
+    city: 'Bruxelles',
+    country: 'BE',
+  });
+  assert.equal(created.acceptTermsAt, '2026-06-19T10:00:00.000Z');
+  assert.equal(created.acceptPrivacyAt, '2026-06-19T10:00:00.000Z');
+  assert.equal(Object.hasOwn(created, 'phone'), false);
+  assert.equal(Object.hasOwn(created, 'telephone'), false);
 
   const stored = findUserLicenseByEmail('primary.monthly@example.test');
   assert.ok(stored);
@@ -133,7 +243,7 @@ try {
 
 console.info('Billing tests passed.');
 
-function validCheckoutPayload() {
+function validCheckoutPayload(overrides = {}) {
   return {
     email: 'new.customer@example.test',
     password: 'correct-password',
@@ -147,6 +257,9 @@ function validCheckoutPayload() {
     city: 'Bruxelles',
     country: 'BE',
     planId: 'primary_monthly',
+    acceptTerms: true,
+    acceptPrivacy: true,
+    ...overrides,
   };
 }
 
@@ -171,6 +284,10 @@ function checkoutMetadata(overrides = {}) {
     monthlySimpleDocumentsLimit: '100',
     monthlyRiskAnalysisLimit: '40',
     allowedFeatures: 'documents,riskAnalysis',
+    acceptTermsAt: '2026-06-19T10:00:00.000Z',
+    acceptPrivacyAt: '2026-06-19T10:00:00.000Z',
+    phone: '+32470000000',
+    telephone: '+32471111111',
     ...overrides,
   };
 }

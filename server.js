@@ -2440,14 +2440,49 @@ async function validateCheckoutPayload(payload = {}) {
     return { ok: false, error: 'Nom de société obligatoire.' };
   }
 
+  const vatNumber = sanitizeLicenseText(payload.vatNumber, 60);
+  if (!vatNumber) {
+    return { ok: false, error: 'Numéro de TVA obligatoire.' };
+  }
+
+  const addressLine1 = sanitizeLicenseText(payload.addressLine1, 200);
+  if (!addressLine1) {
+    return { ok: false, error: 'Adresse de facturation obligatoire.' };
+  }
+
+  const postalCode = sanitizeLicenseText(payload.postalCode, 30);
+  if (!postalCode) {
+    return { ok: false, error: 'Code postal obligatoire.' };
+  }
+
+  const city = sanitizeLicenseText(payload.city, 100);
+  if (!city) {
+    return { ok: false, error: 'Ville obligatoire.' };
+  }
+
+  const country = sanitizeLicenseText(payload.country, 2).toUpperCase();
+  if (!country) {
+    return { ok: false, error: 'Pays obligatoire.' };
+  }
+
   const plan = BILLING_PLANS[String(payload.planId || '').trim()];
   if (!plan) {
     return { ok: false, error: 'Offre de facturation invalide.' };
   }
 
+  if (payload.acceptTerms !== true) {
+    return { ok: false, error: 'Vous devez accepter les conditions d’utilisation.' };
+  }
+
+  if (payload.acceptPrivacy !== true) {
+    return { ok: false, error: 'Vous devez accepter la politique de confidentialité.' };
+  }
+
   if (findUserLicenseByEmail(email)) {
     return { ok: false, error: 'Une licence existe déjà pour cet email.' };
   }
+
+  const acceptedAt = new Date().toISOString();
 
   return {
     ok: true,
@@ -2457,12 +2492,14 @@ async function validateCheckoutPayload(payload = {}) {
       firstName,
       lastName,
       companyName,
-      vatNumber: sanitizeLicenseText(payload.vatNumber, 60),
-      addressLine1: sanitizeLicenseText(payload.addressLine1, 200),
-      postalCode: sanitizeLicenseText(payload.postalCode, 30),
-      city: sanitizeLicenseText(payload.city, 100),
-      country: sanitizeLicenseText(payload.country || 'BE', 2).toUpperCase() || 'BE',
+      vatNumber,
+      addressLine1,
+      postalCode,
+      city,
+      country,
       plan,
+      acceptTermsAt: acceptedAt,
+      acceptPrivacyAt: acceptedAt,
     },
   };
 }
@@ -2522,12 +2559,11 @@ function buildCheckoutMetadata(payload) {
     licenseType: payload.plan.licenseType,
     billingCycle: payload.plan.billingCycle,
     price: String(payload.plan.price),
-    amountCents: String(payload.plan.amountCents),
-    currency: payload.plan.currency.toUpperCase(),
     maxDevices: String(defaults.maxDevices),
     monthlySimpleDocumentsLimit: String(defaults.monthlySimpleDocumentsLimit),
     monthlyRiskAnalysisLimit: String(defaults.monthlyRiskAnalysisLimit),
-    allowedFeatures: defaults.allowedFeatures.join(','),
+    acceptTermsAt: payload.acceptTermsAt,
+    acceptPrivacyAt: payload.acceptPrivacyAt,
   };
 }
 
@@ -2659,6 +2695,8 @@ function createUserLicenseFromCheckoutMetadata(metadata = {}, stripeContext = {}
     companyName: sanitizeLicenseText(metadata.companyName, 160),
     vatNumber: sanitizeLicenseText(metadata.vatNumber, 60),
     ...(billingAddress ? { billingAddress } : {}),
+    acceptTermsAt: String(metadata.acceptTermsAt || ''),
+    acceptPrivacyAt: String(metadata.acceptPrivacyAt || ''),
     plan,
     licenseType,
     billingCycle,
@@ -2939,6 +2977,7 @@ function userLicenseStatusPayload(userLicense) {
     lastName: userLicense.lastName,
     companyName: userLicense.companyName,
     vatNumber: userLicense.vatNumber,
+    billingAddress: userLicense.billingAddress,
     plan: userLicense.plan,
     licenseType: userLicense.licenseType,
     billingCycle: userLicense.billingCycle,
@@ -3255,6 +3294,8 @@ function licenseStatusPayload(license) {
   return {
     plan: license.plan,
     companyName: license.companyName,
+    vatNumber: license.vatNumber,
+    billingAddress: license.billingAddress,
     endDate: license.endDate,
     maxDevices: license.maxDevices,
     activatedDevices: ensureArray(license.activatedDevices).length,
@@ -9150,6 +9191,7 @@ export {
   app,
   assertRiskAssessmentMarkdownIsValid,
   buildFallbackRiskItems,
+  buildCheckoutMetadata,
   buildRiskAssessmentFixedSections,
   BILLING_PLANS,
   canUseDocumentType,
@@ -9179,6 +9221,7 @@ export {
   resetMonthlyUsageIfNeeded,
   saveLicenses,
   saveUserLicenses,
+  validateCheckoutPayload,
   validateLicenseAccess,
   verifyAuthToken,
   verifyPassword,
