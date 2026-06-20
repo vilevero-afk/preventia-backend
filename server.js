@@ -13,6 +13,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { renderInternalEmergencyPlanMarkdown } from './src/renderers/internalEmergencyPlanRenderer.js';
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -565,6 +566,24 @@ const RISK_DOCUMENT_TYPES = [
 
 const NEW_DOCUMENT_DEFINITIONS = [
   {
+    id: 'internal_emergency_plan',
+    family: 'internal_emergency_plan',
+    category: 'Documents d’urgence',
+    hasSecondaryDocument: false,
+    labels: {
+      fr: 'Plan Interne d’Urgence',
+      nl: 'Plan Interne d’Urgence',
+      en: 'Plan Interne d’Urgence',
+      de: 'Plan Interne d’Urgence',
+    },
+    aliases: [
+      'Plan Interne d’Urgence',
+      'PIU',
+      'Plan d’urgence interne',
+      'internal_emergency_plan',
+    ],
+  },
+  {
     id: 'annual_action_plan',
     family: 'annual_action_plan',
     hasSecondaryDocument: false,
@@ -707,7 +726,8 @@ const DOCUMENT_DEFINITIONS = [
 
 const DOCUMENT_DEFINITION_BY_TYPE = new Map(
   DOCUMENT_DEFINITIONS.flatMap((definition) =>
-    Object.values(definition.labels).map((label) => [normalizeDocumentType(label), definition]),
+    [...Object.values(definition.labels), ...(definition.aliases || [])]
+      .map((label) => [normalizeDocumentType(label), definition]),
   ),
 );
 
@@ -1982,16 +2002,18 @@ app.post('/api/generate-document', async (req, res, next) => {
       });
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    const isInternalEmergencyPlan = documentDefinition.family === 'internal_emergency_plan';
+
+    if (!isInternalEmergencyPlan && !process.env.OPENAI_API_KEY) {
       const error = new Error('Configuration OpenAI manquante côté serveur.');
       error.status = 500;
       error.expose = true;
       throw error;
     }
 
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    const openai = isInternalEmergencyPlan
+      ? null
+      : new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     console.info('Demande de génération reçue', {
       documentType,
@@ -2001,7 +2023,12 @@ app.post('/api/generate-document', async (req, res, next) => {
 
     let generatedDocument;
 
-    if (documentDefinition.family === 'risk_assessment') {
+    if (isInternalEmergencyPlan) {
+      generatedDocument = {
+        document: renderInternalEmergencyPlanMarkdown(formData, language || targetLanguage.code),
+        complementaryDocument: null,
+      };
+    } else if (documentDefinition.family === 'risk_assessment') {
       console.log('[RISK_RENDER_TRACE] using function: generateRiskAssessmentFast');
       const generatedRiskAssessment = await generateRiskAssessmentFast({
         openai,
@@ -2098,7 +2125,7 @@ app.post('/api/generate-document', async (req, res, next) => {
 
     res.json({
       success: true,
-      source: 'ai_backend',
+      source: isInternalEmergencyPlan ? 'deterministic_backend' : 'ai_backend',
       documentType: documentDefinition.labels[targetLanguage.code] || documentType,
       document,
       ...(complementaryDocument ? { complementaryDocument } : {}),
@@ -2317,6 +2344,10 @@ function countLanguageMarkers(text, markers) {
 }
 
 const SIMPLE_PREVENTION_DOCUMENT_TYPES = [
+  'Plan Interne d’Urgence',
+  'PIU',
+  'Plan d’urgence interne',
+  'internal_emergency_plan',
   'Plan annuel d’action',
   'Plan global de prévention',
   'Rapport de visite sécurité',
