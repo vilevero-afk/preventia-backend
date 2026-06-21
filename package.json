@@ -9,8 +9,9 @@
     "dev": "node --watch server.js",
     "test:renderer": "RUN_INTERNAL_RISK_TESTS=1 node server.js",
     "test:risk-renderer": "node scripts/test-risk-renderer.js",
-    "test:licenses": "node scripts/test-licenses.js",
+    "test:licenses": "node tests/userLicenses.test.js",
     "test:billing": "node tests/billing.test.js",
+    "test:license-store": "node tests/licenseStore.test.js",
     "test:user-licenses": "node tests/userLicenses.test.js",
     "test:piu": "node tests/piu.test.js"
   },
@@ -23,6 +24,7 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.3",
     "openai": "^4.78.1",
+    "pg": "^8.22.0",
     "stripe": "^22.2.1"
   },
   "engines": {

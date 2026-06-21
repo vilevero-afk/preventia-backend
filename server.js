@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderInternalEmergencyPlanMarkdown } from './src/renderers/internalEmergencyPlanRenderer.js';
+import { createLicenseStore } from './src/licenseStore.js';
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -24,6 +25,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const LICENSE_STORE_PATH = process.env.LICENSE_STORE_PATH || path.join(__dirname, 'data', 'licenses.json');
 const USER_LICENSE_STORE_PATH = process.env.USER_LICENSE_STORE_PATH || path.join(__dirname, 'data', 'user_licenses.json');
+const licenseStore = createLicenseStore({ jsonPath: USER_LICENSE_STORE_PATH });
+const licenseStoreReady = licenseStore.init();
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:3000')
   .split(',')
   .map((origin) => origin.trim())
@@ -1523,7 +1526,7 @@ app.post('/api/billing/create-portal-session', async (req, res, next) => {
       });
     }
 
-    const validation = validateUserLicenseFromRequest(req);
+    const validation = await validateUserLicenseFromRequest(req);
     if (!validation.ok) {
       return res.json({
         success: false,
@@ -1709,7 +1712,8 @@ app.post('/api/auth/register-license', async (req, res, next) => {
       });
     }
 
-    if (findUserLicenseByEmail(email)) {
+    await licenseStoreReady;
+    if (await licenseStore.findByEmail(email)) {
       return res.json({
         success: false,
         error: 'Une licence existe déjà pour cet email.',
@@ -1770,13 +1774,14 @@ app.post('/api/auth/register-license', async (req, res, next) => {
       updatedAt: now,
     };
 
-    const store = loadUserLicenses();
-    store.userLicenses.push(userLicense);
-    saveUserLicenses(store);
+    const createdLicense = await licenseStore.create(userLicense);
+    if (!createdLicense) {
+      return res.json({ success: false, error: 'Une licence existe déjà pour cet email.' });
+    }
 
     return res.json({
       success: true,
-      userLicense: publicRegisteredUserLicensePayload(userLicense),
+      userLicense: publicRegisteredUserLicensePayload(createdLicense),
     });
   } catch (error) {
     if (error.isAuthConfigurationError) {
@@ -1824,8 +1829,8 @@ app.post('/api/auth/admin-reset-password', async (req, res, next) => {
       });
     }
 
-    const store = loadUserLicenses();
-    const userLicense = store.userLicenses.find((item) => item.email === email);
+    await licenseStoreReady;
+    const userLicense = await licenseStore.findByEmail(email);
 
     if (!userLicense) {
       return res.json({
@@ -1834,9 +1839,7 @@ app.post('/api/auth/admin-reset-password', async (req, res, next) => {
       });
     }
 
-    userLicense.passwordHash = await hashPassword(payload.newPassword);
-    userLicense.updatedAt = new Date().toISOString();
-    saveUserLicenses(store);
+    await licenseStore.resetPassword(email, await hashPassword(payload.newPassword));
 
     return res.json({
       success: true,
@@ -1852,8 +1855,8 @@ app.post('/api/auth/login', async (req, res, next) => {
     ensureJwtSecretAvailable();
 
     const { email, password, deviceId, deviceName, platform, appVersion } = req.body || {};
-    const store = loadUserLicenses();
-    const userLicense = store.userLicenses.find((item) => item.email === normalizeEmail(email));
+    await licenseStoreReady;
+    let userLicense = await licenseStore.findByEmail(email);
 
     if (!userLicense) {
       return res.json({
@@ -1877,7 +1880,7 @@ app.post('/api/auth/login', async (req, res, next) => {
       });
     }
 
-    const registration = registerDeviceIfAllowed(userLicense, { deviceId, deviceName, platform, appVersion });
+    const registration = await licenseStore.addDevice(userLicense, { deviceId, deviceName, platform, appVersion });
     if (!registration.ok) {
       return res.json({
         success: false,
@@ -1885,8 +1888,10 @@ app.post('/api/auth/login', async (req, res, next) => {
       });
     }
 
-    resetMonthlyUsageIfNeeded(userLicense);
-    saveUserLicenses(store);
+    userLicense = registration.license || userLicense;
+    if (resetMonthlyUsageIfNeeded(userLicense)) {
+      userLicense = await licenseStore.save(userLicense);
+    }
 
     return res.json({
       success: true,
@@ -1904,69 +1909,78 @@ app.post('/api/auth/login', async (req, res, next) => {
   }
 });
 
-app.get('/api/auth/me', (req, res) => {
-  const validation = validateUserLicenseFromRequest(req);
+app.get('/api/auth/me', async (req, res, next) => {
+  try {
+    const validation = await validateUserLicenseFromRequest(req);
 
-  if (!validation.ok) {
+    if (!validation.ok) {
+      return res.json({
+        success: false,
+        error: validation.error,
+      });
+    }
+
     return res.json({
-      success: false,
-      error: validation.error,
+      success: true,
+      licenseStatus: userLicenseStatusPayload(validation.userLicense),
     });
+  } catch (error) {
+    next(error);
   }
-
-  return res.json({
-    success: true,
-    licenseStatus: userLicenseStatusPayload(validation.userLicense),
-  });
 });
 
-app.post('/api/auth/logout-device', (req, res) => {
-  const validation = validateUserLicenseFromRequest(req);
+app.post('/api/auth/logout-device', async (req, res, next) => {
+  try {
+    const validation = await validateUserLicenseFromRequest(req);
 
-  if (!validation.ok) {
+    if (!validation.ok) {
+      return res.json({
+        success: false,
+        error: validation.error,
+      });
+    }
+
+    const normalizedDeviceId = normalizeDeviceId(req.body?.deviceId);
+    if (!normalizedDeviceId) {
+      return res.json({
+        success: false,
+        error: 'Identifiant appareil requis.',
+      });
+    }
+
+    const updatedLicense = await licenseStore.removeDevice(validation.userLicense.id, normalizedDeviceId);
+
     return res.json({
-      success: false,
-      error: validation.error,
+      success: true,
+      licenseStatus: userLicenseStatusPayload(updatedLicense),
     });
+  } catch (error) {
+    next(error);
   }
-
-  const normalizedDeviceId = normalizeDeviceId(req.body?.deviceId);
-  if (!normalizedDeviceId) {
-    return res.json({
-      success: false,
-      error: 'Identifiant appareil requis.',
-    });
-  }
-
-  validation.userLicense.activatedDevices = ensureArray(validation.userLicense.activatedDevices)
-    .filter((device) => normalizeDeviceId(device.deviceId) !== normalizedDeviceId);
-  validation.userLicense.updatedAt = new Date().toISOString();
-  saveUserLicenses(validation.store);
-
-  return res.json({
-    success: true,
-    licenseStatus: userLicenseStatusPayload(validation.userLicense),
-  });
 });
 
-app.post('/api/auth/validate-generation', (req, res) => {
-  const validation = validateUserGenerationAccess(req, {
-    deviceId: req.body?.deviceId,
-    documentType: req.body?.documentType,
-  });
-
-  if (!validation.ok) {
-    return res.json({
-      success: false,
-      canGenerate: false,
-      error: validation.error,
+app.post('/api/auth/validate-generation', async (req, res, next) => {
+  try {
+    const validation = await validateUserGenerationAccess(req, {
+      deviceId: req.body?.deviceId,
+      documentType: req.body?.documentType,
     });
-  }
 
-  return res.json({
-    success: true,
-    canGenerate: true,
-  });
+    if (!validation.ok) {
+      return res.json({
+        success: false,
+        canGenerate: false,
+        error: validation.error,
+      });
+    }
+
+    return res.json({
+      success: true,
+      canGenerate: true,
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post('/api/generate-document', async (req, res, next) => {
@@ -1980,7 +1994,7 @@ app.post('/api/generate-document', async (req, res, next) => {
     const bearerToken = getBearerTokenFromRequest(req);
 
     if (bearerToken) {
-      userLicenseValidation = validateUserGenerationAccess(req, { deviceId, documentType });
+      userLicenseValidation = await validateUserGenerationAccess(req, { deviceId, documentType });
       if (!userLicenseValidation.ok) {
         return res.json({
           success: false,
@@ -2118,9 +2132,9 @@ app.post('/api/generate-document', async (req, res, next) => {
       incrementUsage(licenseValidation.license, documentType);
       saveLicenses(licenseValidation.store);
     }
-    if (userLicenseValidation?.userLicense && userLicenseValidation?.store) {
+    if (userLicenseValidation?.userLicense) {
       incrementUsage(userLicenseValidation.userLicense, documentType);
-      saveUserLicenses(userLicenseValidation.store);
+      await licenseStore.save(userLicenseValidation.userLicense);
     }
 
     res.json({
@@ -2160,7 +2174,8 @@ app.use((error, _req, res, _next) => {
   });
 });
 
-function startServer() {
+async function startServer() {
+  await licenseStoreReady;
   const server = app.listen(PORT, HOST, () => {
     const address = server.address();
     const listenAddress =
@@ -2182,7 +2197,10 @@ if (process.env.RUN_INTERNAL_RISK_TESTS === '1') {
 } else if (process.env.PREVENTIA_BACKEND_NO_START === '1') {
   console.info('preventia-backend importé sans démarrage serveur.');
 } else {
-  startServer();
+  startServer().catch((error) => {
+    console.error('Impossible d’initialiser le stockage des licences.', { message: error.message });
+    process.exitCode = 1;
+  });
 }
 
 function validateGenerateDocumentPayload(documentType, formData) {
@@ -2728,7 +2746,8 @@ async function validateCheckoutPayload(payload = {}) {
     return { ok: false, error: 'Vous devez accepter la politique de confidentialité.' };
   }
 
-  if (findUserLicenseByEmail(email)) {
+  await licenseStoreReady;
+  if (await licenseStore.findByEmail(email)) {
     return { ok: false, error: 'Une licence existe déjà pour cet email.' };
   }
 
@@ -2889,12 +2908,12 @@ async function processStripeWebhookEvent(event, stripe) {
   }
 
   if (event.type === 'customer.subscription.deleted') {
-    updateUserLicenseBySubscription(object, 'cancelled');
+    await updateUserLicenseBySubscription(object, 'cancelled');
     return;
   }
 
   if (event.type === 'customer.subscription.updated') {
-    updateUserLicenseBySubscription(object, mapStripeSubscriptionStatus(object.status));
+    await updateUserLicenseBySubscription(object, mapStripeSubscriptionStatus(object.status));
   }
 }
 
@@ -2916,17 +2935,33 @@ async function handleCheckoutSessionCompleted(session, stripe) {
 }
 
 function createUserLicenseFromCheckoutMetadata(metadata = {}, stripeContext = {}) {
+  if (licenseStore.mode === 'postgres') {
+    return createUserLicenseFromCheckoutMetadataPostgres(metadata, stripeContext);
+  }
+  const email = normalizeEmail(metadata.email);
+  const store = loadUserLicenses();
+  const existing = store.userLicenses.find((item) => item.email === email);
+  if (existing) return existing;
+  const userLicense = buildUserLicenseFromCheckoutMetadata(metadata, stripeContext);
+  store.userLicenses.push(userLicense);
+  saveUserLicenses(store);
+  return userLicense;
+}
+
+async function createUserLicenseFromCheckoutMetadataPostgres(metadata, stripeContext) {
+  await licenseStoreReady;
+  const existing = await licenseStore.findByEmail(metadata.email);
+  if (existing) return existing;
+  const userLicense = buildUserLicenseFromCheckoutMetadata(metadata, stripeContext);
+  return (await licenseStore.create(userLicense)) || licenseStore.findByEmail(metadata.email);
+}
+
+function buildUserLicenseFromCheckoutMetadata(metadata = {}, stripeContext = {}) {
   const email = normalizeEmail(metadata.email);
   if (!email || !isValidEmail(email)) {
     const error = new Error('Metadata Stripe incomplète: email invalide.');
     error.status = 400;
     throw error;
-  }
-
-  const store = loadUserLicenses();
-  const existing = store.userLicenses.find((item) => item.email === email);
-  if (existing) {
-    return existing;
   }
 
   const plan = String(metadata.plan || 'pro');
@@ -2975,8 +3010,6 @@ function createUserLicenseFromCheckoutMetadata(metadata = {}, stripeContext = {}
     throw error;
   }
 
-  store.userLicenses.push(userLicense);
-  saveUserLicenses(store);
   return userLicense;
 }
 
@@ -3022,7 +3055,7 @@ async function updateLicenseFromInvoice(invoice, stripe, status) {
     subscription = await retrieveStripeSubscription(stripe, subscriptionId);
   }
 
-  updateUserLicenseBySubscription(
+  await updateUserLicenseBySubscription(
     {
       id: subscriptionId,
       customer: getStripeObjectId(invoice.customer),
@@ -3049,14 +3082,11 @@ async function retrieveStripeSubscription(stripe, subscriptionId) {
   }
 }
 
-function updateUserLicenseBySubscription(subscription, status) {
+async function updateUserLicenseBySubscription(subscription, status) {
   const subscriptionId = typeof subscription?.id === 'string' ? subscription.id : '';
   const customerId = typeof subscription?.customer === 'string' ? subscription.customer : subscription?.customer?.id;
-  const store = loadUserLicenses();
-  const userLicense = store.userLicenses.find((item) =>
-    (subscriptionId && item.stripeSubscriptionId === subscriptionId) ||
-    (customerId && item.stripeCustomerId === customerId),
-  );
+  await licenseStoreReady;
+  const userLicense = await licenseStore.findByStripe({ subscriptionId, customerId });
 
   if (!userLicense) {
     return null;
@@ -3067,8 +3097,7 @@ function updateUserLicenseBySubscription(subscription, status) {
     userLicense.endDate = formatIsoDate(new Date(Number(subscription.current_period_end) * 1000));
   }
   userLicense.updatedAt = new Date().toISOString();
-  saveUserLicenses(store);
-  return userLicense;
+  return licenseStore.save(userLicense);
 }
 
 function mapStripeSubscriptionStatus(status) {
@@ -3136,7 +3165,7 @@ function getBearerTokenFromRequest(req) {
   return match?.[1]?.trim() || '';
 }
 
-function validateUserLicenseFromRequest(req) {
+async function validateUserLicenseFromRequest(req) {
   const token = getBearerTokenFromRequest(req);
 
   if (!token) {
@@ -3148,8 +3177,8 @@ function validateUserLicenseFromRequest(req) {
     return tokenValidation;
   }
 
-  const store = loadUserLicenses();
-  const userLicense = store.userLicenses.find((item) => item.id === tokenValidation.payload.sub);
+  await licenseStoreReady;
+  const userLicense = await licenseStore.findById(tokenValidation.payload.sub);
 
   if (!userLicense) {
     return { ok: false, error: 'Licence utilisateur introuvable.' };
@@ -3159,20 +3188,20 @@ function validateUserLicenseFromRequest(req) {
   const activeError = getLicenseActiveError(userLicense);
   if (activeError) {
     if (monthlyReset) {
-      saveUserLicenses(store);
+      await licenseStore.save(userLicense);
     }
     return { ok: false, error: activeError };
   }
 
   if (monthlyReset) {
-    saveUserLicenses(store);
+    await licenseStore.save(userLicense);
   }
 
-  return { ok: true, userLicense, store };
+  return { ok: true, userLicense };
 }
 
-function validateUserGenerationAccess(req, { deviceId, documentType }) {
-  const validation = validateUserLicenseFromRequest(req);
+async function validateUserGenerationAccess(req, { deviceId, documentType }) {
+  const validation = await validateUserLicenseFromRequest(req);
 
   if (!validation.ok) {
     return validation;
@@ -3186,10 +3215,15 @@ function validateUserGenerationAccess(req, { deviceId, documentType }) {
     return { ok: false, error: 'Appareil non activé pour cette licence.' };
   }
 
-  touchDevice(validation.userLicense, deviceId);
+  const existingDevice = ensureArray(validation.userLicense.activatedDevices)
+    .find((device) => normalizeDeviceId(device.deviceId) === normalizeDeviceId(deviceId));
+  const touchedDevice = await licenseStore.addDevice(validation.userLicense, existingDevice || { deviceId });
+  if (touchedDevice.license) {
+    validation.userLicense = touchedDevice.license;
+  }
 
   if (!canUseDocumentType(validation.userLicense, documentType)) {
-    saveUserLicenses(validation.store);
+    await licenseStore.save(validation.userLicense);
     return {
       ok: false,
       error: 'Votre abonnement ne permet pas de générer ce type de document.',
@@ -3198,11 +3232,11 @@ function validateUserGenerationAccess(req, { deviceId, documentType }) {
 
   const quotaError = getQuotaError(validation.userLicense, documentType);
   if (quotaError) {
-    saveUserLicenses(validation.store);
+    await licenseStore.save(validation.userLicense);
     return { ok: false, error: quotaError };
   }
 
-  saveUserLicenses(validation.store);
+  await licenseStore.save(validation.userLicense);
   return validation;
 }
 
