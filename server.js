@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderInternalEmergencyPlanMarkdown } from './src/renderers/internalEmergencyPlanRenderer.js';
+import { renderElectricalBtHtRiskAssessmentMarkdown } from './src/renderers/electricalBtHtRiskAssessmentRenderer.js';
 import { createLicenseStore } from './src/licenseStore.js';
 
 const PORT = process.env.PORT || 3000;
@@ -568,6 +569,26 @@ const RISK_DOCUMENT_TYPES = [
 ];
 
 const NEW_DOCUMENT_DEFINITIONS = [
+  {
+    id: 'risk_assessment_electrical_bt_ht',
+    family: 'electrical_bt_ht_risk_assessment',
+    category: 'Analyses de risques',
+    hasSecondaryDocument: false,
+    labels: {
+      fr: 'Analyse de risques — Installations électriques BT/HT',
+      nl: 'Analyse de risques — Installations électriques BT/HT',
+      en: 'Analyse de risques — Installations électriques BT/HT',
+      de: 'Analyse de risques — Installations électriques BT/HT',
+    },
+    aliases: [
+      'Analyse de risques — Installations électriques BT/HT',
+      'Analyse de risques BT/HT',
+      'Analyse de risques électrique',
+      'Analyse de risques électricité',
+      'Analyse de risques basse tension haute tension',
+      'risk_assessment_electrical_bt_ht',
+    ],
+  },
   {
     id: 'internal_emergency_plan',
     family: 'internal_emergency_plan',
@@ -2017,15 +2038,17 @@ app.post('/api/generate-document', async (req, res, next) => {
     }
 
     const isInternalEmergencyPlan = documentDefinition.family === 'internal_emergency_plan';
+    const isElectricalBtHtRiskAssessment = documentDefinition.family === 'electrical_bt_ht_risk_assessment';
+    const isDeterministicDocument = isInternalEmergencyPlan || isElectricalBtHtRiskAssessment;
 
-    if (!isInternalEmergencyPlan && !process.env.OPENAI_API_KEY) {
+    if (!isDeterministicDocument && !process.env.OPENAI_API_KEY) {
       const error = new Error('Configuration OpenAI manquante côté serveur.');
       error.status = 500;
       error.expose = true;
       throw error;
     }
 
-    const openai = isInternalEmergencyPlan
+    const openai = isDeterministicDocument
       ? null
       : new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -2040,6 +2063,11 @@ app.post('/api/generate-document', async (req, res, next) => {
     if (isInternalEmergencyPlan) {
       generatedDocument = {
         document: renderInternalEmergencyPlanMarkdown(formData, language || targetLanguage.code),
+        complementaryDocument: null,
+      };
+    } else if (isElectricalBtHtRiskAssessment) {
+      generatedDocument = {
+        document: renderElectricalBtHtRiskAssessmentMarkdown(formData, language || targetLanguage.code),
         complementaryDocument: null,
       };
     } else if (documentDefinition.family === 'risk_assessment') {
@@ -2139,7 +2167,7 @@ app.post('/api/generate-document', async (req, res, next) => {
 
     res.json({
       success: true,
-      source: isInternalEmergencyPlan ? 'deterministic_backend' : 'ai_backend',
+      source: isDeterministicDocument ? 'deterministic_backend' : 'ai_backend',
       documentType: documentDefinition.labels[targetLanguage.code] || documentType,
       document,
       ...(complementaryDocument ? { complementaryDocument } : {}),
@@ -2375,6 +2403,7 @@ const SIMPLE_PREVENTION_DOCUMENT_TYPES = [
 ];
 
 const RISK_ANALYSIS_DOCUMENT_TYPES = [
+  'risk_assessment_electrical_bt_ht',
   'Analyse de risques générale',
   'Analyse de risques incendie et évacuation',
   'Analyse de risques produits chimiques',
