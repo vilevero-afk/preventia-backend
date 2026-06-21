@@ -14,7 +14,8 @@
     "test:license-store": "node tests/licenseStore.test.js",
     "test:user-licenses": "node tests/userLicenses.test.js",
     "test:piu": "node tests/piu.test.js",
-    "test:electrical-bt-ht": "node tests/electricalBtHtRiskAssessment.test.js"
+    "test:electrical-bt-ht": "node tests/electricalBtHtRiskAssessment.test.js",
+    "test:elevator-risk": "node tests/elevatorRiskAssessment.test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

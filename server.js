@@ -15,6 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderInternalEmergencyPlanMarkdown } from './src/renderers/internalEmergencyPlanRenderer.js';
 import { renderElectricalBtHtRiskAssessmentMarkdown } from './src/renderers/electricalBtHtRiskAssessmentRenderer.js';
+import { renderElevatorRiskAssessmentMarkdown } from './src/renderers/elevatorRiskAssessmentRenderer.js';
 import { createLicenseStore } from './src/licenseStore.js';
 
 const PORT = process.env.PORT || 3000;
@@ -569,6 +570,26 @@ const RISK_DOCUMENT_TYPES = [
 ];
 
 const NEW_DOCUMENT_DEFINITIONS = [
+  {
+    id: 'risk_assessment_elevator',
+    family: 'elevator_risk_assessment',
+    category: 'Analyses de risques',
+    hasSecondaryDocument: false,
+    labels: {
+      fr: 'Analyse de risques — Ascenseur',
+      nl: 'Analyse de risques — Ascenseur',
+      en: 'Analyse de risques — Ascenseur',
+      de: 'Analyse de risques — Ascenseur',
+    },
+    aliases: [
+      'Analyse de risques — Ascenseur',
+      'Analyse de risques ascenseur',
+      'Analyse ascenseur',
+      'Ascenseur',
+      'risk_assessment_elevator',
+      'elevator_risk_assessment',
+    ],
+  },
   {
     id: 'risk_assessment_electrical_bt_ht',
     family: 'electrical_bt_ht_risk_assessment',
@@ -2039,7 +2060,10 @@ app.post('/api/generate-document', async (req, res, next) => {
 
     const isInternalEmergencyPlan = documentDefinition.family === 'internal_emergency_plan';
     const isElectricalBtHtRiskAssessment = documentDefinition.family === 'electrical_bt_ht_risk_assessment';
-    const isDeterministicDocument = isInternalEmergencyPlan || isElectricalBtHtRiskAssessment;
+    const isElevatorRiskAssessment = documentDefinition.family === 'elevator_risk_assessment';
+    const isDeterministicDocument = isInternalEmergencyPlan ||
+      isElectricalBtHtRiskAssessment ||
+      isElevatorRiskAssessment;
 
     if (!isDeterministicDocument && !process.env.OPENAI_API_KEY) {
       const error = new Error('Configuration OpenAI manquante côté serveur.');
@@ -2068,6 +2092,11 @@ app.post('/api/generate-document', async (req, res, next) => {
     } else if (isElectricalBtHtRiskAssessment) {
       generatedDocument = {
         document: renderElectricalBtHtRiskAssessmentMarkdown(formData, language || targetLanguage.code),
+        complementaryDocument: null,
+      };
+    } else if (isElevatorRiskAssessment) {
+      generatedDocument = {
+        document: renderElevatorRiskAssessmentMarkdown(formData, language || targetLanguage.code),
         complementaryDocument: null,
       };
     } else if (documentDefinition.family === 'risk_assessment') {
@@ -2403,6 +2432,12 @@ const SIMPLE_PREVENTION_DOCUMENT_TYPES = [
 ];
 
 const RISK_ANALYSIS_DOCUMENT_TYPES = [
+  'Analyse de risques — Ascenseur',
+  'Analyse de risques ascenseur',
+  'Analyse ascenseur',
+  'Ascenseur',
+  'risk_assessment_elevator',
+  'elevator_risk_assessment',
   'risk_assessment_electrical_bt_ht',
   'Analyse de risques générale',
   'Analyse de risques incendie et évacuation',
