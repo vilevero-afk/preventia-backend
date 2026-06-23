@@ -4,10 +4,10 @@ import http from 'node:http';
 process.env.PREVENTIA_BACKEND_NO_START = '1';
 process.env.NODE_ENV = 'test';
 process.env.ALLOW_UNLICENSED_GENERATION = 'true';
-delete process.env.OPENAI_API_KEY;
+process.env.OPENAI_API_KEY = '';
 
 const { app } = await import('../server.js');
-const { renderInternalEmergencyPlanMarkdown } = await import('../src/renderers/internalEmergencyPlanRenderer.js');
+const { CHAPTER_TITLES, renderInternalEmergencyPlanMarkdown } = await import('../src/renderers/internalEmergencyPlanRenderer.js');
 
 const sampleFormData = {
   companyName: 'PreventIA Test',
@@ -17,16 +17,40 @@ const sampleFormData = {
   postalCode: '1000',
   city: 'Bruxelles',
   country: 'Belgique',
-  numberOfWorkers: 42,
+  preventionAdvisor: 'Conseiller Test',
+  siteManager: 'Responsable Bâtiment',
+  technicalServiceContact: 'Service Technique',
   emergencyManager: 'Alice Exemple',
+  assemblyPoint: 'Parking nord',
+  pmrProcedure: 'Assistance par deux équipiers désignés',
+  firefighterFileLocation: 'Accueil principal',
+  fireAlarmSystem: 'Centrale au poste d’accueil',
+  gasShutoff: 'Local chaufferie',
+  electricityShutoff: 'TGBT local technique',
+  waterShutoff: 'Cave technique',
+  ventilationShutoff: 'Commande accueil',
   emergencyScenarios: ['Incendie', 'Fuite de gaz'],
+  availablePlans: ['Plan d’évacuation', 'Plan des coupures'],
 };
 
 const markdown = renderInternalEmergencyPlanMarkdown(sampleFormData, 'fr');
 assertPiu(markdown);
-assert.match(markdown, /PreventIA Test/);
-assert.match(markdown, /42/);
+for (const mapped of [
+  'PreventIA Test', 'Site Bruxelles', '1 rue du Test', 'Conseiller Test',
+  'Responsable Bâtiment', 'Service Technique', 'Alice Exemple', 'Parking nord',
+  'Assistance par deux équipiers', 'Accueil principal', 'Centrale au poste d’accueil',
+  'Local chaufferie', 'TGBT local technique', 'Cave technique', 'Commande accueil',
+  'Plan d’évacuation',
+]) {
+  assert.match(markdown, new RegExp(mapped), mapped);
+}
 assert.doesNotMatch(markdown, /Traduction à prévoir/);
+
+const blankMarkdown = renderInternalEmergencyPlanMarkdown({}, 'fr');
+assertPiu(blankMarkdown);
+assert.doesNotMatch(blankMarkdown, /SPGE/);
+assert.doesNotMatch(blankMarkdown, /Site administratif de Verviers/);
+assert.ok((blankMarkdown.match(/\[à compléter\]/g) || []).length > 100);
 
 const translatedFallback = renderInternalEmergencyPlanMarkdown(sampleFormData, 'nl');
 assert.match(translatedFallback, /Traduction à prévoir — version française générée\./);
@@ -61,25 +85,25 @@ console.info('PIU tests passed.');
 
 function assertPiu(document) {
   assert.match(document, /Plan Interne d’Urgence/);
-  assert.match(document, /aide à la rédaction/);
-  assert.match(document, /Projet à compléter, vérifier sur site et valider/);
+  assert.match(document, /Modèle opérationnel à compléter/);
+  assert.match(document, /Table des matières opérationnelle/);
 
-  for (let section = 1; section <= 29; section += 1) {
-    assert.match(document, new RegExp(`^## ${section}\\. `, 'm'));
+  for (let section = 1; section <= 28; section += 1) {
+    assert.ok(document.includes(`## ${section}. ${CHAPTER_TITLES[section - 1]}`));
+    assertSectionHasContent(document, section);
   }
+  assert.doesNotMatch(document, /^## 29\. /m);
 
   for (const label of [
-    'À vérifier sur site',
-    'Preuve à obtenir',
-    'Plan/photo à annexer',
-    'Validation requise',
-    'Point bloquant',
+    '[à compléter]', '[à vérifier sur site]', '[non applicable à confirmer]',
+    '[validation requise]', 'Dossier pour les pompiers', 'Mise à l’abri',
+    'Prise d’iode', 'Attestation de réception des consignes', 'Signatures',
   ]) {
-    assert.match(document, new RegExp(label));
+    assert.ok(document.includes(label), label);
   }
 
   for (let sheet = 0; sheet <= 22; sheet += 1) {
-    assert.match(document, new RegExp(`^### Fiche ${String(sheet).padStart(2, '0')}\\. `, 'm'));
+    assert.match(document, new RegExp(`^### FICHE ${String(sheet).padStart(2, '0')} `, 'm'));
   }
 
   const artificialLongParagraphs = document.split('\n').filter((line) =>
@@ -90,9 +114,16 @@ function assertPiu(document) {
   assert.deepEqual(artificialLongParagraphs, []);
 }
 
+function assertSectionHasContent(document, number) {
+  const next = number + 1;
+  const match = document.match(new RegExp(`^## ${number}\\. [^\\n]+\\n\\n([\\s\\S]*?)(?=^## ${next}\\. |$)`, 'm'));
+  assert.ok(match?.[1]?.trim(), `La section ${number} ne doit pas être vide.`);
+}
+
 function listen(appInstance) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const instance = appInstance.listen(0, '127.0.0.1', () => resolve(instance));
+    instance.on('error', reject);
   });
 }
 
