@@ -3,6 +3,7 @@ const ELECTRICAL_SYSTEM_PROMPT = `Tu es un assistant spécialisé en prévention
 const ELEVATOR_SYSTEM_PROMPT = `Tu es un assistant spécialisé en prévention des risques professionnels en Belgique. Tu aides le conseiller en prévention à préparer une analyse de risques d’un ascenseur. Le document est une aide au suivi et à la préparation, pas une analyse réglementaire officielle. Il doit être confronté au rapport du SECT, aux contrôles périodiques, aux documents de maintenance et aux constats sur site. Ne prétends jamais remplacer le SECT.`;
 
 export { getField } from './specializedRiskFields.js';
+import { stripRawScenarioFields } from './specializedRiskScenario.js';
 
 const COMMON_CONSTRAINTS = `
 - conserver la structure globale ;
@@ -13,6 +14,7 @@ const COMMON_CONSTRAINTS = `
 - garder le ton « aide au conseiller en prévention » ;
 - intégrer des points exploitables pour PAA / PGP, DIU et PIU ;
 - ne pas insérer de pagination « Page 1 / 1 » dans le markdown ;
+- ne jamais recopier un bloc de scénario brut ou son titre ; utiliser uniquement les informations déjà redistribuées dans le markdown de base ;
 - retourner uniquement le markdown final, sans commentaire ni clôture de bloc de code.`;
 
 export async function enrichElectricalBtHtRiskAssessmentWithAI({
@@ -67,7 +69,7 @@ async function enrich({ openai, model, maxOutputTokens, systemPrompt, userPrompt
       role: 'user',
       content: [{
         type: 'input_text',
-        text: `${userPrompt}\n\nType de document : ${documentType}\nLangue : ${language}\n\nformData :\n${safeJson(formData)}\n\nMarkdown structuré de base :\n${baseMarkdown}`,
+        text: `${userPrompt}\n\nType de document : ${documentType}\nLangue : ${language}\n\nformData sans scénario brut :\n${safeJson(stripRawScenarioFields(formData))}\n\nMarkdown structuré de base :\n${baseMarkdown}`,
       }],
     }],
   });
@@ -81,7 +83,9 @@ export function cleanSpecializedRiskMarkdown(markdown) {
   return String(markdown || '')
     .replace(/^```(?:markdown)?\s*/i, '')
     .replace(/\s*```\s*$/i, '')
-    .replace(/Page\s+1\s*\/\s*1/gi, '')
+    .replace(/Référence\s+AR-\d{4}-\d+\s+—\s+Page\s+\d+\s*\/\s*\d+/gi, '')
+    .replace(/^.*Référence\s+AR-\d{4}-\d+.*Page\s+\d+\s*\/\s*\d+.*$/gim, '')
+    .replace(/^\s*Page\s+\d+\s*\/\s*\d+\s*$/gim, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
@@ -95,6 +99,9 @@ function assertEnrichedMarkdownIsUsable(markdown, baseMarkdown) {
   }
   if (!/aide au conseiller en prévention/i.test(markdown)) {
     throw new Error('Mention de prudence absente.');
+  }
+  if (/SC[ÉE]NARIO\s+TEST\s+SPGE/i.test(markdown)) {
+    throw new Error('Scénario brut encore présent.');
   }
 }
 

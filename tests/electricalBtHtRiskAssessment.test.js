@@ -26,9 +26,54 @@ const aliases = [
 const formData = {
   companyName: 'SPGE',
   siteName: 'Site administratif de Verviers',
+  siteContact: 'Sophie Martin',
   preventionAdvisor: 'Vincent Legrand',
+  siteManager: 'Marc Delvaux',
+  technicalServiceContact: 'Jean Peeters',
+  analysisStage: 'Exploitation',
   installationType: 'mixte',
-  workEquipment: [{ name: 'Presse', power: '15 kW' }],
+  additionalContext: `SCÉNARIO TEST SPGE
+Site administratif de Verviers
+Stade de l’analyse : Exploitation
+Armoires basse tension : TGBT au local technique et tableaux divisionnaires par étage
+Cabine haute tension : Pas de cabine haute tension connue sur site
+Transformateur : Non connu / à vérifier
+TGBT : Présent au local technique
+Tableaux divisionnaires : par étage
+PV RGIE : Non disponible, à obtenir
+Contrôle périodique : Dernier rapport à obtenir
+Liste BA4/BA5 : Non disponible
+Procédure de consignation : À formaliser
+Rapport de thermographie : Aucun rapport disponible
+Remarques de contrôle ouvertes : Situation inconnue
+Équipements raccordés : équipements de bureaux et multiprises
+PERSONNES EXPOSÉES
+- service technique
+- entreprises extérieures
+- personnel de nettoyage
+- travailleurs proches des armoires
+- visiteurs en cas d’accès non contrôlé
+ZONES CONCERNÉES
+- local technique
+- bureaux comportant des multiprises
+RISQUES IDENTIFIÉS
+- accès non autorisé
+- échauffement et incendie
+MESURES EXISTANTES
+- armoires fermées
+POINTS À VÉRIFIER
+- obturations, différentiels et repérage
+MESURES À PRÉVOIR
+- consignation et thermographie
+Priorités : PV RGIE, accès, BA4/BA5, consignation et thermographie
+Responsables : Service technique et conseiller en prévention
+Délais : 1 à 3 mois
+PREUVES À OBTENIR
+- PV RGIE, liste BA4/BA5 et rapport de thermographie
+Liens PAA / PGP : actions prioritaires
+Liens DIU : schémas et plans de coupure
+Liens PIU : coupure générale et contacts
+Référence AR-2026-0042 — Page 1 / 1`,
 };
 
 const markdown = renderElectricalBtHtRiskAssessmentMarkdown(formData, 'fr');
@@ -37,7 +82,9 @@ assert.match(markdown, /Analyse de risques — Installations électriques BT\/HT
 assert.match(markdown, /aide au conseiller en prévention/i);
 
 for (const expected of [
-  'SPGE', 'Site administratif de Verviers', 'Vincent Legrand',
+  'SPGE', 'Site administratif de Verviers', 'Sophie Martin', 'Vincent Legrand',
+  'Marc Delvaux', 'Jean Peeters', 'Exploitation', 'TGBT au local technique',
+  'tableaux divisionnaires par étage', 'Service technique et conseiller en prévention', '1 à 3 mois',
   'basse tension', 'haute tension', 'BA4', 'BA5', 'RGIE', 'contact direct',
   'contact indirect', 'arc électrique', 'consignation', 'thermographie',
   'PAA', 'PGP', 'DIU', 'PIU',
@@ -46,8 +93,20 @@ for (const expected of [
 }
 
 assert.ok((markdown.match(/Page 1 \/ 1/g) || []).length <= 1);
+assert.doesNotMatch(markdown, /SCÉNARIO TEST SPGE/i);
+assert.doesNotMatch(markdown, /Référence AR-/i);
+assert.doesNotMatch(markdown, /Page 1 \/ 1/i);
+assert.ok((markdown.match(/\[à compléter\]/g) || []).length < 10);
 assert.ok((markdown.match(/Instructions écrites existantes/g) || []).length <= 3);
 assertNumberedSectionsHaveContent(markdown, [17, 18, 19, 20, 21, 22]);
+
+const scenarioOnlyMarkdown = renderElectricalBtHtRiskAssessmentMarkdown({
+  companyName: 'SPGE',
+  additionalContext: formData.additionalContext,
+}, 'fr');
+for (const extracted of ['Site administratif de Verviers', 'TGBT au local technique', 'travailleurs proches des armoires', '1 à 3 mois']) {
+  assert.match(scenarioOnlyMarkdown, new RegExp(extracted, 'i'), `Extraction scénario : ${extracted}`);
+}
 
 let aiRequest;
 const enrichedMarkdown = await enrichElectricalBtHtRiskAssessmentWithAI({
@@ -59,12 +118,26 @@ const enrichedMarkdown = await enrichElectricalBtHtRiskAssessmentWithAI({
   maxOutputTokens: 9000,
   openai: { responses: { create: async (request) => {
     aiRequest = request;
-    return { output_text: `${markdown}\nPage 1 / 1` };
+    return { output_text: `${markdown}\nRéférence AR-2026-0042 — Page 1 / 1\nPage 1 / 1` };
   } } },
 });
 assert.doesNotMatch(enrichedMarkdown, /Page 1 \/ 1/);
+assert.doesNotMatch(enrichedMarkdown, /Référence AR-/);
 assert.match(aiRequest.instructions, /rapports RGIE/);
 assert.match(aiRequest.input[0].content[0].text, /Site administratif de Verviers/);
+assert.doesNotMatch(aiRequest.input[0].content[0].text, /SCÉNARIO TEST SPGE/);
+await assert.rejects(
+  enrichElectricalBtHtRiskAssessmentWithAI({
+    baseMarkdown: markdown,
+    formData,
+    language: 'fr',
+    documentType: aliases[0],
+    model: 'test-model',
+    maxOutputTokens: 9000,
+    openai: { responses: { create: async () => ({ output_text: `${markdown}\nSCÉNARIO TEST SPGE` }) } },
+  }),
+  /Scénario brut encore présent/,
+);
 
 assert.equal(renderElectricalBtHtRiskAssessmentMarkdown(formData, 'fr'), markdown);
 assert.match(renderElectricalBtHtRiskAssessmentMarkdown({}, 'fr'), /\[à compléter\]/);

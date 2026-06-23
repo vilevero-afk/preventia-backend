@@ -1,7 +1,13 @@
 import { getField } from './specializedRiskFields.js';
 import { cleanSpecializedRiskMarkdown } from './specializedRiskAiEnrichment.js';
+import {
+  extractScenarioValue,
+  getScenarioText,
+  setFromScenario,
+  splitScenarioList,
+} from './specializedRiskScenario.js';
 
-const MISSING = '[à compléter]';
+const MISSING = '[à vérifier sur site]';
 const VERIFY = '[à vérifier sur site]';
 const PROOF = '[preuve à obtenir]';
 const VALIDATION = '[validation requise]';
@@ -141,7 +147,8 @@ const TYPICAL_ACTIONS = [
 
 /** Rend une aide déterministe à l’analyse des risques d’un ascenseur. */
 export function renderElevatorRiskAssessmentMarkdown(formData = {}, language = 'fr') {
-  const data = formData && typeof formData === 'object' && !Array.isArray(formData) ? formData : {};
+  const input = formData && typeof formData === 'object' && !Array.isArray(formData) ? formData : {};
+  const data = resolveElevatorScenarioData(input);
   const languageCode = normalizeLanguage(language);
   const sections = [
     '# Analyse de risques — Ascenseur',
@@ -161,11 +168,11 @@ export function renderElevatorRiskAssessmentMarkdown(formData = {}, language = '
     '',
     methodSection(),
     '',
-    exposedPersonsSection(),
+    exposedPersonsSection(data),
     '',
     mainRisksSection(data),
     '',
-    technicalAnalysisSection(),
+    technicalAnalysisSection(data),
     '',
     vulnerableUsersSection(),
   ];
@@ -175,10 +182,10 @@ export function renderElevatorRiskAssessmentMarkdown(formData = {}, language = '
   }
 
   sections.push(
-    '', documentsSection(),
+    '', documentsSection(data),
     '', preventionMeasuresSection(data),
-    '', paaPgpSection(),
-    '', diuSection(),
+    '', paaPgpSection(data),
+    '', diuSection(data),
     '', piuSection(data),
     '', actionPlanSection(data),
     '', validationsSection(),
@@ -204,7 +211,7 @@ function identificationSection(data, languageCode) {
     ['Entreprise de maintenance', pick(data, ['maintenanceCompany', 'elevatorMaintenanceCompany', 'entrepriseMaintenance'])],
     ['Date de l’aide à l’analyse', pick(data, ['assessmentDate', 'dateAnalyse', 'dateAideAnalyse'])],
     ['Auteur de l’aide', pick(data, ['author', 'createdBy', 'preventionAdvisor', 'auteur'])],
-    ['Contexte complémentaire', pick(data, ['additionalContext', 'scenario', 'comments', 'notes', 'context'])],
+    ['Synthèse du contexte', pick(data, ['contextSummary'], VERIFY)],
     ['Référence interne', pick(data, ['internalReference', 'referenceInterne', 'reference'])],
     ['Langue', value(data.language || data.langue || languageCode)],
   ])}\n\n> Ce document constitue une aide au conseiller en prévention. Il doit être complété, vérifié sur site et confronté au rapport du SECT, aux contrôles périodiques, aux documents de maintenance et aux constats réels.`);
@@ -269,7 +276,14 @@ function methodSection() {
   ].join('\n'));
 }
 
-function exposedPersonsSection() {
+function exposedPersonsSection(data) {
+  const supplied = splitScenarioList(pick(data, ['exposedPersons'], ''));
+  if (supplied.length) {
+    return section('5. Personnes exposées', table(
+      ['Catégorie', 'Exposition possible', 'Situation critique', 'Mesure de prévention attendue'],
+      supplied.map((person) => [person, 'Exposition signalée dans le scénario', VERIFY, VALIDATION]),
+    ));
+  }
   return section('5. Personnes exposées', table(
     ['Catégorie', 'Exposition possible', 'Situation critique', 'Mesure de prévention attendue'],
     EXPOSED_PERSONS.map((person) => [person, VERIFY, VERIFY, VALIDATION]),
@@ -288,14 +302,15 @@ function mainRisksSection(data) {
   )}\n\nMesures existantes déclarées dans le formulaire : ${suppliedMeasures}`);
 }
 
-function technicalAnalysisSection() {
-  return section('7. Analyse technique par zone', TECHNICAL_ZONES.map(([title, points]) => [
+function technicalAnalysisSection(data) {
+  const scenarioChecks = pick(data, ['pointsToCheck'], VERIFY);
+  return section('7. Analyse technique par zone', `Points issus du scénario à intégrer à la visite : ${scenarioChecks}\n\n${TECHNICAL_ZONES.map(([title, points]) => [
     `### ${title}`,
     '',
     table(['Point', 'Constat', 'Mesure attendue', 'Preuve', 'Statut'], points.map((point) => [
       point, VERIFY, MISSING, PROOF, VALIDATION,
     ])),
-  ].join('\n')).join('\n\n'));
+  ].join('\n')).join('\n\n')}`);
 }
 
 function vulnerableUsersSection() {
@@ -318,37 +333,44 @@ function historicalValueSection(data) {
   ])}\n\n> La valeur historique éventuelle ne supprime pas l’obligation de garantir un niveau de sécurité suffisant.`);
 }
 
-function documentsSection() {
+function documentsSection(data) {
+  const known = {
+    'Rapport SECT d’analyse de risque': pick(data, ['sectReportAvailable'], VERIFY),
+    'Rapport de contrôle périodique': pick(data, ['lastPeriodicInspectionAvailable'], VERIFY),
+    'Attestation de régularisation': pick(data, ['regularizationCertificateAvailable'], VERIFY),
+    'Contrat de maintenance': pick(data, ['maintenanceCompany'], VERIFY),
+    'Liste remarques ouvertes': pick(data, ['openSectRemarks'], VERIFY),
+  };
   return section('10. Documents et preuves à demander', table(
     ['Document / preuve', 'Disponible', 'À demander', 'Responsable', 'Commentaire'],
-    DOCUMENTS.map((document) => [document, MISSING, PROOF, MISSING, MISSING]),
+    DOCUMENTS.map((document) => [document, known[document] || VERIFY, PROOF, pick(data, ['actionResponsible'], VERIFY), VERIFY]),
   ));
 }
 
 function preventionMeasuresSection(data) {
-  const responsible = pick(data, ['actionResponsible', 'responsableActions']);
-  const deadline = pick(data, ['actionDeadline', 'delaiActions']);
+  const responsible = pick(data, ['actionResponsible', 'responsableActions', 'responsibilities']);
+  const deadline = pick(data, ['actionDeadline', 'delaiActions', 'deadlines']);
   return section('11. Mesures de prévention proposées', table(
     ['Mesure', 'Origine du risque', 'Type : technique / organisationnelle / information / formation / surveillance', 'Priorité', 'Responsable', 'Délai', 'Preuve attendue', 'Destination possible : PAA / PGP / DIU / PIU', 'Statut'],
     TYPICAL_ACTIONS.map(([measure, origin, type, priority]) => [measure, origin, type, priority, responsible, deadline, PROOF, 'PAA / PGP / DIU / PIU selon la mesure', VALIDATION]),
   ));
 }
 
-function paaPgpSection() {
-  return section('12. Points à intégrer au PAA / PGP', bulletList([
+function paaPgpSection(data) {
+  return section('12. Points à intégrer au PAA / PGP', `${bulletList([
     'Modernisation', 'Levée des remarques SECT', 'Maintenance renforcée', 'Contrôle périodique',
     'Amélioration de l’accès technique', 'Signalisation', 'Communication bidirectionnelle',
     'Éclairage secours', 'Adaptation PMR', 'Traitement de la valeur historique',
     'Formation / information du personnel d’accueil ou de maintenance interne',
-  ]));
+  ])}\n\nÉléments fournis dans le scénario : ${pick(data, ['paaPgpLinks'], VERIFY)}`);
 }
 
-function diuSection() {
-  return section('13. Points à intégrer au DIU', bulletList([
+function diuSection(data) {
+  return section('13. Points à intégrer au DIU', `${bulletList([
     'Localisation ascenseur', 'Salle machines', 'Gaine', 'Cuvette', 'Coupures électriques',
     'Accès réservé', 'Contraintes d’intervention', 'Présence d’amiante suspectée',
     'Valeur historique', 'Plans / schémas', 'Consignes pour entreprises extérieures',
-  ]));
+  ])}\n\nÉléments fournis dans le scénario : ${pick(data, ['diuLinks'], VERIFY)}`);
 }
 
 function piuSection(data) {
@@ -358,12 +380,12 @@ function piuSection(data) {
     'Interdiction de désincarcération par personnel non formé', 'Coupure électrique',
     'Accès secours', 'Gestion ascenseur en cas d’incendie',
     'Ascenseur PMR / évacuation non autorisée sauf dispositif spécifique',
-  ])}\n\nContacts fournis : maintenance ${pick(data, ['maintenanceContact', 'contactMaintenance'])} ; SECT ${pick(data, ['sectContact', 'contactSect'])} ; secours ${pick(data, ['emergencyContact', 'contactSecours'])}.`);
+  ])}\n\nÉléments fournis dans le scénario : ${pick(data, ['piuLinks'], VERIFY)}\n\nContacts fournis : maintenance ${pick(data, ['maintenanceContact', 'contactMaintenance'])} ; SECT ${pick(data, ['sectContact', 'contactSect'])} ; secours ${pick(data, ['emergencyContact', 'contactSecours'])}.`);
 }
 
 function actionPlanSection(data) {
-  const responsible = pick(data, ['actionResponsible', 'responsableActions']);
-  const deadline = pick(data, ['actionDeadline', 'delaiActions']);
+  const responsible = pick(data, ['actionResponsible', 'responsableActions', 'responsibilities']);
+  const deadline = pick(data, ['actionDeadline', 'delaiActions', 'deadlines']);
   return section('15. Plan d’action priorisé', table(
     ['N°', 'Action', 'Priorité', 'Responsable', 'Délai', 'Preuve', 'Destination PAA/PGP/DIU/PIU', 'Statut'],
     TYPICAL_ACTIONS.map(([measure, , , priority], index) => [index + 1, measure, priority, responsible, deadline, PROOF, 'À déterminer : PAA / PGP / DIU / PIU', VALIDATION]),
@@ -474,6 +496,65 @@ function escapeCell(input) {
 
 function normalizeLanguage(language) {
   return String(language || 'fr').trim().toLowerCase().split(/[-_]/)[0];
+}
+
+function resolveElevatorScenarioData(input) {
+  const data = { ...input };
+  const scenario = getScenarioText(input);
+
+  setFromScenario(data, 'siteName', ['siteName', 'buildingName', 'workplaceName'], scenario, ['Site / bâtiment', 'Site']);
+  if (!data.siteName) data.siteName = extractScenarioValue(scenario, ['Site administratif']);
+  setFromScenario(data, 'technicalServiceContact', ['technicalServiceContact', 'technicalService'], scenario, ['Service technique']);
+  setFromScenario(data, 'owner', ['owner', 'elevatorOwner'], scenario, ['Propriétaire']);
+  setFromScenario(data, 'manager', ['manager', 'elevatorManager', 'siteManager'], scenario, ['Gestionnaire']);
+  setFromScenario(data, 'sect', ['sect', 'knownSect', 'sectName'], scenario, ['SECT']);
+  setFromScenario(data, 'maintenanceCompany', ['maintenanceCompany', 'elevatorMaintenanceCompany'], scenario, ['Entreprise de maintenance']);
+  setFromScenario(data, 'elevatorAddress', ['elevatorAddress', 'address'], scenario, ['Adresse de l’ascenseur']);
+  setFromScenario(data, 'elevatorLocation', ['elevatorLocation', 'locationInBuilding'], scenario, ['Localisation de l’ascenseur']);
+  setFromScenario(data, 'brand', ['brand', 'elevatorBrand'], scenario, ['Marque']);
+  setFromScenario(data, 'serialNumber', ['serialNumber', 'fabricationNumber', 'elevatorSerialNumber'], scenario, ['Numéro de fabrication']);
+  setFromScenario(data, 'constructionYear', ['constructionYear', 'yearOfConstruction'], scenario, ['Année de construction']);
+  setFromScenario(data, 'commissioningDate', ['commissioningDate', 'startDate', 'miseEnService'], scenario, ['Mise en service']);
+  setFromScenario(data, 'elevatorType', ['elevatorType'], scenario, ['Type d’ascenseur']);
+  setFromScenario(data, 'ratedLoad', ['ratedLoad', 'nominalLoad'], scenario, ['Charge nominale']);
+  setFromScenario(data, 'personsCapacity', ['personsCapacity', 'capacityPersons'], scenario, ['Capacité']);
+  setFromScenario(data, 'speed', ['speed', 'elevatorSpeed'], scenario, ['Vitesse']);
+  setFromScenario(data, 'numberOfStops', ['numberOfStops', 'stops'], scenario, ['Nombre d’arrêts']);
+  setFromScenario(data, 'environment', ['environment'], scenario, ['Environnement']);
+  setFromScenario(data, 'usageIntensity', ['usageIntensity'], scenario, ['Intensité d’utilisation']);
+  setFromScenario(data, 'vulnerableUsers', ['vulnerableUsers'], scenario, ['Utilisateurs vulnérables']);
+  setFromScenario(data, 'sectReportAvailable', ['sectReportAvailable'], scenario, ['Rapport SECT']);
+  setFromScenario(data, 'lastPeriodicInspectionAvailable', ['lastPeriodicInspectionAvailable', 'periodicInspectionAvailable'], scenario, ['Dernier contrôle périodique', 'Contrôle périodique']);
+  setFromScenario(data, 'regularizationCertificateAvailable', ['regularizationCertificateAvailable'], scenario, ['Attestation de régularisation']);
+  setFromScenario(data, 'openSectRemarks', ['openSectRemarks', 'openInspectionRemarks'], scenario, ['Remarques SECT ouvertes']);
+  setFromScenario(data, 'modernizationWorksDone', ['modernizationWorksDone'], scenario, ['Travaux de modernisation']);
+  setFromScenario(data, 'openWorks', ['openWorks'], scenario, ['Travaux ouverts']);
+  setFromScenario(data, 'exposedPersons', ['exposedPersons'], scenario, ['Personnes exposées']);
+  setFromScenario(data, 'mainRisks', ['mainRisks'], scenario, ['Risques identifiés']);
+  setFromScenario(data, 'existingMeasures', ['existingMeasures'], scenario, ['Mesures existantes']);
+  setFromScenario(data, 'pointsToCheck', ['pointsToCheck'], scenario, ['Points à vérifier']);
+  setFromScenario(data, 'plannedMeasures', ['plannedMeasures'], scenario, ['Mesures à prévoir']);
+  setFromScenario(data, 'actionResponsible', ['actionResponsible', 'responsableActions'], scenario, ['Responsables']);
+  setFromScenario(data, 'actionDeadline', ['actionDeadline', 'delaiActions'], scenario, ['Délais']);
+  setFromScenario(data, 'evidenceToCollect', ['evidenceToCollect'], scenario, ['Preuves à obtenir']);
+  setFromScenario(data, 'paaPgpLinks', ['paaPgpLinks'], scenario, ['Liens PAA / PGP']);
+  setFromScenario(data, 'diuLinks', ['diuLinks'], scenario, ['Liens DIU']);
+  setFromScenario(data, 'piuLinks', ['piuLinks'], scenario, ['Liens PIU']);
+  data.contextSummary = buildElevatorContextSummary(data);
+  return data;
+}
+
+function buildElevatorContextSummary(data) {
+  const site = pick(data, ['siteName'], 'Le site analysé');
+  const location = pick(data, ['elevatorLocation'], '');
+  const type = pick(data, ['elevatorType'], '');
+  const report = pick(data, ['sectReportAvailable'], '');
+  const risks = pick(data, ['mainRisks'], '');
+  const sentences = [`${site} comporte un ascenseur${type ? ` de type ${type}` : ''}${location ? ` situé ${location}` : ''}.`];
+  if (report) sentences.push(`Le statut du rapport SECT indiqué est : ${report}.`);
+  if (risks) sentences.push(`Les risques signalés portent sur ${risks}.`);
+  sentences.push('Les constats doivent être confrontés au contrôle périodique, à la maintenance et à une visite sur site, sans conclure à la conformité.');
+  return sentences.slice(0, 5).join(' ');
 }
 
 export { DOCUMENTS, MAIN_RISKS, PREPARATORY_ITEMS };

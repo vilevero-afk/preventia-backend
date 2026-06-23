@@ -1,7 +1,13 @@
 import { getField } from './specializedRiskFields.js';
 import { cleanSpecializedRiskMarkdown } from './specializedRiskAiEnrichment.js';
+import {
+  extractScenarioValue,
+  getScenarioText,
+  setFromScenario,
+  splitScenarioList,
+} from './specializedRiskScenario.js';
 
-const MISSING = '[à compléter]';
+const MISSING = '[à vérifier sur site]';
 const VERIFY = '[à vérifier sur site]';
 const PROOF = '[preuve à obtenir]';
 const VALIDATION = '[validation requise]';
@@ -67,7 +73,8 @@ const COMPETENCIES = [
  * Les langues autres que le français reçoivent la version française signalée comme telle.
  */
 export function renderElectricalBtHtRiskAssessmentMarkdown(formData = {}, language = 'fr') {
-  const data = formData && typeof formData === 'object' && !Array.isArray(formData) ? formData : {};
+  const input = formData && typeof formData === 'object' && !Array.isArray(formData) ? formData : {};
+  const data = resolveElectricalScenarioData(input);
   const translationNotice = normalizeLanguage(language) === 'fr'
     ? ''
     : '> Traduction à prévoir — version française générée.';
@@ -102,11 +109,11 @@ export function renderElectricalBtHtRiskAssessmentMarkdown(formData = {}, langua
     '',
     preventionMeasuresSection(data),
     '',
-    paaPgpSection(),
+    paaPgpSection(data),
     '',
-    diuSection(),
+    diuSection(data),
     '',
-    piuSection(),
+    piuSection(data),
     '',
     actionPlanSection(data),
     '',
@@ -133,7 +140,7 @@ function identificationSection(data) {
       ['Stade : conception / réalisation / réception / exploitation / modification', pick(data, ['analysisStage', 'stage', 'projectStage', 'stade'])],
       ['Date de visite ou d’analyse', pick(data, ['assessmentDate', 'visitDate', 'dateAnalyse', 'dateVisite'])],
       ['Auteur de l’aide', pick(data, ['author', 'createdBy', 'preventionAdvisor', 'auteur'])],
-      ['Contexte complémentaire', pick(data, ['additionalContext', 'scenario', 'comments', 'notes', 'context'])],
+      ['Synthèse du contexte', pick(data, ['contextSummary'], VERIFY)],
     ],
   ) + '\n\n> Limite importante : Ce document constitue une aide à l’analyse pour le conseiller en prévention. Il doit être vérifié, complété et validé par les personnes compétentes avant utilisation.');
 }
@@ -148,7 +155,7 @@ function scopeSection(data) {
     ['Tableaux divisionnaires', ['distributionBoards', 'tableauxDivisionnaires']],
     ['Circuits spécifiques', ['specificCircuits', 'circuitsSpecifiques']],
     ['Équipements de travail raccordés', ['connectedWorkEquipment', 'workEquipment', 'equipementsRaccordes']],
-    ['Zones concernées', ['areas', 'zonesConcernees']],
+    ['Zones concernées', ['concernedAreas', 'areas', 'zonesConcernees']],
     ['Plans disponibles', ['availablePlans', 'plansDisponibles']],
     ['PV RGIE disponible', ['rgieReportAvailable', 'rgieReport', 'pvRgieDisponible']],
     ['Dernier contrôle périodique disponible', ['periodicInspectionAvailable', 'periodicInspection', 'lastPeriodicInspection', 'dernierControlePeriodique']],
@@ -177,6 +184,10 @@ function evidenceSection(data) {
 }
 
 function exposedPersonsSection(data) {
+  const supplied = splitScenarioList(pick(data, ['exposedPersons', 'personnesExposees'], ''));
+  if (supplied.length) {
+    return section('4. Personnes exposées', supplied.map((person) => `- ${person}`).join('\n'));
+  }
   const populations = [
     'Personnel non électricien', 'Personnel d’entretien', 'Personnel BA4', 'Personnel BA5',
     'Entreprises extérieures', 'Nettoyage', 'Secours', 'Visiteurs', 'Occupants du bâtiment',
@@ -218,8 +229,19 @@ function generalRisksSection(data) {
 }
 
 function lowVoltageSection(data) {
+  const site = pick(data, ['siteName'], 'le site analysé');
+  const tgbtValue = pick(data, ['tgbt', 'hasMainLowVoltagePanel'], '');
+  const boardsValue = pick(data, ['distributionBoards'], '');
+  const tgbt = tgbtValue ? describeAsset('le TGBT', tgbtValue) : 'le TGBT';
+  const boards = boardsValue ? describeAsset('les tableaux divisionnaires', boardsValue) : 'les tableaux divisionnaires';
+  const technicalService = pick(data, ['technicalServiceContact', 'technicalService'], 'service technique');
+  const siteDescription = /^site\b/i.test(site) ? `${site[0].toLowerCase()}${site.slice(1)}` : `site ${site}`;
+  const authorizedService = /service technique/i.test(technicalService)
+    ? technicalService
+    : `service technique (${technicalService})`;
+  const thermography = pick(data, ['thermographyReportAvailable', 'thermographyReport'], '');
   const items = [
-    ['Accès aux armoires et coffrets', 'Limiter l’accès au personnel qualifié. Vérifier les désignations BA4/BA5.'],
+    ['Accès aux armoires et coffrets', `${tgbt} et ${boards} du ${siteDescription} doivent rester accessibles uniquement au ${authorizedService} et aux intervenants autorisés. La liste des personnes BA4/BA5 doit être demandée et reliée à la procédure de consignation.`],
     ['Fermeture / verrouillage', 'Maintenir les armoires et coffrets fermés à clé. Contrôler la gestion des clés.'],
     ['Signalisation', 'Afficher la tension et le pictogramme de danger électrique.'],
     ['Identification des tableaux', 'Afficher un nom unique et lisible sur chaque tableau.'],
@@ -228,7 +250,9 @@ function lowVoltageSection(data) {
     ['Différentiels', 'Tester les dispositifs différentiels. Conserver la preuve du test.'],
     ['Borniers', 'Contrôler les borniers et leur protection contre le contact direct.'],
     ['Connexions', 'Contrôler le serrage des connexions avec une méthode adaptée.'],
-    ['Thermographie', 'Planifier une thermographie selon la criticité et les conditions de charge.'],
+    ['Thermographie', thermography && !isUnavailable(thermography)
+      ? `Le statut fourni est : ${thermography}. Vérifier la portée et la date du rapport, notamment pour ${tgbt}, ${boards} et les circuits fortement sollicités.`
+      : `Aucun rapport de thermographie n’est disponible dans les données fournies. Une campagne de thermographie est à planifier en priorité sur ${tgbt}, ${boards} et les circuits fortement sollicités.`],
     ['Propreté / poussières', 'Faire réaliser le dépoussiérage par du personnel compétent.'],
     ['Consignation', 'Consigner avant intervention. Séparer, condamner et vérifier l’absence de tension.'],
     ['Interventions', 'Réserver les interventions au personnel autorisé et qualifié.'],
@@ -240,6 +264,17 @@ function lowVoltageSection(data) {
 }
 
 function highVoltageSection(data) {
+  const cabin = pick(data, ['hasHighVoltageCabin', 'highVoltageCabin'], '');
+  const transformer = pick(data, ['hasTransformer', 'transformer'], '');
+  if (!cabin || isUnavailable(cabin) || isUnknown(cabin)) {
+    return section('8. Analyse spécifique haute tension', [
+      'Cabine HT non connue à ce stade. L’existence d’une cabine HT ou d’un transformateur doit être confirmée avant validation.',
+      '',
+      'Si une cabine HT est présente, appliquer les exigences d’accès réservé, BA4/BA5 spécifique, signalisation, contrôle par organisme agréé, entretien spécialisé et surveillance.',
+      '',
+      `Information cabine fournie : ${cabin || VERIFY}. Information transformateur fournie : ${transformer || VERIFY}.`,
+    ].join('\n'));
+  }
   const items = [
     ['Accès au local HT', 'Réserver l’accès au personnel qualifié. Rendre le local inaccessible aux personnes non autorisées.'],
     ['Formation BA4/BA5 spécifique cabine', 'Documenter une formation adaptée à la cabine HT et aux manœuvres autorisées.'],
@@ -289,8 +324,8 @@ function preventionMeasuresSection(data) {
   ));
 }
 
-function paaPgpSection() {
-  return section('11. Points à intégrer au PAA / PGP', bulletList([
+function paaPgpSection(data) {
+  return section('11. Points à intégrer au PAA / PGP', `${bulletList([
     'Planifier les contrôles réglementaires et techniques.',
     'Planifier l’entretien spécialisé.',
     'Actualiser les formations et désignations BA4/BA5.',
@@ -303,11 +338,11 @@ function paaPgpSection() {
     'Contrôler les accès.',
     'Afficher les instructions de premiers soins.',
     'Organiser des exercices ou une sensibilisation.',
-  ]));
+  ])}\n\nÉléments fournis dans le scénario : ${pick(data, ['paaPgpLinks'], VERIFY)}`);
 }
 
-function diuSection() {
-  return section('12. Points à intégrer au DIU', bulletList([
+function diuSection(data) {
+  return section('12. Points à intégrer au DIU', `${bulletList([
     'Localisation des armoires et de la cabine.',
     'Localisation et fonction des coupures.',
     'Restrictions d’accès.',
@@ -317,11 +352,11 @@ function diuSection() {
     'Zones à risque électrique.',
     'Plans et schémas à tenir à jour.',
     'Consignes applicables aux entreprises extérieures.',
-  ]));
+  ])}\n\nÉléments fournis dans le scénario : ${pick(data, ['diuLinks'], VERIFY)}`);
 }
 
-function piuSection() {
-  return section('13. Points utiles pour le PIU', bulletList([
+function piuSection(data) {
+  return section('13. Points utiles pour le PIU', `${bulletList([
     'Localisation de la coupure générale.',
     'Accès au local HT.',
     'Accès au TGBT.',
@@ -331,7 +366,7 @@ function piuSection() {
     'Consignes aux secours.',
     'Localisation du dossier technique.',
     'Personne habilitée à contacter.',
-  ]));
+  ])}\n\nÉléments fournis dans le scénario : ${pick(data, ['piuLinks'], VERIFY)}`);
 }
 
 function actionPlanSection(data) {
@@ -408,8 +443,8 @@ function specificSection(title, items, observations) {
 }
 
 function preventionActions(data) {
-  const responsible = pick(data, ['actionResponsible', 'responsableActions']);
-  const deadline = pick(data, ['actionDeadline', 'delaiActions']);
+  const responsible = pick(data, ['actionResponsible', 'responsableActions', 'responsibilities']);
+  const deadline = pick(data, ['actionDeadline', 'delaiActions', 'deadlines']);
   return [
     ['Sécuriser les accès et le verrouillage BT/HT.', 'Accès non autorisé', 'Immédiate', 'PAA / PGP / DIU / PIU'],
     ['Lever les remarques ouvertes des contrôles.', 'Défaut de protection ou de conformité', 'Haute', 'PAA / PGP'],
@@ -465,6 +500,7 @@ function joinAddress(data) {
 }
 
 function normalizeRows(input) {
+  if (typeof input === 'string') return splitScenarioList(input).map((item) => ({ name: item }));
   if (!Array.isArray(input)) return [];
   return input.map((item) => typeof item === 'object' && item !== null ? item : { name: item });
 }
@@ -493,6 +529,78 @@ function normalize(input) {
 
 function normalizeLanguage(language) {
   return String(language || 'fr').trim().toLowerCase().split(/[-_]/)[0];
+}
+
+function resolveElectricalScenarioData(input) {
+  const data = { ...input };
+  const scenario = getScenarioText(input);
+
+  setFromScenario(data, 'siteName', ['siteName', 'buildingName', 'workplaceName'], scenario, ['Site / bâtiment', 'Site']);
+  if (!data.siteName) data.siteName = extractScenarioValue(scenario, ['Site administratif']);
+  setFromScenario(data, 'technicalServiceContact', ['technicalServiceContact', 'technicalService'], scenario, ['Service technique']);
+  setFromScenario(data, 'analysisStage', ['analysisStage', 'stage'], scenario, ['Stade de l’analyse', 'Stade']);
+  setFromScenario(data, 'lowVoltageCabinets', ['hasLowVoltageCabinet', 'lowVoltageCabinets'], scenario, ['Armoires basse tension']);
+  setFromScenario(data, 'highVoltageCabin', ['hasHighVoltageCabin', 'highVoltageCabin'], scenario, ['Cabine haute tension']);
+  setFromScenario(data, 'transformer', ['hasTransformer', 'transformer'], scenario, ['Transformateur']);
+  setFromScenario(data, 'tgbt', ['hasMainLowVoltagePanel', 'tgbt'], scenario, ['TGBT']);
+  setFromScenario(data, 'distributionBoards', ['distributionBoards'], scenario, ['Tableaux divisionnaires']);
+  setFromScenario(data, 'rgieReport', ['rgieReportAvailable', 'rgieReport'], scenario, ['PV RGIE']);
+  setFromScenario(data, 'periodicInspection', ['periodicInspectionAvailable', 'periodicInspection'], scenario, ['Contrôle périodique']);
+  setFromScenario(data, 'ba4Ba5List', ['ba4Ba5ListAvailable', 'ba4Ba5List'], scenario, ['Liste BA4/BA5']);
+  setFromScenario(data, 'consignationProcedure', ['lockoutProcedureAvailable', 'lockoutProcedure', 'consignationProcedure'], scenario, ['Procédure de consignation']);
+  setFromScenario(data, 'thermographyReport', ['thermographyReportAvailable', 'thermographyReport'], scenario, ['Rapport de thermographie']);
+  setFromScenario(data, 'openInspectionRemarks', ['openInspectionRemarks', 'openRemarks'], scenario, ['Remarques de contrôle ouvertes']);
+  setFromScenario(data, 'connectedWorkEquipment', ['connectedWorkEquipment', 'workEquipment'], scenario, ['Équipements raccordés']);
+  setFromScenario(data, 'exposedPersons', ['exposedPersons'], scenario, ['Personnes exposées']);
+  setFromScenario(data, 'concernedAreas', ['concernedAreas'], scenario, ['Zones concernées']);
+  setFromScenario(data, 'mainRisks', ['mainRisks'], scenario, ['Risques identifiés']);
+  setFromScenario(data, 'existingMeasures', ['existingMeasures'], scenario, ['Mesures existantes']);
+  setFromScenario(data, 'pointsToCheck', ['pointsToCheck'], scenario, ['Points à vérifier']);
+  setFromScenario(data, 'plannedMeasures', ['plannedMeasures'], scenario, ['Mesures à prévoir']);
+  setFromScenario(data, 'priorities', ['priorities'], scenario, ['Priorités']);
+  setFromScenario(data, 'actionResponsible', ['actionResponsible', 'responsableActions'], scenario, ['Responsables']);
+  setFromScenario(data, 'actionDeadline', ['actionDeadline', 'delaiActions'], scenario, ['Délais']);
+  setFromScenario(data, 'evidenceToCollect', ['evidenceToCollect'], scenario, ['Preuves à obtenir']);
+  setFromScenario(data, 'paaPgpLinks', ['paaPgpLinks'], scenario, ['Liens PAA / PGP']);
+  setFromScenario(data, 'diuLinks', ['diuLinks'], scenario, ['Liens DIU']);
+  setFromScenario(data, 'piuLinks', ['piuLinks'], scenario, ['Liens PIU']);
+  data.contextSummary = buildElectricalContextSummary(data);
+
+  return data;
+}
+
+function buildElectricalContextSummary(data) {
+  const site = pick(data, ['siteName'], 'Le site analysé');
+  const tgbt = pick(data, ['tgbt'], '');
+  const boards = pick(data, ['distributionBoards'], '');
+  const areas = pick(data, ['concernedAreas'], '');
+  const cabin = pick(data, ['highVoltageCabin'], '');
+  const priorities = pick(data, ['priorities'], 'le PV RGIE, la maîtrise des accès, la liste BA4/BA5, la consignation et la thermographie');
+  const sentences = [];
+  const assets = [];
+  if (tgbt) assets.push(describeAsset('TGBT', tgbt));
+  if (boards) assets.push(describeAsset('tableaux divisionnaires', boards));
+  sentences.push(`${site} ${assets.length ? `dispose de ${assets.join(' et ')}` : 'fait l’objet de la présente analyse électrique'}.`);
+  if (areas) sentences.push(`Les zones concernées sont : ${areas}.`);
+  if (cabin && (isUnavailable(cabin) || isUnknown(cabin))) sentences.push('Aucune cabine haute tension n’est connue à ce stade et ce point reste à confirmer sur site.');
+  sentences.push(`Les priorités portent sur ${priorities}.`);
+  return sentences.slice(0, 5).join(' ');
+}
+
+function describeAsset(label, value) {
+  const text = String(value).trim();
+  const bareLabel = String(label).replace(/^(?:le|la|les|un|une)\s+/i, '');
+  if (normalize(text).includes(normalize(bareLabel))) return text;
+  if (/^(present|présent|oui)\b/i.test(text)) return `${label} ${text.replace(/^(present|présent|oui)\s*[:—-]?\s*/i, '')}`.trim();
+  return `${label} ${text}`.trim();
+}
+
+function isUnavailable(value) {
+  return /\b(non disponible|absent|aucun|pas de|non fourni|non connue?)\b/i.test(String(value || ''));
+}
+
+function isUnknown(value) {
+  return /\b(inconnu|inconnue|à vérifier|a verifier|non connu|non connue)\b/i.test(String(value || ''));
 }
 
 export { GENERAL_RISKS, DOCUMENT_EVIDENCE };

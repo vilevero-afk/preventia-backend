@@ -26,10 +26,56 @@ const aliases = [
 const formData = {
   companyName: 'SPGE',
   siteName: 'Site administratif de Verviers',
+  siteContact: 'Sophie Martin',
   preventionAdvisor: 'Vincent Legrand',
-  owner: 'Propriétaire test',
-  elevatorType: 'hydraulique',
+  siteManager: 'Marc Delvaux',
+  technicalServiceContact: 'Jean Peeters',
   historicalValue: 'inconnue',
+  additionalContext: `SCÉNARIO TEST SPGE ASCENSEUR
+Site administratif de Verviers
+Propriétaire : SPGE
+Gestionnaire : Marc Delvaux
+SECT : Organisme à confirmer
+Entreprise de maintenance : Lift Service
+Localisation de l’ascenseur : aile administrative, près de l’accueil
+Marque : Marque test
+Numéro de fabrication : ASC-0042
+Année de construction : 2002
+Mise en service : 2003
+Type d’ascenseur : hydraulique
+Charge nominale : 630 kg
+Capacité : 8 personnes
+Vitesse : 1 m/s
+Nombre d’arrêts : 4
+Environnement : bureaux administratifs
+Intensité d’utilisation : normale
+Utilisateurs vulnérables : PMR et visiteurs
+Rapport SECT : Non disponible, à obtenir
+Dernier contrôle périodique : Non disponible, à obtenir
+Attestation de régularisation : À vérifier
+Remarques SECT ouvertes : Inconnues
+Travaux de modernisation : À documenter
+Travaux ouverts : Inconnus
+PERSONNES EXPOSÉES
+- travailleurs
+- visiteurs
+- PMR
+- personnel de maintenance
+RISQUES IDENTIFIÉS
+- communication bidirectionnelle non testée
+- éclairage secours à vérifier
+- précision d’arrêt à contrôler
+MESURES EXISTANTES
+- contrat de maintenance annoncé
+POINTS À VÉRIFIER
+- cuvette, salle machines, portes palières et communication
+MESURES À PRÉVOIR
+- tests communication et éclairage secours
+Responsables : Service technique et conseiller en prévention
+Délais : 1 à 3 mois
+PREUVES À OBTENIR
+- rapport SECT, contrôle périodique et contrat de maintenance
+Référence AR-2026-0042 — Page 1 / 1`,
 };
 
 const markdown = renderElevatorRiskAssessmentMarkdown(formData, 'fr');
@@ -38,7 +84,9 @@ assert.match(markdown, /Analyse de risques — Ascenseur/);
 assert.match(markdown, /aide au conseiller en prévention/i);
 
 for (const expected of [
-  'SPGE', 'Site administratif de Verviers', 'Vincent Legrand',
+  'SPGE', 'Site administratif de Verviers', 'Sophie Martin', 'Vincent Legrand',
+  'Marc Delvaux', 'Jean Peeters', 'ASC-0042', 'Lift Service',
+  'Service technique et conseiller en prévention', '1 à 3 mois',
   'SECT', 'AR du 9 mars 2003', 'gravité x probabilité x exposition',
   'porte cabine', 'portes palières', 'communication bidirectionnelle',
   'éclairage secours', 'cuvette', 'salle machines', 'parachute',
@@ -48,7 +96,19 @@ for (const expected of [
 }
 
 assert.ok((markdown.match(/Page 1 \/ 1/g) || []).length <= 1);
+assert.doesNotMatch(markdown, /SCÉNARIO TEST SPGE/i);
+assert.doesNotMatch(markdown, /Référence AR-/i);
+assert.doesNotMatch(markdown, /Page 1 \/ 1/i);
+assert.ok((markdown.match(/\[à compléter\]/g) || []).length < 10);
 assertNumberedSectionsHaveContent(markdown, [18, 19, 20, 21, 22, 23]);
+
+const scenarioOnlyMarkdown = renderElevatorRiskAssessmentMarkdown({
+  companyName: 'SPGE',
+  additionalContext: formData.additionalContext,
+}, 'fr');
+for (const extracted of ['Site administratif de Verviers', 'ASC-0042', 'communication bidirectionnelle non testée', '1 à 3 mois']) {
+  assert.match(scenarioOnlyMarkdown, new RegExp(extracted, 'i'), `Extraction scénario : ${extracted}`);
+}
 
 let aiRequest;
 const enrichedMarkdown = await enrichElevatorRiskAssessmentWithAI({
@@ -60,12 +120,26 @@ const enrichedMarkdown = await enrichElevatorRiskAssessmentWithAI({
   maxOutputTokens: 9000,
   openai: { responses: { create: async (request) => {
     aiRequest = request;
-    return { output_text: `${markdown}\nPage 1 / 1` };
+    return { output_text: `${markdown}\nRéférence AR-2026-0042 — Page 1 / 1\nPage 1 / 1` };
   } } },
 });
 assert.doesNotMatch(enrichedMarkdown, /Page 1 \/ 1/);
+assert.doesNotMatch(enrichedMarkdown, /Référence AR-/);
 assert.match(aiRequest.instructions, /rapport du SECT/);
 assert.match(aiRequest.input[0].content[0].text, /Site administratif de Verviers/);
+assert.doesNotMatch(aiRequest.input[0].content[0].text, /SCÉNARIO TEST SPGE/);
+await assert.rejects(
+  enrichElevatorRiskAssessmentWithAI({
+    baseMarkdown: markdown,
+    formData,
+    language: 'fr',
+    documentType: aliases[0],
+    model: 'test-model',
+    maxOutputTokens: 9000,
+    openai: { responses: { create: async () => ({ output_text: `${markdown}\nSCÉNARIO TEST SPGE ASCENSEUR` }) } },
+  }),
+  /Scénario brut encore présent/,
+);
 
 assert.equal(renderElevatorRiskAssessmentMarkdown(formData, 'fr'), markdown);
 const emptyMarkdown = renderElevatorRiskAssessmentMarkdown({}, 'fr');
