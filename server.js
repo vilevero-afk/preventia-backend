@@ -16,6 +16,10 @@ import { fileURLToPath } from 'node:url';
 import { renderInternalEmergencyPlanMarkdown } from './src/renderers/internalEmergencyPlanRenderer.js';
 import { renderElectricalBtHtRiskAssessmentMarkdown } from './src/renderers/electricalBtHtRiskAssessmentRenderer.js';
 import { renderElevatorRiskAssessmentMarkdown } from './src/renderers/elevatorRiskAssessmentRenderer.js';
+import {
+  enrichElectricalBtHtRiskAssessmentWithAI,
+  enrichElevatorRiskAssessmentWithAI,
+} from './src/renderers/specializedRiskAiEnrichment.js';
 import { createLicenseStore } from './src/licenseStore.js';
 
 const PORT = process.env.PORT || 3000;
@@ -2061,9 +2065,8 @@ app.post('/api/generate-document', async (req, res, next) => {
     const isInternalEmergencyPlan = documentDefinition.family === 'internal_emergency_plan';
     const isElectricalBtHtRiskAssessment = documentDefinition.family === 'electrical_bt_ht_risk_assessment';
     const isElevatorRiskAssessment = documentDefinition.family === 'elevator_risk_assessment';
-    const isDeterministicDocument = isInternalEmergencyPlan ||
-      isElectricalBtHtRiskAssessment ||
-      isElevatorRiskAssessment;
+    const isSpecializedRiskAssessment = isElectricalBtHtRiskAssessment || isElevatorRiskAssessment;
+    const isDeterministicDocument = isInternalEmergencyPlan || isSpecializedRiskAssessment;
 
     if (!isDeterministicDocument && !process.env.OPENAI_API_KEY) {
       const error = new Error('Configuration OpenAI manquante côté serveur.');
@@ -2072,9 +2075,9 @@ app.post('/api/generate-document', async (req, res, next) => {
       throw error;
     }
 
-    const openai = isDeterministicDocument
-      ? null
-      : new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = !isInternalEmergencyPlan && process.env.OPENAI_API_KEY
+      ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+      : null;
 
     console.info('Demande de génération reçue', {
       documentType,
@@ -2083,6 +2086,7 @@ app.post('/api/generate-document', async (req, res, next) => {
     });
 
     let generatedDocument;
+    let generationSource = isDeterministicDocument ? 'deterministic_backend' : 'ai_backend';
 
     if (isInternalEmergencyPlan) {
       generatedDocument = {
@@ -2090,13 +2094,57 @@ app.post('/api/generate-document', async (req, res, next) => {
         complementaryDocument: null,
       };
     } else if (isElectricalBtHtRiskAssessment) {
+      const baseMarkdown = renderElectricalBtHtRiskAssessmentMarkdown(formData, language || targetLanguage.code);
+      let document = baseMarkdown;
+      if (openai) {
+        console.info('[PreventIA] Electrical BT/HT renderer: AI enrichment attempted');
+        try {
+          document = await enrichElectricalBtHtRiskAssessmentWithAI({
+            baseMarkdown,
+            formData,
+            language: language || targetLanguage.code,
+            documentType,
+            openai,
+            model: OPENAI_MODEL,
+            maxOutputTokens: OPENAI_MAX_OUTPUT_TOKENS,
+          });
+          generationSource = 'ai_backend';
+          console.info('[PreventIA] Electrical BT/HT renderer: AI enrichment success');
+        } catch {
+          console.info('[PreventIA] Electrical BT/HT renderer: fallback deterministic used');
+        }
+      } else {
+        console.info('[PreventIA] Electrical BT/HT renderer: fallback deterministic used');
+      }
       generatedDocument = {
-        document: renderElectricalBtHtRiskAssessmentMarkdown(formData, language || targetLanguage.code),
+        document,
         complementaryDocument: null,
       };
     } else if (isElevatorRiskAssessment) {
+      const baseMarkdown = renderElevatorRiskAssessmentMarkdown(formData, language || targetLanguage.code);
+      let document = baseMarkdown;
+      if (openai) {
+        console.info('[PreventIA] Elevator renderer: AI enrichment attempted');
+        try {
+          document = await enrichElevatorRiskAssessmentWithAI({
+            baseMarkdown,
+            formData,
+            language: language || targetLanguage.code,
+            documentType,
+            openai,
+            model: OPENAI_MODEL,
+            maxOutputTokens: OPENAI_MAX_OUTPUT_TOKENS,
+          });
+          generationSource = 'ai_backend';
+          console.info('[PreventIA] Elevator renderer: AI enrichment success');
+        } catch {
+          console.info('[PreventIA] Elevator renderer: fallback deterministic used');
+        }
+      } else {
+        console.info('[PreventIA] Elevator renderer: fallback deterministic used');
+      }
       generatedDocument = {
-        document: renderElevatorRiskAssessmentMarkdown(formData, language || targetLanguage.code),
+        document,
         complementaryDocument: null,
       };
     } else if (documentDefinition.family === 'risk_assessment') {
@@ -2196,7 +2244,7 @@ app.post('/api/generate-document', async (req, res, next) => {
 
     res.json({
       success: true,
-      source: isDeterministicDocument ? 'deterministic_backend' : 'ai_backend',
+      source: generationSource,
       documentType: documentDefinition.labels[targetLanguage.code] || documentType,
       document,
       ...(complementaryDocument ? { complementaryDocument } : {}),

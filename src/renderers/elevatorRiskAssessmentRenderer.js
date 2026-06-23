@@ -1,23 +1,26 @@
+import { getField } from './specializedRiskFields.js';
+import { cleanSpecializedRiskMarkdown } from './specializedRiskAiEnrichment.js';
+
 const MISSING = '[à compléter]';
 const VERIFY = '[à vérifier sur site]';
 const PROOF = '[preuve à obtenir]';
 const VALIDATION = '[validation requise]';
 
 const PREPARATORY_ITEMS = [
-  ['Propriétaire', ['owner', 'proprietaire']],
-  ['Gestionnaire', ['manager', 'gestionnaire']],
-  ['Entreprise de maintenance', ['maintenanceCompany', 'entrepriseMaintenance']],
+  ['Propriétaire', ['owner', 'elevatorOwner', 'proprietaire']],
+  ['Gestionnaire', ['manager', 'elevatorManager', 'siteManager', 'gestionnaire']],
+  ['Entreprise de maintenance', ['maintenanceCompany', 'elevatorMaintenanceCompany', 'entrepriseMaintenance']],
   ['Certification maintenance ISO 9001 si connue', ['maintenanceIso9001', 'certificationMaintenanceIso9001']],
   ['Adresse de l’ascenseur', ['elevatorAddress', 'adresseAscenseur', 'address', 'adresse']],
-  ['Localisation dans le bâtiment', ['elevatorLocation', 'localisationAscenseur']],
-  ['Marque', ['brand', 'marque']],
-  ['Numéro de fabrication', ['serialNumber', 'manufacturingNumber', 'numeroFabrication']],
-  ['Année de construction', ['constructionYear', 'anneeConstruction']],
+  ['Localisation dans le bâtiment', ['elevatorLocation', 'locationInBuilding', 'localisationAscenseur']],
+  ['Marque', ['brand', 'elevatorBrand', 'marque']],
+  ['Numéro de fabrication', ['serialNumber', 'fabricationNumber', 'elevatorSerialNumber', 'manufacturingNumber', 'numeroFabrication']],
+  ['Année de construction', ['constructionYear', 'yearOfConstruction', 'anneeConstruction']],
   ['Type : électrique / hydraulique / vis sans fin / autre', ['elevatorType', 'typeAscenseur']],
   ['Charge nominale', ['ratedLoad', 'chargeNominale']],
-  ['Nombre de personnes', ['personCapacity', 'nombrePersonnes']],
-  ['Vitesse', ['speed', 'vitesse']],
-  ['Nombre d’arrêts', ['numberOfStops', 'nombreArrets']],
+  ['Nombre de personnes', ['personsCapacity', 'capacityPersons', 'personCapacity', 'nombrePersonnes']],
+  ['Vitesse', ['speed', 'elevatorSpeed', 'vitesse']],
+  ['Nombre d’arrêts', ['numberOfStops', 'stops', 'nombreArrets']],
   ['Environnement : habitation, bureaux, hôpital, maison de repos, industriel, commerce, autre', ['environment', 'environnement']],
   ['Utilisation normale / intensive', ['usageIntensity', 'utilisation']],
   ['Utilisateurs vulnérables : enfants, personnes âgées, PMR, autres handicaps', ['vulnerableUsers', 'utilisateursVulnerables']],
@@ -57,12 +60,47 @@ const MAIN_RISKS = [
   ['Défaut amortisseurs', 'Utilisateurs, maintenance', 'État et efficacité en cuvette', 'Choc violent en fin de course'],
   ['Mouvement incontrôlé de la cabine', 'Utilisateurs, maintenance', 'Dérive porte ouverte et protections associées', 'Écrasement, coincement ou chute'],
   ['Risque électrique', 'Maintenance, contrôle, entretien', 'Armoires, câbles, mise à la terre et consignation', 'Électrisation, électrocution ou incendie'],
-  ['Présence possible d’amiante', 'Maintenance, entreprises extérieures', 'Matériaux suspects avant intervention', 'Exposition aux fibres d’amiante'],
+  ['Amiante suspectée', 'Maintenance, entreprises extérieures', 'Matériaux suspects avant intervention', 'Exposition aux fibres d’amiante'],
   ['Défaut de signalisation', 'Utilisateurs, secours, maintenance', 'Consignes, capacité, contacts et interdictions', 'Erreur d’usage ou retard d’intervention'],
-  ['Défaut de maintenance', 'Tous les utilisateurs', 'Contrat, fréquence, traçabilité et suites données', 'Dégradation non détectée et défaillance'],
+  ['Maintenance insuffisamment documentée', 'Tous les utilisateurs', 'Contrat, fréquence, traçabilité et suites données', 'Dégradation non détectée et défaillance'],
   ['Remarques ouvertes SECT', 'Tous les utilisateurs', 'Liste, criticité, délais et preuves de levée', 'Maintien d’un risque identifié'],
   ['Utilisation par personnes vulnérables', 'Enfants, personnes âgées, PMR, personnes handicapées', 'Usage réel, assistance et accessibilité', 'Collision, chute, enfermement ou panique'],
-  ['Ascenseur de valeur historique avec contraintes spécifiques', 'Utilisateurs, maintenance', 'Compatibilité conservation / sécurité et avis compétent', 'Mesures insuffisantes ou altération patrimoniale'],
+  ['Valeur historique éventuelle', 'Utilisateurs, maintenance', 'Compatibilité conservation / sécurité et avis compétent', 'Mesures insuffisantes ou altération patrimoniale'],
+];
+
+const RISK_MEASURES = [
+  ['Faire tester chaque dispositif par l’acteur compétent et traiter les défauts signalés.', 'Rapport SECT et procès-verbal d’essais.'],
+  ['Vérifier verrouillage positif, déverrouillage par outil spécial et contact de sécurité.', 'Rapport d’essai des serrures palières.'],
+  ['Vérifier que le contact interdit tout mouvement avec la porte cabine non sécurisée.', 'Essai fonctionnel tracé.'],
+  ['Faire évaluer la porte ou le rideau de sécurité et planifier la protection adaptée.', 'Rapport SECT et preuve de modernisation.'],
+  ['Poser ou rétablir protecteurs et distances de sécurité avant intervention.', 'Photos des protecteurs et rapport de maintenance.'],
+  ['Faire contrôler la fermeture, la résistance et les ouvertures de gaine.', 'Constat SECT et photos de la gaine.'],
+  ['Vérifier la fermeture et la résistance des parois de cabine.', 'Photos et rapport de contrôle.'],
+  ['Contrôler jeux, espaces et dispositifs anti-coincement à chaque accès.', 'Relevé de visite et essais des sécurités.'],
+  ['Remettre les seuils en état et supprimer les obstacles ou différences dangereuses.', 'Photos avant/après et fiche d’intervention.'],
+  ['Mesurer l’arrêt à chaque palier et prioriser les PMR si leur usage est probable.', 'Relevé des écarts de nivelage sous charges représentatives.'],
+  ['Contrôler dérive et dispositif anti-dérive de l’ascenseur hydraulique.', 'Rapport de maintenance avec mesure de dérive.'],
+  ['Mesurer et rétablir un éclairage sûr sur tous les paliers.', 'Mesures d’éclairement et preuve d’intervention.'],
+  ['Vérifier éclairage normal, diffuseurs et commande en cabine.', 'Essai daté et photos.'],
+  ['Vérifier autonomie, test périodique et remplacement en cas de défaut.', 'Preuve d’autonomie et registre des tests.'],
+  ['Tester appel, dialogue, localisation et permanence ; afficher la procédure et les contacts maintenance.', 'Compte rendu d’appel bidirectionnel daté.'],
+  ['Formaliser procédure personne bloquée, rôles de l’accueil et délai d’intervention.', 'Exercice tracé et liste des contacts à jour.'],
+  ['Vérifier les ouvertures de ventilation, y compris lors d’une immobilisation.', 'Constat technique et notice constructeur.'],
+  ['Sécuriser accès, échelle, interrupteur d’arrêt et traiter toute eau en cuvette.', 'Photos de la cuvette et rapport de maintenance.'],
+  ['Réserver l’accès, vérifier éclairage, serrure, signalisation et zones de travail.', 'Plan d’accès et photos de la salle machines.'],
+  ['Installer ou remettre en place les protections des parties mobiles.', 'Photos et validation de l’entreprise de maintenance.'],
+  ['Tester présence, accessibilité et action de chaque interrupteur d’arrêt.', 'Rapport d’essai fonctionnel.'],
+  ['Faire tester le parachute selon les modalités réglementaires.', 'Rapport officiel mentionnant le test.'],
+  ['Faire contrôler réglage, liaison et fonctionnement du limiteur de vitesse.', 'Rapport de contrôle du limiteur.'],
+  ['Contrôler état, position et efficacité des amortisseurs.', 'Rapport SECT ou maintenance documenté.'],
+  ['Vérifier protections contre dérive et mouvement porte ouverte.', 'Essai et rapport SECT.'],
+  ['Vérifier armoires, câbles, terre, protections et procédure de consignation.', 'Rapport électrique et procédure de consignation.'],
+  ['Faire réaliser un repérage amiante avant tout travail susceptible d’exposer.', 'Inventaire amiante ou analyse d’échantillon.'],
+  ['Afficher capacité, consignes, contacts et restrictions lisibles.', 'Photos datées de la signalisation.'],
+  ['Obtenir contrat, rapports, remarques ouvertes et planification corrective.', 'Contrat et registre complet des interventions.'],
+  ['Demander le rapport officiel SECT et les preuves de levée ou l’attestation applicable.', 'Rapport SECT et attestations de clôture.'],
+  ['Adapter accès, commandes, signalisation et assistance aux utilisateurs vulnérables.', 'Évaluation d’accessibilité et mesures réalisées.'],
+  ['Concilier conservation et sécurité avec avis compétents et mesures alternatives documentées.', 'Dossier historique, avis SECT et décision du gestionnaire.'],
 ];
 
 const TECHNICAL_ZONES = [
@@ -145,24 +183,28 @@ export function renderElevatorRiskAssessmentMarkdown(formData = {}, language = '
     '', actionPlanSection(data),
     '', validationsSection(),
     '', helpLimitsSection(),
+    '', finalSections(),
   );
 
-  return sections.filter((line, index, lines) => line !== '' || lines[index - 1] !== '').join('\n').trim() + '\n';
+  return cleanSpecializedRiskMarkdown(sections.filter((line, index, lines) => line !== '' || lines[index - 1] !== '').join('\n').trim()) + '\n';
 }
 
 function identificationSection(data, languageCode) {
   return section('1. Identification', `${table(['Élément', 'Valeur'], [
-    ['Entreprise / organisation', pick(data, ['companyName', 'company', 'entreprise', 'organisation'])],
-    ['Site / bâtiment', pick(data, ['siteName', 'site', 'buildingName', 'batiment'])],
+    ['Entreprise / organisation', pick(data, ['companyName', 'enterpriseName', 'organisationName', 'organizationName', 'company', 'entreprise', 'organisation'])],
+    ['Site / bâtiment', pick(data, ['siteName', 'buildingName', 'workplaceName', 'locationName', 'site', 'batiment'])],
     ['Adresse', address(data)],
-    ['Propriétaire', pick(data, ['owner', 'proprietaire'])],
-    ['Gestionnaire', pick(data, ['manager', 'gestionnaire'])],
-    ['Personne de contact', pick(data, ['contactPerson', 'personneContact', 'contact'])],
-    ['Conseiller en prévention', pick(data, ['preventionAdvisor', 'conseillerPrevention'])],
-    ['SECT connu', pick(data, ['sect', 'knownSect', 'sectConnu'])],
-    ['Entreprise de maintenance', pick(data, ['maintenanceCompany', 'entrepriseMaintenance'])],
+    ['Propriétaire', pick(data, ['owner', 'elevatorOwner', 'proprietaire'])],
+    ['Gestionnaire', pick(data, ['manager', 'elevatorManager', 'siteManager', 'gestionnaire'])],
+    ['Personne de contact', pick(data, ['contactPerson', 'siteContact', 'contactName', 'personneContact', 'contact'])],
+    ['Conseiller en prévention', pick(data, ['preventionAdvisor', 'preventionAdvisorName', 'conseillerPrevention'])],
+    ['Responsable du site', pick(data, ['siteManager', 'manager', 'responsible'])],
+    ['Service technique', pick(data, ['technicalServiceContact', 'technicalService', 'maintenanceContact'])],
+    ['SECT connu', pick(data, ['sect', 'knownSect', 'sectName', 'sectConnu'])],
+    ['Entreprise de maintenance', pick(data, ['maintenanceCompany', 'elevatorMaintenanceCompany', 'entrepriseMaintenance'])],
     ['Date de l’aide à l’analyse', pick(data, ['assessmentDate', 'dateAnalyse', 'dateAideAnalyse'])],
-    ['Auteur de l’aide', pick(data, ['author', 'auteur'])],
+    ['Auteur de l’aide', pick(data, ['author', 'createdBy', 'preventionAdvisor', 'auteur'])],
+    ['Contexte complémentaire', pick(data, ['additionalContext', 'scenario', 'comments', 'notes', 'context'])],
     ['Référence interne', pick(data, ['internalReference', 'referenceInterne', 'reference'])],
     ['Langue', value(data.language || data.langue || languageCode)],
   ])}\n\n> Ce document constitue une aide au conseiller en prévention. Il doit être complété, vérifié sur site et confronté au rapport du SECT, aux contrôles périodiques, aux documents de maintenance et aux constats réels.`);
@@ -178,14 +220,20 @@ function limitsAndStatusSection(data) {
   ].map((item) => `- ${item}`).join('\n');
   return section('2. Limites et statut de l’analyse', `${statements}\n\n${table(['Élément', 'Information'], [
     ['Ascenseur existant / neuf / modernisé', pick(data, ['elevatorStatus', 'statutAscenseur'])],
-    ['Date de mise en service connue', pick(data, ['commissioningDate', 'dateMiseEnService'])],
+    ['Date de mise en service connue', pick(data, ['commissioningDate', 'startDate', 'miseEnService', 'dateMiseEnService'])],
     ['Année de construction', pick(data, ['constructionYear', 'anneeConstruction'])],
     ['Date dernière analyse SECT', pick(data, ['lastSectAssessmentDate', 'dateDerniereAnalyseSect'])],
     ['Date dernier contrôle périodique', pick(data, ['lastPeriodicInspectionDate', 'dateDernierControlePeriodique'])],
     ['Rapport SECT disponible', pick(data, ['sectReportAvailable', 'rapportSectDisponible'])],
+    ['Dernier contrôle périodique disponible', pick(data, ['lastPeriodicInspectionAvailable', 'periodicInspectionAvailable'])],
     ['Attestation de régularisation disponible', pick(data, ['regularizationCertificateAvailable', 'attestationRegularisationDisponible'])],
-    ['Travaux de modernisation réalisés', pick(data, ['modernizationWorkCompleted', 'travauxModernisationRealises'])],
-    ['Travaux ouverts', pick(data, ['openWork', 'travauxOuverts'])],
+    ['Travaux de modernisation réalisés', pick(data, ['modernizationWorksDone', 'modernizationWorkCompleted', 'travauxModernisationRealises'])],
+    ['Travaux ouverts', pick(data, ['openWorks', 'openWork', 'travauxOuverts'])],
+    ['Remarques SECT ouvertes', pick(data, ['openSectRemarks', 'openInspectionRemarks'])],
+    ['Risques principaux signalés', pick(data, ['mainRisks'])],
+    ['Points à vérifier signalés', pick(data, ['pointsToCheck'])],
+    ['Mesures prévues', pick(data, ['plannedMeasures'])],
+    ['Preuves à collecter', pick(data, ['evidenceToCollect'])],
     ['Utilisation actuelle conforme à l’usage prévu', pick(data, ['currentUseMatchesIntendedUse', 'utilisationConformeUsagePrevu'], VERIFY)],
   ])}`);
 }
@@ -229,15 +277,15 @@ function exposedPersonsSection() {
 }
 
 function mainRisksSection(data) {
-  const measures = pick(data, ['existingMeasures', 'mesuresExistantes'], VERIFY);
-  return section('6. Analyse des risques principaux', table(
+  const suppliedMeasures = pick(data, ['existingMeasures', 'mesuresExistantes'], VERIFY);
+  return section('6. Analyse des risques principaux', `${table(
     ['Danger / situation dangereuse', 'Personnes exposées', 'Situation à vérifier', 'Risque potentiel', 'Mesures existantes', 'Mesures complémentaires proposées', 'Gravité', 'Probabilité', 'Exposition', 'Priorité', 'Preuve à obtenir', 'Destination possible : PAA / PGP / DIU / PIU', 'Statut'],
-    MAIN_RISKS.map(([danger, persons, situation, potential]) => [
-      danger, persons, `${situation} — ${VERIFY}`, potential, measures,
-      'Définir après visite, rapport SECT et application de la hiérarchie de prévention.',
-      MISSING, MISSING, MISSING, MISSING, PROOF, 'PAA / PGP / DIU / PIU selon la mesure', VALIDATION,
+    MAIN_RISKS.map(([danger, persons, situation, potential], index) => [
+      danger, persons, `${situation} — ${VERIFY}`, potential, `Protection associée : ${VERIFY}`,
+      RISK_MEASURES[index][0],
+      MISSING, MISSING, MISSING, MISSING, RISK_MEASURES[index][1], 'PAA / PGP / DIU / PIU selon la mesure', VALIDATION,
     ]),
-  ));
+  )}\n\nMesures existantes déclarées dans le formulaire : ${suppliedMeasures}`);
 }
 
 function technicalAnalysisSection() {
@@ -336,6 +384,42 @@ function helpLimitsSection() {
   return section('17. Limites de l’aide', 'Cette analyse constitue une aide à la préparation et au suivi de la prévention. Elle doit être confrontée aux rapports officiels, aux constats sur site et aux exigences applicables. Les décisions relatives à la conformité, à la modernisation et à la remise en service relèvent des acteurs compétents.');
 }
 
+function finalSections() {
+  return [
+    section('18. Documents à créer ou à mettre à jour', bulletList([
+      'Dossier ascenseur', 'Rapport SECT', 'Dernier contrôle périodique', 'Contrat de maintenance',
+      'Registre des interventions', 'Procédure personne bloquée', 'Liste des contacts d’urgence',
+      'Plan d’accès au local technique', 'Preuves des tests de communication et d’éclairage secours',
+    ])),
+    section('19. Acteurs à consulter ou à impliquer', bulletList([
+      'Conseiller en prévention', 'Gestionnaire ou propriétaire', 'Entreprise de maintenance',
+      'SECT', 'Direction du site', 'Accueil', 'Service technique', 'CPPT si applicable',
+    ])),
+    section('20. Annexes nécessaires', bulletList([
+      'Rapport SECT', 'Contrôle périodique', 'Contrat de maintenance',
+      'Photos cabine, portes et local technique', 'Plaque signalétique', 'Preuves des tests',
+      'Remarques ouvertes', 'Attestation de régularisation si disponible',
+    ])),
+    section('21. Limites d’intervention du conseiller en prévention niveau 3', [
+      '- Ne remplace pas le SECT.',
+      '- Ne valide pas la conformité de l’ascenseur.',
+      '- Ne réalise pas le contrôle technique réglementaire.',
+      '- Prépare le suivi prévention et les actions.',
+    ].join('\n')),
+    section('22. Points bloquants avant validation', bulletList([
+      'Absence de rapport SECT', 'Absence du dernier contrôle périodique',
+      'Communication bidirectionnelle non testée', 'Éclairage secours non vérifié',
+      'Remarques ouvertes inconnues', 'Procédure personne bloquée absente',
+      'Maintenance non documentée',
+    ])),
+    section('23. Conclusion', [
+      'Priorités : obtenir le rapport SECT et le contrôle périodique, tester la communication bidirectionnelle et l’éclairage secours, connaître les remarques ouvertes et formaliser la procédure personne bloquée.',
+      `Les actions retenues sont à intégrer au PAA/PGP, au DIU et au PIU selon leur portée : ${VALIDATION}.`,
+      'Toute conclusion reste à confronter au SECT, à la maintenance, aux constats sur site et à la validation de l’employeur après avis des acteurs compétents.',
+    ].join('\n\n')),
+  ].join('\n\n');
+}
+
 function section(title, body) {
   return `## ${title}\n\n${body}`;
 }
@@ -353,15 +437,11 @@ function table(headers, rows) {
 }
 
 function pick(data, keys, fallback = MISSING) {
-  for (const key of keys) {
-    const formatted = value(data?.[key], '');
-    if (formatted) return formatted;
-  }
-  return fallback;
+  return getField(data, keys, fallback);
 }
 
 function address(data) {
-  const direct = pick(data, ['fullAddress', 'adresseComplete', 'address', 'adresse'], '');
+  const direct = pick(data, ['elevatorAddress', 'address', 'siteAddress', 'workplaceAddress', 'fullAddress', 'adresseComplete', 'adresse'], '');
   if (direct) return direct;
   const city = [value(data.postalCode, ''), value(data.city || data.ville, '')].filter(Boolean).join(' ');
   const parts = [value(data.street || data.rue, ''), city, value(data.country || data.pays, '')].filter(Boolean);

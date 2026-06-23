@@ -4,11 +4,14 @@ import http from 'node:http';
 process.env.PREVENTIA_BACKEND_NO_START = '1';
 process.env.NODE_ENV = 'test';
 process.env.ALLOW_UNLICENSED_GENERATION = 'true';
-delete process.env.OPENAI_API_KEY;
+process.env.OPENAI_API_KEY = '';
 
 const { app, isRiskAnalysisDocument } = await import('../server.js');
 const { renderElectricalBtHtRiskAssessmentMarkdown } = await import(
   '../src/renderers/electricalBtHtRiskAssessmentRenderer.js'
+);
+const { enrichElectricalBtHtRiskAssessmentWithAI } = await import(
+  '../src/renderers/specializedRiskAiEnrichment.js'
 );
 
 const aliases = [
@@ -21,8 +24,9 @@ const aliases = [
 ];
 
 const formData = {
-  companyName: 'PreventIA Test',
-  siteName: 'Site Bruxelles',
+  companyName: 'SPGE',
+  siteName: 'Site administratif de Verviers',
+  preventionAdvisor: 'Vincent Legrand',
   installationType: 'mixte',
   workEquipment: [{ name: 'Presse', power: '15 kW' }],
 };
@@ -33,12 +37,34 @@ assert.match(markdown, /Analyse de risques — Installations électriques BT\/HT
 assert.match(markdown, /aide au conseiller en prévention/i);
 
 for (const expected of [
+  'SPGE', 'Site administratif de Verviers', 'Vincent Legrand',
   'basse tension', 'haute tension', 'BA4', 'BA5', 'RGIE', 'contact direct',
   'contact indirect', 'arc électrique', 'consignation', 'thermographie',
   'PAA', 'PGP', 'DIU', 'PIU',
 ]) {
   assert.match(markdown, new RegExp(expected, 'i'), expected);
 }
+
+assert.ok((markdown.match(/Page 1 \/ 1/g) || []).length <= 1);
+assert.ok((markdown.match(/Instructions écrites existantes/g) || []).length <= 3);
+assertNumberedSectionsHaveContent(markdown, [17, 18, 19, 20, 21, 22]);
+
+let aiRequest;
+const enrichedMarkdown = await enrichElectricalBtHtRiskAssessmentWithAI({
+  baseMarkdown: markdown,
+  formData,
+  language: 'fr',
+  documentType: aliases[0],
+  model: 'test-model',
+  maxOutputTokens: 9000,
+  openai: { responses: { create: async (request) => {
+    aiRequest = request;
+    return { output_text: `${markdown}\nPage 1 / 1` };
+  } } },
+});
+assert.doesNotMatch(enrichedMarkdown, /Page 1 \/ 1/);
+assert.match(aiRequest.instructions, /rapports RGIE/);
+assert.match(aiRequest.input[0].content[0].text, /Site administratif de Verviers/);
 
 assert.equal(renderElectricalBtHtRiskAssessmentMarkdown(formData, 'fr'), markdown);
 assert.match(renderElectricalBtHtRiskAssessmentMarkdown({}, 'fr'), /\[à compléter\]/);
@@ -111,4 +137,11 @@ function postJson(baseUrl, pathname, payload) {
     request.on('error', reject);
     request.end(body);
   });
+}
+
+function assertNumberedSectionsHaveContent(document, sectionNumbers) {
+  for (const number of sectionNumbers) {
+    const match = document.match(new RegExp(`^## ${number}\\.[^\\n]*\\n\\n([\\s\\S]*?)(?=^## \\d+\\.|$)`, 'm'));
+    assert.ok(match?.[1]?.trim(), `La section ${number} ne doit pas être vide.`);
+  }
 }

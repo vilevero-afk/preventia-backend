@@ -1,3 +1,6 @@
+import { getField } from './specializedRiskFields.js';
+import { cleanSpecializedRiskMarkdown } from './specializedRiskAiEnrichment.js';
+
 const MISSING = '[à compléter]';
 const VERIFY = '[à vérifier sur site]';
 const PROOF = '[preuve à obtenir]';
@@ -23,27 +26,27 @@ const DOCUMENT_EVIDENCE = [
 ];
 
 const GENERAL_RISKS = [
-  ['Contact direct', 'Pièces actives accessibles ou enveloppe ouverte.', 'Électrisation, électrocution, brûlure.'],
-  ['Contact indirect', 'Masse mise accidentellement sous tension.', 'Électrisation, électrocution.'],
-  ['Arc électrique', 'Manœuvre, défaut ou intervention près de pièces actives.', 'Brûlure grave, projection, incendie.'],
-  ['Décharge électrique', 'Décharge statique ou décharge d’un composant.', 'Choc, brûlure, mouvement réflexe.'],
-  ['Propagation du potentiel', 'Défaut de terre ou liaisons équipotentielles insuffisantes.', 'Tension de contact dangereuse à distance.'],
-  ['Énergie accumulée / condensateurs', 'Énergie résiduelle après coupure.', 'Décharge, arc électrique, brûlure.'],
-  ['Surtension', 'Foudre, commutation ou défaut du réseau.', 'Dégradation, incendie, indisponibilité.'],
-  ['Surintensité', 'Surcharge ou court-circuit.', 'Échauffement, arc, incendie.'],
-  ['Baisse de tension / réapparition', 'Redémarrage non maîtrisé au retour de la tension.', 'Mouvement dangereux, dommage matériel.'],
-  ['Échauffement', 'Connexion desserrée, surcharge ou ventilation insuffisante.', 'Brûlure, dégradation, incendie.'],
-  ['Brûlure', 'Contact chaud, arc ou projection de métal.', 'Lésion thermique.'],
-  ['Incendie', 'Défaut électrique, échauffement ou arc.', 'Atteinte aux personnes et aux biens.'],
-  ['Explosion', 'Arc ou étincelle en atmosphère explosive.', 'Explosion, brûlure, projection.'],
-  ['Défaut de commande', 'Dysfonctionnement d’un organe ou circuit de commande.', 'Mise en marche ou arrêt non maîtrisé.'],
-  ['Défaut de protection', 'Protection absente, inadaptée ou mal réglée.', 'Non-déclenchement et aggravation du dommage.'],
-  ['Absence ou défaut de consignation', 'Intervention sans séparation ni vérification.', 'Remise sous tension, électrocution, arc.'],
-  ['Accès non autorisé', 'Accès d’une personne non qualifiée.', 'Contact électrique ou manœuvre dangereuse.'],
-  ['Défaut de signalisation', 'Tension, danger ou tableau non identifié.', 'Erreur de manœuvre ou d’intervention.'],
-  ['Absence de schéma', 'Circuit ou organe de coupure mal identifié.', 'Erreur, délai d’urgence, consignation incomplète.'],
-  ['Intervention d’une entreprise extérieure', 'Coordination et limites d’intervention insuffisantes.', 'Exposition croisée, remise sous tension.'],
-  ['Équipement de travail non conforme ou mal raccordé', 'Puissance ou protection non adaptée.', 'Choc, incendie, démarrage intempestif.'],
+  ['Contact direct', 'Pièces actives accessibles ou enveloppe ouverte.', 'Électrisation, électrocution, brûlure.', 'Vérifier obturations, capots, enveloppes, verrouillage, accès limité et signalisation.', 'Photos des enveloppes et contrôle des obturations.'],
+  ['Contact indirect', 'Masse mise accidentellement sous tension.', 'Électrisation, électrocution.', 'Vérifier continuité PE, liaisons équipotentielles, différentiels et conclusions du PV RGIE.', 'PV RGIE et preuves des tests différentiels.'],
+  ['Arc électrique', 'Manœuvre, défaut ou intervention près de pièces actives.', 'Brûlure grave, projection, incendie.', 'Limiter les manœuvres, réserver l’accès BA4/BA5, définir EPI, consignation et intervention spécialisée.', 'Instructions de manœuvre, désignations BA4/BA5 et procédure de consignation.'],
+  ['Décharge électrique', 'Décharge statique ou décharge d’un composant.', 'Choc, brûlure, mouvement réflexe.', 'Identifier les composants stockant l’énergie et appliquer une méthode de décharge contrôlée.', 'Notice constructeur et instruction d’intervention.'],
+  ['Propagation du potentiel', 'Défaut de terre ou liaisons équipotentielles insuffisantes.', 'Tension de contact dangereuse à distance.', 'Contrôler prises de terre, conducteurs de protection et équipotentialité des masses.', 'Mesures de terre et rapport de contrôle.'],
+  ['Énergie accumulée / condensateurs', 'Énergie résiduelle après coupure.', 'Décharge, arc électrique, brûlure.', 'Vérifier procédures de décharge, temps d’attente et notice constructeur.', 'Procédure de décharge et notice constructeur.'],
+  ['Surtension', 'Foudre, commutation ou défaut du réseau.', 'Dégradation, incendie, indisponibilité.', 'Vérifier protections, parafoudres si nécessaires, historique des incidents et équipements sensibles.', 'Schéma des protections et historique des incidents.'],
+  ['Surintensité', 'Surcharge ou court-circuit.', 'Échauffement, arc, incendie.', 'Vérifier calibres, sélectivité, échauffements, serrage et thermographie.', 'Note de sélectivité, relevés de charge et rapport thermographie.'],
+  ['Baisse de tension / réapparition', 'Redémarrage non maîtrisé au retour de la tension.', 'Mouvement dangereux, dommage matériel.', 'Vérifier redémarrage intempestif, minima de tension et comportement des équipements de travail.', 'Essais fonctionnels et notices des équipements raccordés.'],
+  ['Échauffement', 'Connexion desserrée, surcharge ou ventilation insuffisante.', 'Brûlure, dégradation, incendie.', 'Vérifier charge, ventilation, connexions, poussières et thermographie.', 'Rapport thermographie et relevé des charges.'],
+  ['Brûlure', 'Contact chaud, arc ou projection de métal.', 'Lésion thermique.', 'Identifier les surfaces chaudes, limiter l’approche et définir les protections adaptées.', 'Constat photographique et instruction de travail.'],
+  ['Incendie', 'Défaut électrique, échauffement ou arc.', 'Atteinte aux personnes et aux biens.', 'Écarter les combustibles, traiter les échauffements et coordonner coupure et moyens d’intervention.', 'Plan de coupure, rapport thermographie et consignes PIU.'],
+  ['Explosion', 'Arc ou étincelle en atmosphère explosive.', 'Explosion, brûlure, projection.', 'Identifier les zones potentiellement ATEX et faire vérifier l’adéquation du matériel.', 'Document relatif à la protection contre les explosions, si applicable.'],
+  ['Défaut de commande', 'Dysfonctionnement d’un organe ou circuit de commande.', 'Mise en marche ou arrêt non maîtrisé.', 'Vérifier organes de commande, arrêts d’urgence et circuits de commande.', 'Rapport d’essais des commandes et arrêts d’urgence.'],
+  ['Défaut de protection', 'Protection absente, inadaptée ou mal réglée.', 'Non-déclenchement et aggravation du dommage.', 'Comparer réglages, pouvoir de coupure et caractéristiques des circuits protégés.', 'Schémas, réglages et note de calcul.'],
+  ['Absence ou défaut de consignation', 'Intervention sans séparation ni vérification.', 'Remise sous tension, électrocution, arc.', 'Formaliser séparation, condamnation, VAT et information des entreprises extérieures.', 'Procédure signée, matériel de condamnation et enregistrements.'],
+  ['Accès non autorisé', 'Accès d’une personne non qualifiée.', 'Contact électrique ou manœuvre dangereuse.', 'Organiser gestion des clés, liste des personnes autorisées et signalisation.', 'Registre des clés et liste d’autorisations.'],
+  ['Défaut de signalisation', 'Tension, danger ou tableau non identifié.', 'Erreur de manœuvre ou d’intervention.', 'Identifier tensions, tableaux, circuits, coupures et restrictions d’accès.', 'Photos datées et plan de repérage.'],
+  ['Absence de schéma', 'Circuit ou organe de coupure mal identifié.', 'Erreur, délai d’urgence, consignation incomplète.', 'Mettre à jour schémas unifilaires, plans des tableaux et repérage des circuits.', 'Schémas datés et validés par une personne compétente.'],
+  ['Intervention d’une entreprise extérieure', 'Coordination et limites d’intervention insuffisantes.', 'Exposition croisée, remise sous tension.', 'Définir accueil, responsabilités, consignation partagée et échange des risques.', 'Permis de travail et preuve de coordination.'],
+  ['Équipement de travail non conforme ou mal raccordé', 'Puissance ou protection non adaptée.', 'Choc, incendie, démarrage intempestif.', 'Vérifier puissance, protection, arrêt d’urgence et protection contre le redémarrage.', 'Notice, schéma de raccordement et essai fonctionnel.'],
 ];
 
 const COMPETENCIES = [
@@ -69,7 +72,7 @@ export function renderElectricalBtHtRiskAssessmentMarkdown(formData = {}, langua
     ? ''
     : '> Traduction à prévoir — version française générée.';
 
-  return [
+  return cleanSpecializedRiskMarkdown([
     '# Analyse de risques — Installations électriques BT/HT',
     '',
     '**Aide au conseiller en prévention — projet à vérifier, compléter et valider**',
@@ -110,42 +113,53 @@ export function renderElectricalBtHtRiskAssessmentMarkdown(formData = {}, langua
     validationsSection(),
     '',
     limitsSection(),
-  ].filter((line, index, lines) => line !== '' || lines[index - 1] !== '').join('\n').trim() + '\n';
+    '', finalSections(),
+  ].filter((line, index, lines) => line !== '' || lines[index - 1] !== '').join('\n').trim()) + '\n';
 }
 
 function identificationSection(data) {
   return section('1. Identification', table(
     ['Élément', 'Valeur'],
     [
-      ['Entreprise', pick(data, ['companyName', 'entreprise', 'company'])],
-      ['Site / bâtiment', joinValues(data, ['siteName', 'site', 'buildingName', 'batiment'])],
+      ['Entreprise', pick(data, ['companyName', 'enterpriseName', 'organisationName', 'organizationName', 'entreprise', 'company'])],
+      ['Site / bâtiment', pick(data, ['siteName', 'buildingName', 'workplaceName', 'locationName', 'site', 'batiment'])],
       ['Adresse', joinAddress(data)],
-      ['Personne de contact', pick(data, ['contactPerson', 'personneContact', 'contact'])],
-      ['Conseiller en prévention', pick(data, ['preventionAdvisor', 'conseillerPrevention'])],
+      ['Personne de contact', pick(data, ['contactPerson', 'siteContact', 'contactName', 'personneContact', 'contact'])],
+      ['Conseiller en prévention', pick(data, ['preventionAdvisor', 'preventionAdvisorName', 'conseillerPrevention'])],
+      ['Responsable du site', pick(data, ['siteManager', 'manager', 'responsible'])],
+      ['Service technique', pick(data, ['technicalServiceContact', 'technicalService', 'maintenanceContact'])],
       ['Type d’installation : basse tension / haute tension / mixte', pick(data, ['installationType', 'typeInstallation'])],
       ['Installation nouvelle / existante / modification', pick(data, ['installationStatus', 'statutInstallation'])],
-      ['Stade : conception / réalisation / réception / exploitation / modification', pick(data, ['projectStage', 'stade'])],
+      ['Stade : conception / réalisation / réception / exploitation / modification', pick(data, ['analysisStage', 'stage', 'projectStage', 'stade'])],
       ['Date de visite ou d’analyse', pick(data, ['assessmentDate', 'visitDate', 'dateAnalyse', 'dateVisite'])],
-      ['Auteur de l’aide', pick(data, ['author', 'auteur'])],
+      ['Auteur de l’aide', pick(data, ['author', 'createdBy', 'preventionAdvisor', 'auteur'])],
+      ['Contexte complémentaire', pick(data, ['additionalContext', 'scenario', 'comments', 'notes', 'context'])],
     ],
   ) + '\n\n> Limite importante : Ce document constitue une aide à l’analyse pour le conseiller en prévention. Il doit être vérifié, complété et validé par les personnes compétentes avant utilisation.');
 }
 
 function scopeSection(data) {
   const rows = [
-    ['Armoires BT concernées', ['lowVoltageCabinets', 'armoiresBt']],
+    ['Armoires BT concernées', ['hasLowVoltageCabinet', 'lowVoltageCabinets', 'lowVoltageCabinet', 'armoiresBt']],
     ['Coffrets concernés', ['electricalEnclosures', 'coffrets']],
-    ['Cabine HT concernée', ['highVoltageCabin', 'cabineHt']],
-    ['Transformateur', ['transformer', 'transformateur']],
-    ['TGBT', ['mainLowVoltageBoard', 'tgbt']],
+    ['Cabine HT concernée', ['hasHighVoltageCabin', 'highVoltageCabin', 'highVoltageCabinPresent', 'cabineHt']],
+    ['Transformateur', ['hasTransformer', 'transformer', 'transformateur']],
+    ['TGBT', ['hasMainLowVoltagePanel', 'mainLowVoltagePanel', 'mainLowVoltageBoard', 'tgbt']],
     ['Tableaux divisionnaires', ['distributionBoards', 'tableauxDivisionnaires']],
     ['Circuits spécifiques', ['specificCircuits', 'circuitsSpecifiques']],
-    ['Équipements de travail raccordés', ['connectedWorkEquipment', 'equipementsRaccordes']],
+    ['Équipements de travail raccordés', ['connectedWorkEquipment', 'workEquipment', 'equipementsRaccordes']],
     ['Zones concernées', ['areas', 'zonesConcernees']],
     ['Plans disponibles', ['availablePlans', 'plansDisponibles']],
-    ['PV RGIE disponible', ['rgieReportAvailable', 'pvRgieDisponible']],
-    ['Dernier contrôle périodique disponible', ['lastPeriodicInspection', 'dernierControlePeriodique']],
-    ['Remarques ouvertes du contrôle', ['openInspectionRemarks', 'remarquesControle']],
+    ['PV RGIE disponible', ['rgieReportAvailable', 'rgieReport', 'pvRgieDisponible']],
+    ['Dernier contrôle périodique disponible', ['periodicInspectionAvailable', 'periodicInspection', 'lastPeriodicInspection', 'dernierControlePeriodique']],
+    ['Liste BA4/BA5 disponible', ['ba4Ba5ListAvailable', 'ba4Ba5List']],
+    ['Procédure de consignation disponible', ['lockoutProcedureAvailable', 'lockoutProcedure', 'consignationProcedure']],
+    ['Rapport thermographie disponible', ['thermographyReportAvailable', 'thermographyReport']],
+    ['Remarques ouvertes du contrôle', ['openInspectionRemarks', 'openRemarks', 'remarquesControle']],
+    ['Risques principaux signalés', ['mainRisks']],
+    ['Points à vérifier signalés', ['pointsToCheck']],
+    ['Mesures prévues', ['plannedMeasures']],
+    ['Preuves à collecter', ['evidenceToCollect']],
   ].map(([label, keys]) => [label, pick(data, keys)]);
   return section('2. Périmètre de l’installation', table(['Élément', 'Information'], rows));
 }
@@ -185,22 +199,22 @@ function competenciesSection(data) {
 }
 
 function generalRisksSection(data) {
-  const commonMeasures = pick(data, ['existingMeasures', 'mesuresExistantes'], VERIFY);
-  const rows = GENERAL_RISKS.map(([danger, situation, potential]) => [
+  const suppliedMeasures = pick(data, ['existingMeasures', 'mesuresExistantes'], VERIFY);
+  const rows = GENERAL_RISKS.map(([danger, situation, potential, measure, proof]) => [
     danger,
     VERIFY,
     situation,
     potential,
-    commonMeasures,
-    `${VERIFY} Définir une mesure selon la hiérarchie de prévention.`,
+    `Dispositifs associés à ce danger : ${VERIFY}`,
+    measure,
     pick(data, ['defaultPriority', 'prioriteParDefaut'], MISSING),
-    PROOF,
+    proof,
     VALIDATION,
   ]);
-  return section('6. Analyse des risques généraux électriques', table(
+  return section('6. Analyse des risques généraux électriques', `${table(
     ['Danger / situation dangereuse', 'Personnes exposées', 'Situation à vérifier', 'Risque potentiel', 'Mesures existantes', 'Mesures complémentaires proposées', 'Priorité', 'Preuve à obtenir', 'Statut'],
     rows,
-  ));
+  )}\n\nMesures existantes déclarées dans le formulaire : ${suppliedMeasures}`);
 }
 
 function lowVoltageSection(data) {
@@ -348,6 +362,40 @@ function limitsSection() {
   ].join('\n'));
 }
 
+function finalSections() {
+  return [
+    section('17. Documents à créer ou à mettre à jour', bulletList([
+      'Schémas unifilaires', 'Plans des tableaux', 'Liste BA4/BA5', 'Procédure de consignation',
+      'Registre des interventions', 'Liste des contacts d’urgence', 'Procédure de coupure générale',
+      'Dossier technique électrique',
+    ])),
+    section('18. Acteurs à consulter ou à impliquer', bulletList([
+      'Conseiller en prévention', 'Service technique', 'Direction du site', 'Organisme agréé',
+      'Entreprise spécialisée en électricité', 'Entreprises extérieures concernées', 'CPPT si applicable',
+    ])),
+    section('19. Annexes nécessaires', bulletList([
+      'PV RGIE', 'Dernier contrôle périodique', 'Photos des armoires et du TGBT',
+      'Rapport de thermographie', 'Liste BA4/BA5', 'Schémas', 'Plans de coupure', 'Fiches techniques',
+    ])),
+    section('20. Limites d’intervention du conseiller en prévention niveau 3', [
+      '- Ne réalise pas une réception RGIE.',
+      '- Ne valide pas la conformité électrique.',
+      '- Ne réalise pas de mesures électriques spécialisées.',
+      '- Formule une aide à l’identification des risques et au suivi des actions.',
+    ].join('\n')),
+    section('21. Points bloquants avant validation', bulletList([
+      'Absence de PV RGIE', 'Absence de liste BA4/BA5', 'Absence de procédure de consignation',
+      'Remarques ouvertes inconnues', 'Accès aux armoires non maîtrisé',
+      'Absence de preuve de test différentiel', 'Absence de plan de coupure',
+    ])),
+    section('22. Conclusion', [
+      `L’analyse reste à compléter sur site : ${VERIFY}.`,
+      'Priorités : obtenir le PV RGIE, maîtriser les accès, formaliser la consignation et les désignations BA4/BA5, planifier la thermographie et mettre à jour les schémas.',
+      `Les actions retenues sont à intégrer au PAA/PGP, au DIU et au PIU selon leur portée : ${VALIDATION}.`,
+    ].join('\n\n')),
+  ].join('\n\n');
+}
+
 function specificSection(title, items, observations) {
   const content = items.flatMap(([subtitle, sentence]) => [
     `### ${subtitle}`,
@@ -400,11 +448,7 @@ function table(headers, rows) {
 }
 
 function pick(data, keys, fallback = MISSING) {
-  for (const key of keys) {
-    const formatted = value(data?.[key], '');
-    if (formatted) return formatted;
-  }
-  return fallback;
+  return getField(data, keys, fallback);
 }
 
 function joinValues(data, keys) {
@@ -413,7 +457,7 @@ function joinValues(data, keys) {
 }
 
 function joinAddress(data) {
-  const direct = pick(data, ['fullAddress', 'adresseComplete'], '');
+  const direct = pick(data, ['address', 'siteAddress', 'workplaceAddress', 'fullAddress', 'adresseComplete'], '');
   if (direct) return direct;
   const city = [value(data.postalCode, ''), value(data.city || data.ville, '')].filter(Boolean).join(' ');
   const parts = [value(data.address || data.adresse, ''), city, value(data.country || data.pays, '')].filter(Boolean);
