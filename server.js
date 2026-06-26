@@ -21,6 +21,7 @@ import {
   enrichElevatorRiskAssessmentWithAI,
 } from './src/renderers/specializedRiskAiEnrichment.js';
 import { createLicenseStore } from './src/licenseStore.js';
+import { extractPreventionDossier } from './src/services/preventionDossierExtractionService.js';
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -2026,6 +2027,43 @@ app.post('/api/auth/validate-generation', async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+});
+
+app.post('/api/prevention-dossier/extract', async (req, res, next) => {
+  try {
+    const {
+      documentType,
+      markdown,
+      formData,
+      sourceDocumentId,
+      sourceReference,
+      language,
+    } = req.body || {};
+
+    if (!String(markdown ?? '').trim()) {
+      return res.status(400).json({ error: 'markdown_required' });
+    }
+
+    const openai = process.env.OPENAI_API_KEY
+      ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+      : null;
+
+    const dossier = await extractPreventionDossier({
+      documentType,
+      markdown,
+      formData: formData && typeof formData === 'object' ? formData : {},
+      sourceDocumentId,
+      sourceReference,
+      language,
+      openai,
+      model: OPENAI_MODEL,
+      maxOutputTokens: OPENAI_MAX_OUTPUT_TOKENS,
+    });
+
+    return res.json(dossier);
+  } catch (error) {
+    return next(error);
   }
 });
 
