@@ -124,8 +124,59 @@ assert.doesNotMatch(proceduresSection, /formation BA4\/BA5/i);
 
 const reorientedSection = extractSection(classifiedPiuMarkdown, 25);
 assert.match(reorientedSection, /PV RGIE à obtenir/);
-assert.match(reorientedSection, /planifier thermographie/);
-assert.match(reorientedSection, /formation BA4\/BA5/);
+assert.match(reorientedSection, /Thermographie à planifier/);
+assert.match(reorientedSection, /Formation BA4\/BA5/);
+
+const dirtyImportedItemsMarkdown = renderInternalEmergencyPlanMarkdown({
+  ...sampleFormData,
+  importedPiuItems: [
+    {
+      sourceDocumentReference: 'AR-2026-RAW',
+      documentType: 'Analyse de risques incendie',
+      additionalInformation: [
+        'Type | Analyse de risques incendie',
+        'Faits fournis : bloc brut importé',
+        'Services ou activités concernés : accueil',
+        'Photo consignes extincteurs',
+        'Page 1 / 1',
+        '\\\\\\\\',
+      ].join('\n'),
+      title: 'Issue de secours encombrée',
+      validatedByUser: true,
+    },
+    {
+      sourceDocumentReference: 'AR-2026-RAW',
+      title: 'Accès pompier encombré',
+      additionalInformation: 'documentType : Analyse de risques\nFaits fournis : entrée livraison',
+      validatedByUser: true,
+    },
+    {
+      sourceDocumentReference: 'AR-2026-RAW',
+      title: 'Point de rassemblement',
+      additionalInformation: 'availableEvidence : Photo consignes\nPage 1 / 1',
+      validatedByUser: true,
+    },
+  ],
+}, 'fr');
+
+assert.match(dirtyImportedItemsMarkdown, /Issue de secours encombrée/);
+assert.match(dirtyImportedItemsMarkdown, /Accès pompier/);
+assert.match(dirtyImportedItemsMarkdown, /Point de rassemblement/);
+assert.doesNotMatch(dirtyImportedItemsMarkdown, /additionalInformation/);
+assert.doesNotMatch(dirtyImportedItemsMarkdown, /documentType/);
+assert.doesNotMatch(dirtyImportedItemsMarkdown, /Faits fournis/);
+assert.doesNotMatch(dirtyImportedItemsMarkdown, /Type \| Analyse/);
+assert.doesNotMatch(dirtyImportedItemsMarkdown, /Photo consignes/);
+assert.doesNotMatch(dirtyImportedItemsMarkdown, /Page 1 \/ 1/);
+assert.doesNotMatch(dirtyImportedItemsMarkdown, /\\\\/);
+assert.equal((dirtyImportedItemsMarkdown.match(/Élément PIU importé/g) || []).length, 0);
+
+const dirtyAnalysisSection = extractBetween(
+  dirtyImportedItemsMarkdown,
+  '## Analyses de risques utilisées pour le PIU',
+  '## Table des matières opérationnelle',
+);
+assert.equal((dirtyAnalysisSection.match(/AR-2026-RAW/g) || []).length, 1);
 
 const server = await listen(app);
 const baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -204,6 +255,14 @@ function extractSection(document, number) {
   const match = document.match(new RegExp(`^## ${number}\\. [^\\n]+\\n\\n([\\s\\S]*?)(?=^## ${next}\\. |(?![\\s\\S]))`, 'm'));
   assert.ok(match?.[1], `La section ${number} doit exister.`);
   return match[1];
+}
+
+function extractBetween(document, start, end) {
+  const startIndex = document.indexOf(start);
+  const endIndex = document.indexOf(end, startIndex);
+  assert.ok(startIndex >= 0, `${start} doit exister.`);
+  assert.ok(endIndex > startIndex, `${end} doit suivre ${start}.`);
+  return document.slice(startIndex, endIndex);
 }
 
 function listen(appInstance) {

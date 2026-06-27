@@ -84,6 +84,51 @@ const CONDITIONAL_PATTERNS = [
   'si applicable',
 ];
 
+const DIRTY_PIU_PATTERNS = [
+  'additionalinformation',
+  'documenttype',
+  'feedannualactionplan',
+  'availableevidence',
+  'periodiccontrols',
+  'writteninstructions',
+  'activity :',
+  'concernedtasks :',
+  'exposedworkers :',
+  'includedlocations :',
+  'faits fournis :',
+  'services ou activites concernes :',
+  'type | analyse de risques',
+  'page 1 / 1',
+];
+
+const OPERATIONAL_ITEM_PATTERNS = [
+  ['issue de secours', 'Issue de secours dégagée', ['évacuation']],
+  ['issues de secours', 'Issues de secours dégagées', ['évacuation']],
+  ['acces pompier', 'Accès pompiers', ['accueil des secours']],
+  ['acces pompiers', 'Accès pompiers', ['accueil des secours']],
+  ['acces secours', 'Accès secours', ['accueil des secours']],
+  ['point de rassemblement', 'Point de rassemblement', ['évacuation']],
+  ['accueil des secours', 'Accueil des secours', ['accueil des secours']],
+  ['evacuation', 'Évacuation générale', ['évacuation']],
+  ['alerte incendie', 'Alerte incendie', ['alerte']],
+  ['incendie', 'Incendie', ['scénarios d’urgence', 'évacuation']],
+  ['visiteurs', 'Gestion visiteurs et sous-traitants', ['information visiteurs/sous-traitants']],
+  ['sous-traitants', 'Gestion visiteurs et sous-traitants', ['information visiteurs/sous-traitants']],
+  ['moyens d extinction', 'Moyens d’extinction accessibles', ['moyens d’intervention']],
+  ['extincteur', 'Moyens d’extinction accessibles', ['moyens d’intervention']],
+  ['portes coupe-feu', 'Portes coupe-feu et compartimentage', ['évacuation']],
+  ['compartimentage', 'Portes coupe-feu et compartimentage', ['évacuation']],
+  ['dossier pompiers', 'Dossier pompiers', ['accueil des secours', 'annexes PIU']],
+  ['exercice d evacuation', 'Exercice d’évacuation', ['exercices']],
+  ['mise a l abri', 'Mise à l’abri', ['confinement']],
+  ['fuite de gaz', 'Fuite de gaz', ['scénarios d’urgence', 'évacuation']],
+  ['deversement dangereux', 'Déversement dangereux', ['scénarios d’urgence', 'confinement']],
+  ['accident grave', 'Accident grave ou malaise', ['premiers secours']],
+  ['malaise', 'Accident grave ou malaise', ['premiers secours']],
+  ['coupure generale', 'Coupure générale électrique', ['moyens d’intervention', 'accueil des secours']],
+  ['personne bloquee', 'Personne bloquée', ['scénarios d’urgence', 'alerte']],
+];
+
 const CHAPTER_TITLES = [
   'Coordonnées du bâtiment',
   'Approbation du plan',
@@ -148,7 +193,7 @@ export function renderInternalEmergencyPlanMarkdown(formData = {}, language = 'f
     ? ''
     : '> Traduction à prévoir — version française générée.';
 
-  return [
+  const markdown = [
     '# Plan Interne d’Urgence',
     '',
     '## Modèle opérationnel à compléter',
@@ -173,6 +218,7 @@ export function renderInternalEmergencyPlanMarkdown(formData = {}, language = 'f
     '',
     ...buildChapters(data, piuContext),
   ].filter((line) => line !== null).join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+  return finalSanitizePiuMarkdown(markdown);
 }
 
 function buildChapters(data, piuContext) {
@@ -297,9 +343,8 @@ function buildChapters(data, piuContext) {
 }
 
 function reflexChapter(data, piuContext) {
-  const retainedScenarios = piuContext.operationalItems.map((item) => item.element);
-  const scenarioValue = retainedScenarios.length ? retainedScenarios : data.emergencyScenarios;
-  const scenarioText = formatValue(scenarioValue).toLowerCase();
+  const retainedScenarios = unique(piuContext.operationalItems.map((item) => item.scenario || item.element)).slice(0, 8);
+  const scenarioText = retainedScenarios.join(' ').toLowerCase();
   const sheets = REFLEX_SHEETS.map(([number, title, actions]) => [
     `### FICHE ${number} – ${title}`,
     '',
@@ -314,7 +359,7 @@ function reflexChapter(data, piuContext) {
 
   return chapter(17,
     field('Points issus des analyses de risques', retainedScenarios.length ? 'Scénarios retenus après classification PIU.' : IMPORT),
-    field('Scénarios fournis', scenarioValue),
+    retainedScenarios.length ? checklist(retainedScenarios) : field('Scénarios retenus', IMPORT),
     sheets,
   );
 }
@@ -352,7 +397,7 @@ function buildPiuContext(formData, data) {
   const input = formData && typeof formData === 'object' && !Array.isArray(formData) ? formData : {};
   const importedAnalyses = Array.isArray(input.importedRiskAnalyses) ? input.importedRiskAnalyses : [];
   const importedItems = Array.isArray(input.importedPiuItems) ? input.importedPiuItems : [];
-  const analysesSource = importedAnalyses.length ? importedAnalyses : importedItems.map(itemToAnalysis);
+  const analysesSource = importedAnalyses.length ? importedAnalyses : importedItemsToAnalyses(importedItems);
   const classifications = classifyRiskAnalysesForPiu(analysesSource, input);
   const usableClassifications = classifications.filter((classification) =>
     classification.decision === PIU_RELEVANT ||
@@ -365,6 +410,7 @@ function buildPiuContext(formData, data) {
         classification.operationalItems.map((item) => ({
           ...item,
           analysisTitle: classification.title,
+          sourceReference: classification.reference || classification.title,
         })),
       ),
       ...importedItemFiltering.kept,
@@ -432,21 +478,21 @@ function piuOperationalScenarios(context) {
   if (!context.operationalItems.length) return field('Scénarios d’urgence retenus', IMPORT);
   return [
     '- Scénarios d’urgence retenus :',
-    ...context.operationalItems.slice(0, 12).map((item) => `  - ${truncateCell(item.element, 120)}`),
+    ...context.operationalItems.slice(0, 12).map((item) => `  - ${truncateCell(item.scenario || item.element, 120)}`),
   ].join('\n');
 }
 
 function piuOperationalProcedures(context) {
   const items = context.operationalItems.filter((item) =>
-    item.parts.some((part) => ['scénarios d’urgence', 'alerte', 'évacuation', 'moyens d’intervention'].includes(part)),
+    item.parts.some((part) => ['scénarios d’urgence', 'alerte', 'évacuation', 'moyens d’intervention', 'accueil des secours'].includes(part)),
   );
   if (!items.length) return field('Procédures issues des analyses retenues', IMPORT);
   return markdownTable([
     ['Situation opérationnelle', 'Action PIU courte', 'Source'],
     ...items.slice(0, 10).map((item) => [
       truncateCell(item.element, 90),
-      operationalActionForItem(item),
-      truncateCell(item.analysisTitle, 70),
+      truncateCell(item.procedure || operationalActionForItem(item), 180),
+      truncateCell(item.sourceReference || item.analysisTitle, 70),
     ]),
   ]);
 }
@@ -469,7 +515,7 @@ function piuReorientedItems(context) {
     '',
     markdownTable([
       ['Élément', 'Raison de l’écart', 'Destination recommandée'],
-      ...context.excludedItems.slice(0, 20).map((item) => [
+      ...context.excludedItems.slice(0, 10).map((item) => [
         truncateCell(item.element, 90),
         truncateCell(item.reason, 90),
         item.destination,
@@ -484,14 +530,20 @@ function normalizeRiskAnalyses(analyses) {
   );
 }
 
-function itemToAnalysis(item, index) {
-  const text = importedItemText(item);
-  return {
-    reference: typeof item === 'object' && item ? item.reference : undefined,
-    documentType: 'Élément PIU importé',
-    title: text || `Élément PIU importé ${index + 1}`,
-    markdown: text,
-  };
+function importedItemsToAnalyses(items) {
+  const groups = new Map();
+  (Array.isArray(items) ? items : []).forEach((item, index) => {
+    const reference = sourceReferenceForItem(item, index);
+    const current = groups.get(reference) || {
+      reference,
+      documentType: reference,
+      title: reference,
+      markdown: '',
+    };
+    current.markdown = [current.markdown, rawTextValue(item)].filter(Boolean).join('\n');
+    groups.set(reference, current);
+  });
+  return [...groups.values()];
 }
 
 function analysisTitle(analysis, index) {
@@ -559,11 +611,14 @@ function partsForDecision(decision) {
 
 function extractOperationalItems(analysis) {
   return extractMeaningfulLines(analysisText(analysis))
-    .filter((line) => isOperationalEmergency(line) && !isNonOperationalItem(line))
-    .map((line) => ({
-      element: normalizeLine(line),
+    .map((line) => sanitizeAndClassifyPiuItem(line))
+    .filter((item) => item.include)
+    .map((item) => ({
+      element: item.cleanedTitle,
+      scenario: item.cleanedScenario,
+      procedure: item.cleanedProcedure,
       why: 'Situation d’urgence opérationnelle.',
-      parts: partsForText(line),
+      parts: partsForText(item.cleanedTitle),
       destination: 'PIU',
     }))
     .slice(0, 12);
@@ -571,14 +626,18 @@ function extractOperationalItems(analysis) {
 
 function extractExcludedItems(analysis) {
   return extractMeaningfulLines(analysisText(analysis))
-    .filter((line) => isNonOperationalItem(line) || !isOperationalEmergency(line))
-    .filter((line) => isLikelyActionOrEvidence(line))
-    .map((line) => ({
-      element: normalizeLine(line),
-      reason: isNonOperationalItem(line)
-        ? 'Élément de preuve, contrôle ou action prévention.'
-        : 'Pas une situation d’urgence opérationnelle.',
-      destination: destinationForExcludedItem(line),
+    .map((line) => sanitizeAndClassifyPiuItem(line))
+    .filter((item) => !item.include && item.cleanedTitle !== COMPLETE)
+    .filter((item) => !/^Analyse de risques/i.test(item.cleanedTitle))
+    .filter((item) =>
+      item.destinationIfExcluded !== 'PGP' ||
+      item.exclusionReason !== 'Pas une consigne d’urgence courte.' ||
+      isLikelyActionOrEvidence(item.cleanedTitle),
+    )
+    .map((item) => ({
+      element: item.cleanedTitle,
+      reason: item.exclusionReason,
+      destination: item.destinationIfExcluded,
     }))
     .slice(0, 12);
 }
@@ -590,28 +649,196 @@ function filterImportedPiuItems(items, classifications) {
     .join(' '));
 
   return (Array.isArray(items) ? items : []).reduce((result, item) => {
-    const element = importedItemText(item);
-    if (!element) return result;
-    const matchesRelevantAnalysis = !classifications.length || relevantText.includes(firstKeyword(element));
-    if (isOperationalEmergency(element) && matchesRelevantAnalysis && !isNonOperationalItem(element)) {
-      result.kept.push({ element, parts: partsForText(element), analysisTitle: 'Élément PIU importé' });
+    const sanitized = sanitizeAndClassifyPiuItem(item);
+    if (sanitized.cleanedTitle === COMPLETE) return result;
+    const matchesRelevantAnalysis = !classifications.length || relevantText.includes(firstKeyword(sanitized.cleanedTitle));
+    if (sanitized.include && matchesRelevantAnalysis) {
+      result.kept.push({
+        element: sanitized.cleanedTitle,
+        scenario: sanitized.cleanedScenario,
+        procedure: sanitized.cleanedProcedure,
+        parts: partsForText(sanitized.cleanedTitle),
+        analysisTitle: sourceReferenceForItem(item, result.kept.length),
+        sourceReference: sourceReferenceForItem(item, result.kept.length),
+      });
     } else {
       result.excluded.push({
-        element,
-        reason: isOperationalEmergency(element)
+        element: sanitized.cleanedTitle,
+        reason: sanitized.include
           ? 'Aucune analyse pertinente confirmée ne permet de l’utiliser.'
-          : 'Pas une situation d’urgence opérationnelle.',
-        destination: destinationForExcludedItem(element),
+          : sanitized.exclusionReason,
+        destination: sanitized.destinationIfExcluded,
       });
     }
     return result;
   }, { kept: [], excluded: [] });
 }
 
+export function sanitizeAndClassifyPiuItem(item) {
+  const raw = rawTextValue(item);
+  const primaryLines = primaryPiuLines(item);
+  const lines = candidatePiuLines(raw);
+  const operationalLine = [...primaryLines, ...lines].find((line) => isCleanOperationalLine(line));
+
+  if (operationalLine) {
+    const cleanedTitle = operationalTitleForLine(operationalLine);
+    return {
+      include: true,
+      cleanedTitle,
+      cleanedScenario: scenarioForOperationalTitle(cleanedTitle),
+      cleanedProcedure: truncateCell(operationalActionForText(cleanedTitle), 180),
+      destinationIfExcluded: 'points à vérifier',
+      exclusionReason: '',
+    };
+  }
+
+  const fallback = shortExcludedTitle(lines[0] || raw);
+  return {
+    include: false,
+    cleanedTitle: fallback,
+    cleanedScenario: '',
+    cleanedProcedure: '',
+    destinationIfExcluded: destinationForExcludedItem(raw),
+    exclusionReason: exclusionReasonForItem(raw),
+  };
+}
+
+function primaryPiuLines(item) {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+  return [
+    item.title,
+    item.element,
+    item.label,
+    item.scenario,
+    item.situation,
+    item.description,
+    item.action,
+    item.text,
+  ].flatMap((value) => candidatePiuLines(rawTextValue(value)));
+}
+
 function importedItemText(item) {
   if (typeof item === 'string') return clean(item);
   if (!item || typeof item !== 'object') return '';
   return clean(firstKnown(item.title, item.element, item.label, item.description, item.action, item.text));
+}
+
+function sourceReferenceForItem(item, index) {
+  if (item && typeof item === 'object' && !Array.isArray(item)) {
+    return clean(firstKnown(
+      item.sourceDocumentReference,
+      item.reference,
+      item.sourceReference,
+      item.documentReference,
+      item.analysisReference,
+    )) || `Source PIU ${index + 1}`;
+  }
+  return `Source PIU ${index + 1}`;
+}
+
+function candidatePiuLines(raw) {
+  return String(raw || '')
+    .replace(/\\\\+/g, ' ')
+    .split(/\r?\n|[.;]/)
+    .map((line) => line.replace(/^[-*•\d.)\s]+/, '').trim())
+    .filter(Boolean)
+    .filter((line) => !isPaginationLine(line))
+    .filter((line) => !isRawMarkdownTableLine(line))
+    .filter((line) => !isDirtyMetadataLine(line))
+    .map((line) => normalizeLine(line))
+    .filter((line) => line !== COMPLETE);
+}
+
+function isCleanOperationalLine(line) {
+  return !isNonOperationalItem(line) && Boolean(operationalPatternForText(line));
+}
+
+function operationalPatternForText(text) {
+  const lower = normalizeText(text).replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
+  return OPERATIONAL_ITEM_PATTERNS.find(([pattern]) => lower.includes(pattern));
+}
+
+function operationalTitleForLine(line) {
+  const match = operationalPatternForText(line);
+  if (!match) return normalizeLine(line);
+  const lower = normalizeText(line);
+  if (lower.includes('incendie') && lower.includes('origine electrique')) return 'incendie d’origine électrique';
+  if (lower.includes('coupure generale') && lower.includes('electrique')) return 'coupure générale électrique';
+  if (match[0] === 'issue de secours' && lower.includes('encombr')) return 'Issue de secours encombrée';
+  if (match[0].startsWith('acces pompier') && lower.includes('encombr')) return 'Accès pompier encombré';
+  return match[1];
+}
+
+function scenarioForOperationalTitle(title) {
+  const match = operationalPatternForText(title);
+  return match ? match[1] : title;
+}
+
+function operationalActionForText(title) {
+  const text = normalizeText(title);
+  if (text.includes('issue de secours')) return 'Dégager l’issue. Orienter les occupants vers une sortie sûre. Informer les secours si l’évacuation est perturbée.';
+  if (text.includes('acces pompier') || text.includes('acces secours')) return 'Libérer l’accès. Envoyer une personne guider les secours. Maintenir le passage dégagé.';
+  if (text.includes('point de rassemblement')) return 'Rejoindre le point prévu. Recenser les personnes. Signaler les absents aux secours.';
+  if (text.includes('accueil des secours')) return 'Désigner un accueil. Transmettre les informations clés. Guider les intervenants.';
+  if (text.includes('visiteur') || text.includes('sous-traitant')) return 'Diriger les visiteurs et sous-traitants. Les recenser au point de rassemblement.';
+  if (text.includes('extinction') || text.includes('extincteur')) return 'Maintenir les moyens accessibles. Utiliser seulement sans danger. Signaler tout obstacle.';
+  if (text.includes('coupe-feu') || text.includes('compartimentage')) return 'Fermer les portes. Ne pas bloquer le compartimentage. Informer les secours.';
+  if (text.includes('dossier pompiers')) return 'Tenir le dossier disponible. Le remettre aux secours à leur arrivée.';
+  if (text.includes('exercice')) return 'Tester l’évacuation. Noter les écarts. Corriger les points bloquants.';
+  return operationalActionForItem({ element: title });
+}
+
+function isDirtyMetadataLine(line) {
+  const lower = normalizeText(line);
+  return DIRTY_PIU_PATTERNS.some((pattern) => lower.includes(pattern));
+}
+
+function isPaginationLine(line) {
+  return /^page\s+\d+\s*\/\s*\d+$/i.test(String(line || '').trim());
+}
+
+function isRawMarkdownTableLine(line) {
+  const pipeCount = (String(line || '').match(/\|/g) || []).length;
+  return pipeCount >= 2 || /^\s*\|?\s*:?-{3,}:?/.test(String(line || ''));
+}
+
+function exclusionReasonForItem(raw) {
+  const lower = normalizeText(raw);
+  if (isDirtyMetadataLine(raw) || isRawMarkdownTableLine(raw)) return 'Métadonnées ou tableau brut.';
+  if (/preuve|rapport|photo|fds|plan/.test(lower)) return 'Preuve à obtenir.';
+  if (/controle|contrôle|validation|registre/.test(lower)) return 'Suivi ou validation.';
+  if (/action|mesure|planifier|formation/.test(lower)) return 'Action prévention.';
+  return 'Pas une consigne d’urgence courte.';
+}
+
+function shortExcludedTitle(raw) {
+  const text = candidateShortText(raw);
+  const lower = normalizeText(text || raw);
+  if (/extincteur|eclairage de secours|éclairage de secours/.test(lower)) return 'Rapports extincteurs et éclairage de secours';
+  if (/photo/.test(lower)) return 'Photos ou consignes à annexer';
+  if (/fds/.test(lower)) return 'FDS à annexer';
+  if (/pv rgie/.test(lower)) return 'PV RGIE à obtenir';
+  if (/thermographie/.test(lower)) return 'Thermographie à planifier';
+  if (/ba4\/ba5|ba4|ba5/.test(lower)) return 'Formation BA4/BA5';
+  return truncateCell(text || 'Élément à vérifier', 90);
+}
+
+function candidateShortText(raw) {
+  return String(raw || '')
+    .replace(/\\\\+/g, ' ')
+    .split(/\r?\n|[.;]/)
+    .map((line) => line.replace(/^[-*•\d.)\s]+/, '').trim())
+    .find((line) => line && !isPaginationLine(line) && !isDirtyMetadataLine(line) && !isRawMarkdownTableLine(line)) || '';
+}
+
+function finalSanitizePiuMarkdown(markdown) {
+  return String(markdown || '')
+    .split(/\r?\n/)
+    .filter((line) => !isPaginationLine(line))
+    .join('\n')
+    .replace(/\\\\+/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim() + '\n';
 }
 
 function extractMeaningfulLines(text) {
@@ -641,7 +868,7 @@ function destinationForExcludedItem(text) {
   const lower = normalizeText(text);
   if (/pv|rapport|plan|preuve|attestation|sect/.test(lower)) return 'annexe';
   if (/registre|validation|contrôle|controle/.test(lower)) return 'registre de suivi';
-  if (/danger|risque|exposition/.test(lower)) return 'analyse de risques';
+  if (/danger|risque|exposition|incertain|verifier|vérifier/.test(lower)) return 'points à vérifier';
   return 'PGP';
 }
 
