@@ -2104,7 +2104,8 @@ app.post('/api/generate-document', async (req, res, next) => {
     const isElectricalBtHtRiskAssessment = documentDefinition.family === 'electrical_bt_ht_risk_assessment';
     const isElevatorRiskAssessment = documentDefinition.family === 'elevator_risk_assessment';
     const isSpecializedRiskAssessment = isElectricalBtHtRiskAssessment || isElevatorRiskAssessment;
-    const isDeterministicDocument = isInternalEmergencyPlan || isSpecializedRiskAssessment;
+    const isPaaPgpDocument = ['annual_action_plan', 'five_year_global_prevention_plan'].includes(documentDefinition.family);
+    const isDeterministicDocument = isInternalEmergencyPlan || isSpecializedRiskAssessment || isPaaPgpDocument;
 
     if (!isDeterministicDocument && !process.env.OPENAI_API_KEY) {
       const error = new Error('Configuration OpenAI manquante côté serveur.');
@@ -2129,6 +2130,11 @@ app.post('/api/generate-document', async (req, res, next) => {
     if (isInternalEmergencyPlan) {
       generatedDocument = {
         document: renderInternalEmergencyPlanMarkdown(formData, language || targetLanguage.code),
+        complementaryDocument: null,
+      };
+    } else if (isPaaPgpDocument) {
+      generatedDocument = {
+        document: renderPaaPgpMarkdown(formData, documentDefinition, targetLanguage.code),
         complementaryDocument: null,
       };
     } else if (isElectricalBtHtRiskAssessment) {
@@ -7444,6 +7450,332 @@ function runRiskPromptQualityTests() {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const PGP_ACTION_VERBS = [
+  'vérifier', 'verifier', 'contrôler', 'controler', 'planifier', 'formaliser',
+  'mettre à jour', 'mettre a jour', 'obtenir', 'centraliser', 'dégager', 'degager',
+  'rendre', 'rendre accessible', 'supprimer', 'sensibiliser', 'former', 'informer',
+  'organiser', 'documenter', 'corriger', 'lever', 'installer', 'remplacer',
+  'sécuriser', 'securiser', 'signaler', 'valider', 'marquer', 'séparer', 'separer',
+];
+
+const PGP_DIRTY_PATTERNS = [
+  'additionalinformation', 'documenttype', 'activity', 'concernedtasks',
+  'includedlocations', 'exposedworkers', 'documentobjective', 'firerisk',
+  'youngworkers', 'visitdate', 'sector', 'postes exposes', 'postés exposés',
+  'famille de danger / danger precis / scenario plausible',
+  'famille de danger / danger précis / scénario plausible',
+  'action / risque concerne / responsable / echeance',
+  'action / risque concerné / responsable / échéance',
+  'reference ou domaine reglementaire', 'référence ou domaine réglementaire',
+  'livre ier', 'livre iii', 'livre ix',
+  'code belge du bien-etre au travail', 'code belge du bien-être au travail',
+  'paa seul', 'cppt seul', 'annexes seules', 'preuves seules',
+  'limites du conseiller', 'page 1 / 1',
+];
+
+function renderPaaPgpMarkdown(formData = {}, documentDefinition) {
+  const input = formData && typeof formData === 'object' && !Array.isArray(formData) ? formData : {};
+  const title = documentDefinition.family === 'annual_action_plan'
+    ? 'Plan Annuel d’Action / Plan Global de Prévention'
+    : 'Plan Global de Prévention / Plan Annuel d’Action';
+  const context = pgpContext(input);
+  const allItems = [
+    ...ensureArray(input.importedActionItems),
+    ...ensureArray(input.pgpCandidates),
+    ...ensureArray(input.priorityActions),
+    ...ensureArray(input.importedRiskAnalyses),
+  ];
+  const classified = allItems.flatMap((item) => classifyPgpSourceItem(item));
+  const actions = dedupePgpActions(classified.filter((item) => item.include)).slice(0, 50);
+  const priorityActions = actions.filter(isPaaPriorityAction).slice(0, 20);
+  const evidence = dedupeText([
+    ...classified.filter((item) => !item.include && /preuve|annexe|photo|fds|rapport|plan|registre|attestation/i.test(item.exclusionReason + item.cleanedAction)).map((item) => item.expectedEvidence || item.cleanedAction),
+    ...ensureArray(input.evidenceItems).map(shortPgpText),
+  ]).slice(0, 20);
+  const checks = dedupeText([
+    ...classified
+      .filter((item) => !item.include)
+      .filter((item) => !/preuve|annexe|photo|fds|rapport|plan|registre|attestation|métadonnée|en-tête/i.test(item.exclusionReason + item.cleanedAction))
+      .map((item) => item.cleanedAction),
+    ...ensureArray(input.pointsToVerify).map(shortPgpText),
+    'Validation employeur à confirmer.',
+  ]).slice(0, 20);
+
+  const markdown = [
+    `# ${title}`,
+    '',
+    '## 1. Identification du document',
+    '',
+    pgpTable([
+      ['Élément', 'Valeur'],
+      ['Entreprise', context.companyName],
+      ['Site', context.siteName],
+      ['Profil de risque', context.riskProfile],
+      ['Statut', 'Projet à valider'],
+    ]),
+    '',
+    '## 2. Contexte',
+    '',
+    `Activité : ${context.activityDescription}`,
+    '',
+    '## 3. Méthode de sélection',
+    '',
+    'Seules les vraies actions de prévention sont reprises. Les preuves et métadonnées sont réorientées.',
+    '',
+    '## 4. Synthèse des actions retenues',
+    '',
+    renderPgpActionTable(actions),
+    '',
+    '## 5. Plan Annuel d’Action — court terme',
+    '',
+    renderPgpActionTable(priorityActions.length ? priorityActions : actions.slice(0, 20)),
+    '',
+    '## 6. Plan Global de Prévention — 5 ans',
+    '',
+    renderFiveYearPlan(actions),
+    '',
+    '## 7. Preuves à obtenir',
+    '',
+    renderEvidenceList(evidence),
+    '',
+    '## 8. Points à vérifier avant validation',
+    '',
+    renderEvidenceList(checks),
+  ].join('\n');
+
+  return removePgpPageMarkers(markdown).trim() + '\n';
+}
+
+function classifyPgpSourceItem(item) {
+  const raw = rawPgpText(item);
+  const source = pgpSourceReference(item);
+  return pgpCandidateLines(raw).map((line) => ({
+    ...sanitizeAndClassifyPgpAction({ line, source }),
+    source,
+  }));
+}
+
+function sanitizeAndClassifyPgpAction(item) {
+  const raw = typeof item === 'string' ? item : item?.line;
+  const line = cleanPgpLine(raw);
+  const lower = normalizeDocumentType(line);
+  const hasVerb = PGP_ACTION_VERBS.some((verb) => lower.includes(normalizeDocumentType(verb)));
+  const dirty = isDirtyPgpLine(line);
+  const evidenceOnly = isPgpEvidenceOnly(line);
+
+  if (!line || dirty || !hasVerb || evidenceOnly) {
+    return {
+      include: false,
+      cleanedAction: shortPgpText(line || raw),
+      riskTargeted: riskTargetForPgpAction(line),
+      priority: 'à vérifier',
+      responsible: 'à désigner',
+      deadline: 'à confirmer',
+      expectedEvidence: evidenceForPgpAction(line),
+      actionType: actionTypeForPgpAction(line),
+      exclusionReason: dirty ? 'Métadonnée ou en-tête brut.' : evidenceOnly ? 'Preuve seule sans action.' : 'Pas une action de prévention.',
+    };
+  }
+
+  const cleanedAction = canonicalPgpAction(line);
+  return {
+    include: true,
+    cleanedAction,
+    riskTargeted: riskTargetForPgpAction(cleanedAction),
+    priority: priorityForPgpAction(cleanedAction),
+    responsible: 'Ligne hiérarchique / service concerné',
+    deadline: deadlineForPgpAction(cleanedAction),
+    expectedEvidence: evidenceForPgpAction(cleanedAction),
+    actionType: actionTypeForPgpAction(cleanedAction),
+    exclusionReason: '',
+  };
+}
+
+function pgpCandidateLines(raw) {
+  return String(raw || '')
+    .split(/\r?\n|[.;]/)
+    .map((line) => line.replace(/^[-*•\d.)\s]+/, '').trim())
+    .filter(Boolean)
+    .filter((line) => !isPgpPageMarker(line));
+}
+
+function cleanPgpLine(line) {
+  return String(line || '')
+    .replace(/\\\\+/g, ' ')
+    .replace(/\|/g, ' / ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isDirtyPgpLine(line) {
+  const lower = normalizeDocumentType(line);
+  return PGP_DIRTY_PATTERNS.some((pattern) => lower.includes(normalizeDocumentType(pattern))) ||
+    /^-+$/.test(line) ||
+    (line.match(/\//g) || []).length >= 5 ||
+    /conclusion|limite|référence réglementaire|reference reglementaire/i.test(line);
+}
+
+function isPgpEvidenceOnly(line) {
+  const lower = normalizeDocumentType(line);
+  const hasVerb = PGP_ACTION_VERBS.some((verb) => lower.includes(normalizeDocumentType(verb)));
+  return !hasVerb && /fds|photo|rapport|preuve|annexe|plan|registre|attestation/.test(lower);
+}
+
+function canonicalPgpAction(line) {
+  const lower = normalizeDocumentType(line);
+  if (/degager|voie|issue|stockage/.test(lower)) return 'Dégager les voies d’évacuation et contrôler leur maintien libre.';
+  if (/extinction|equipement|visible|accessible/.test(lower)) return 'Rendre les moyens d’extinction visibles et accessibles.';
+  if (/cale|porte coupe-feu|fermeture automatique|compartimentage/.test(lower)) return 'Supprimer les cales, vérifier la fermeture automatique et sensibiliser le personnel au compartimentage.';
+  if (/fds|clp|incompatibil/.test(lower)) return 'Centraliser les FDS, vérifier l’étiquetage CLP et séparer les produits incompatibles.';
+  if (/compatibilite|ventilation|quantite|separation des produits/.test(lower)) return 'Vérifier la compatibilité, la ventilation, les quantités stockées et la séparation des produits.';
+  return `${line.charAt(0).toUpperCase()}${line.slice(1)}`.replace(/\s+/g, ' ').trim();
+}
+
+function dedupePgpActions(actions) {
+  const seen = new Set();
+  return actions.filter((action) => {
+    const key = normalizeDocumentType(action.cleanedAction);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function isPaaPriorityAction(action) {
+  return /immediate|elevee|court terme|urgent|0-3 mois/.test(normalizeDocumentType(`${action.priority} ${action.deadline}`));
+}
+
+function priorityForPgpAction(action) {
+  const lower = normalizeDocumentType(action);
+  if (/degager|supprimer|rendre|fds|clp|incompatibil|extinction|evacuation/.test(lower)) return 'élevée';
+  if (/planifier|sensibiliser|former|informer/.test(lower)) return 'moyenne';
+  return 'à valider';
+}
+
+function deadlineForPgpAction(action) {
+  return priorityForPgpAction(action) === 'élevée' ? '0-3 mois' : '3-12 mois';
+}
+
+function riskTargetForPgpAction(action) {
+  const lower = normalizeDocumentType(action);
+  if (/evacuation|issue|voie|rassemblement/.test(lower)) return 'Évacuation';
+  if (/extinction|incendie|coupe-feu|compartimentage/.test(lower)) return 'Incendie';
+  if (/fds|clp|produit|incompatibil|stockage/.test(lower)) return 'Produits dangereux';
+  return 'Prévention générale';
+}
+
+function actionTypeForPgpAction(action) {
+  const lower = normalizeDocumentType(action);
+  if (/former|sensibiliser|informer|accueil/.test(lower)) return 'formation / information';
+  if (/fds|dossier|formaliser|mettre a jour|documenter/.test(lower)) return 'documentaire';
+  if (/degager|installer|remplacer|rendre|supprimer|marquer/.test(lower)) return 'technique';
+  return 'organisationnelle';
+}
+
+function evidenceForPgpAction(action) {
+  const lower = normalizeDocumentType(action);
+  if (/fds|clp/.test(lower)) return 'Inventaire FDS et étiquetage vérifié';
+  if (/evacuation|rassemblement/.test(lower)) return 'Compte rendu de contrôle ou exercice';
+  if (/extinction|coupe-feu|compartimentage/.test(lower)) return 'Photo après correction ou rapport de contrôle';
+  return 'Preuve de réalisation à conserver';
+}
+
+function renderPgpActionTable(actions) {
+  const rows = actions.map((action, index) => [
+    index + 1, action.source || 'formData', action.riskTargeted, action.cleanedAction,
+    action.actionType, action.priority, action.responsible, action.deadline,
+    action.expectedEvidence, 'à valider',
+  ]);
+  return pgpTable([
+    ['N°', 'Source', 'Risque visé', 'Action à réaliser', 'Type', 'Priorité', 'Responsable', 'Délai proposé', 'Preuve attendue', 'Statut'],
+    ...(rows.length ? rows : [[1, 'formData', 'Prévention générale', 'Définir les actions de prévention à partir des analyses validées.', 'organisationnelle', 'à valider', 'Employeur', 'à confirmer', 'Plan validé', 'à valider']]),
+  ]);
+}
+
+function renderFiveYearPlan(actions) {
+  const labels = [
+    ['Année 1', 'actions urgentes et conformité immédiate'],
+    ['Année 2', 'consolidation organisationnelle'],
+    ['Année 3', 'formation / exercices / suivi'],
+    ['Année 4', 'amélioration documentaire'],
+    ['Année 5', 'révision et amélioration continue'],
+  ];
+  return pgpTable([
+    ['Année', 'Orientation', 'Actions principales'],
+    ...labels.map(([year, label], index) => [
+      year, label,
+      actions.filter((_, actionIndex) => actionIndex % 5 === index).slice(0, 8).map((action) => action.cleanedAction).join('; ') || 'À préciser lors de la validation annuelle.',
+    ]),
+  ]);
+}
+
+function renderEvidenceList(items) {
+  const values = items.length ? items : ['À compléter après validation des actions.'];
+  return values.map((item) => `- ${sanitizePgpCell(item)}`).join('\n');
+}
+
+function pgpTable(rows) {
+  const [header, ...body] = rows;
+  return [
+    `| ${header.map(sanitizePgpCell).join(' | ')} |`,
+    `| ${header.map(() => '---').join(' | ')} |`,
+    ...body.map((row) => `| ${row.map(sanitizePgpCell).join(' | ')} |`),
+  ].join('\n');
+}
+
+function pgpContext(input) {
+  return {
+    companyName: sanitizePgpCell(input.companyName || '[à compléter]'),
+    siteName: sanitizePgpCell(input.siteName || input.site || input.siteLieuTravail || input.buildingName || '[à compléter]'),
+    riskProfile: sanitizePgpCell(input.riskProfile || '[à confirmer]'),
+    activityDescription: sanitizePgpCell(input.activityDescription || input.activite || input.descriptionActivite || input.context || input.activities || '[à compléter]'),
+  };
+}
+
+function rawPgpText(value) {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) return value.map(rawPgpText).join('\n');
+  if (typeof value === 'object') return Object.entries(value).map(([key, entry]) => `${key}: ${rawPgpText(entry)}`).join('\n');
+  return String(value);
+}
+
+function pgpSourceReference(item) {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return 'formData';
+  return sanitizePgpCell(item.sourceDocumentReference || item.reference || item.sourceReference || item.documentReference || 'formData');
+}
+
+function shortPgpText(value) {
+  return sanitizePgpCell(rawPgpText(value).split(/\r?\n|[.;]/).find((line) => line.trim()) || value);
+}
+
+function sanitizePgpCell(value) {
+  return String(value ?? '')
+    .replace(/\r?\n+/g, ' ')
+    .replace(/\|/g, '/')
+    .replace(/\\\\+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180) || '[à compléter]';
+}
+
+function dedupeText(items) {
+  const seen = new Set();
+  return items.map(sanitizePgpCell).filter((item) => {
+    const key = normalizeDocumentType(item);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function isPgpPageMarker(line) {
+  return /^(?:reference|référence)?[\s\S]{0,80}?page\s+\d+\s*\/\s*\d+$/i.test(String(line || '').trim());
+}
+
+function removePgpPageMarkers(markdown) {
+  return String(markdown || '').split(/\r?\n/).filter((line) => !isPgpPageMarker(line)).join('\n');
 }
 
 function buildUserPrompt(

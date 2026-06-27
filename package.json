@@ -14,6 +14,7 @@
     "test:license-store": "node tests/licenseStore.test.js",
     "test:user-licenses": "node tests/userLicenses.test.js",
     "test:prevention-dossier": "node tests/preventionDossierExtraction.test.js",
+    "test:pga": "node tests/pga.test.js",
     "test:piu": "node tests/piu.test.js",
     "test:electrical-bt-ht": "node tests/electricalBtHtRiskAssessment.test.js",
     "test:elevator-risk": "node tests/elevatorRiskAssessment.test.js"
