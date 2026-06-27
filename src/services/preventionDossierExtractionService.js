@@ -16,9 +16,10 @@ const RISK_PROFILE_VERIFY_TITLE =
   "Déterminer le profil de risque de l’entreprise avant validation du PIU et du PGP/PAA.";
 const VERIFICATION_SOURCE =
   'À vérifier dans la version applicable du Code du bien-être au travail ou auprès des personnes compétentes.';
+const PIU_EXCLUSION_WARNING =
+  "Certains éléments ont été exclus du PIU car ils ne relèvent pas d’une situation d’urgence opérationnelle.";
 
 const LIMITS = {
-  piuCandidates: 40,
   pgpCandidates: 80,
   diuCandidates: 40,
   evidenceItems: 80,
@@ -117,6 +118,24 @@ Règles de prudence :
 - Les éléments Seveso ne doivent être générés que si le profil ou l’analyse le justifie.
 - Si le profil est inconnu, ajouter un point à vérifier sur la détermination du profil de risque.
 - Mentionner les validations par l’employeur, SIPP/SEPP, ligne hiérarchique, CPPT si applicable et personnes compétentes.
+
+Règles spécifiques PIU :
+- Le PIU ne doit pas être un plan d’action prévention.
+- Le PIU contient uniquement les situations d’urgence opérationnelles et les informations nécessaires à leur gestion.
+- Les actions de conformité, maintenance, contrôle, formation, documentation ou amélioration doivent aller dans le PGP/PAA, les preuves à obtenir ou les points à vérifier.
+- Avant de placer un élément dans piuCandidates, demande-toi : “Cet élément est-il utile pendant une urgence réelle ?”
+- Si non, ne pas le mettre dans piuCandidates.
+
+Exemples :
+- “Personne bloquée dans un ascenseur” => PIU
+- “Procédure d’appel ascensoriste en cas de blocage” => PIU
+- “Obtenir le rapport SECT” => PGP/PAA + preuve à obtenir
+- “Former BA4/BA5” => PGP/PAA
+- “Localiser la coupure générale électrique pour les secours” => PIU
+- “Planifier thermographie annuelle” => PGP/PAA
+- “Mettre à jour les schémas électriques” => PGP/PAA ou dossier pompiers seulement si utile aux secours
+- “Point de rassemblement non défini” => PIU
+- “Ergonomie poste écran” => PGP/PAA uniquement
 
 Répondre uniquement en JSON valide.`;
 
@@ -412,7 +431,13 @@ function sanitizeResult(result, context) {
     riskProfile: context.riskProfile,
   };
   sanitized.structuredRiskRows = sanitizeStructuredRows(result.structuredRiskRows);
-  sanitized.piuCandidates = sanitizeList(result.piuCandidates, LIMITS.piuCandidates, 'title', (item, index) => normalizePiu(item, index, context));
+  const piuLimit = getPiuLimit(context.riskProfile, context.markdown);
+  const piuFiltering = filterPiuCandidates(
+    sanitizeList(result.piuCandidates, 80, 'title', (item, index) => normalizePiu(item, index, context)),
+    context,
+    piuLimit,
+  );
+  sanitized.piuCandidates = piuFiltering.kept;
   sanitized.pgpCandidates = sanitizeList(result.pgpCandidates, LIMITS.pgpCandidates, 'objective', (item, index) => normalizePgp(item, index, context));
   sanitized.diuCandidates = sanitizeList(result.diuCandidates, LIMITS.diuCandidates, 'title', (item, index) => normalizeDiu(item, index, context));
   sanitized.evidenceItems = sanitizeList(result.evidenceItems, LIMITS.evidenceItems, 'title', (item, index) => normalizeEvidence(item, index, context));
@@ -420,6 +445,21 @@ function sanitizeResult(result, context) {
   sanitized.pointsToVerify = sanitizeList(result.pointsToVerify, LIMITS.pointsToVerify, 'title', (item, index) => normalizeVerify(item, index));
   sanitized.requiredValidations = sanitizeList(result.requiredValidations, LIMITS.requiredValidations, 'reason', (item, index) => normalizeValidation(item, index));
   sanitized.warnings = uniqueStrings([...(Array.isArray(result.warnings) ? result.warnings : [])]);
+  if (piuFiltering.excluded.length > 0 && !sanitized.warnings.includes(PIU_EXCLUSION_WARNING)) {
+    sanitized.warnings.push(PIU_EXCLUSION_WARNING);
+  }
+  sanitized.pgpCandidates = sanitizeList(
+    [...sanitized.pgpCandidates, ...piuFiltering.toPgp],
+    LIMITS.pgpCandidates,
+    'objective',
+    (item, index) => normalizePgp(item, index, context),
+  );
+  sanitized.pointsToVerify = sanitizeList(
+    [...sanitized.pointsToVerify, ...piuFiltering.toVerify],
+    LIMITS.pointsToVerify,
+    'title',
+    (item, index) => normalizeVerify(item, index),
+  );
 
   if (context.riskProfileWasInvalid && !sanitized.warnings.includes(RISK_PROFILE_WARNING)) {
     sanitized.warnings.unshift(RISK_PROFILE_WARNING);
@@ -443,6 +483,197 @@ function sanitizeResult(result, context) {
   sanitized.pointsToVerify = sanitizeList(sanitized.pointsToVerify, LIMITS.pointsToVerify, 'title', (item, index) => normalizeVerify(item, index));
   sanitized.requiredValidations = sanitizeList(sanitized.requiredValidations, LIMITS.requiredValidations, 'reason', (item, index) => normalizeValidation(item, index));
   return sanitized;
+}
+
+export function classifyPiuRelevance(itemOrText, riskProfile) {
+  const rawText = typeof itemOrText === 'string'
+    ? itemOrText
+    : [
+        itemOrText?.title,
+        itemOrText?.scenario,
+        itemOrText?.riskSource,
+        itemOrText?.procedureToPlan,
+        itemOrText?.requiredMeans,
+        itemOrText?.pointsToVerify,
+        itemOrText?.chapterSuggestion,
+      ].filter(Boolean).join(' ');
+  const text = normalize(rawText);
+  if (!text) {
+    return {
+      includeInPiu: false,
+      reason: 'Élément vide ou insuffisant.',
+      confidence: 0,
+      destination: 'ignorer',
+    };
+  }
+
+  const hasSevesoProfile = riskProfile === 'Seveso seuil bas' || riskProfile === 'Seveso seuil haut';
+  const hasSevesoEmergency = hasAny(text, ['accident majeur', 'explosion', 'toxique', 'produits dangereux', 'incendie industriel', 'fuite massive']);
+  if (hasAny(text, ['seveso']) && !(hasSevesoProfile && hasSevesoEmergency)) {
+    return {
+      includeInPiu: false,
+      reason: 'Mention Seveso sans scénario d’urgence justifié.',
+      confidence: 0.3,
+      destination: 'À vérifier avant intégration',
+    };
+  }
+
+  const exclusion = matchPiuExclusion(text);
+  const emergencyScore = scoreEmergencyTheme(text);
+  const isUsefulEmergencyInfo = hasAny(text, [
+    'pour les secours',
+    'utile aux secours',
+    'accueil des secours',
+    'accueil secours',
+    'dossier pompiers',
+    'appel 112',
+    'urgence',
+  ]);
+
+  if (exclusion && emergencyScore < 0.7 && !isUsefulEmergencyInfo) {
+    return {
+      includeInPiu: false,
+      reason: exclusion,
+      confidence: Math.max(0.1, emergencyScore),
+      destination: exclusion.includes('documentaire') ? 'À vérifier avant intégration' : 'PGP/PAA',
+    };
+  }
+
+  if (emergencyScore >= 0.7) {
+    return {
+      includeInPiu: true,
+      reason: 'Situation d’urgence opérationnelle ou information directement utile pendant l’urgence.',
+      confidence: emergencyScore,
+      destination: emergencyScore >= 0.85 ? 'PIU' : 'PIU + PGP/PAA',
+    };
+  }
+
+  return {
+    includeInPiu: false,
+    reason: 'Pas d’utilité opérationnelle claire pendant une urgence réelle.',
+    confidence: emergencyScore,
+    destination: exclusion ? 'PGP/PAA' : 'À vérifier avant intégration',
+  };
+}
+
+function filterPiuCandidates(candidates, context, limit) {
+  const kept = [];
+  const excluded = [];
+  const toPgp = [];
+  const toVerify = [];
+
+  for (const candidate of candidates) {
+    const relevance = classifyPiuRelevance(candidate, context.riskProfile);
+    if (relevance.includeInPiu && relevance.confidence >= 0.7 && kept.length < limit) {
+      kept.push(candidate);
+      continue;
+    }
+
+    excluded.push(candidate);
+    if (relevance.destination === 'PGP/PAA' || relevance.destination === 'PIU + PGP/PAA') {
+      toPgp.push(pgpFromPiu(candidate, relevance, context));
+    } else if (relevance.destination === 'À vérifier avant intégration') {
+      toVerify.push(verify(
+        clean(candidate.id) ? `${candidate.id}-verify` : stableId('verify-piu-exclu', candidate.title, excluded.length),
+        clean(candidate.title) || 'Élément PIU à reclasser',
+        relevance.reason,
+      ));
+    }
+  }
+
+  return { kept, excluded, toPgp, toVerify };
+}
+
+function pgpFromPiu(candidate, relevance, context) {
+  return pgp(
+    clean(candidate.id) ? `${candidate.id}-pgp` : stableId('pgp-piu-exclu', candidate.title, 0),
+    clean(candidate.title) || 'Élément à traiter hors PIU',
+    clean(candidate.riskSource || candidate.scenario),
+    clean(candidate.procedureToPlan || relevance.reason),
+    'organisationnelle',
+    {
+      documentType: context.documentType,
+      sourceDocumentId: context.sourceDocumentId,
+      sourceReference: context.sourceReference,
+    },
+    {
+      expectedEvidence: clean(candidate.requiredMeans || candidate.pointsToVerify || 'preuve ou validation à obtenir'),
+      responsible: clean(candidate.responsible || 'à désigner'),
+    },
+  );
+}
+
+function scoreEmergencyTheme(text) {
+  let score = 0;
+  const strongThemes = [
+    'incendie',
+    'evacuation',
+    'alerte',
+    'appel 112',
+    '112',
+    'accident grave',
+    'malaise',
+    'secours',
+    'personne bloquee',
+    'personne bloquee dans un ascenseur',
+    'fuite de gaz',
+    'deversement dangereux',
+    'explosion',
+    'mise a l abri',
+    'confinement',
+    'acces secours',
+    'accueil pompiers',
+    'accueil secours',
+    'dossier pompiers',
+    'point de rassemblement',
+    'pmr',
+    'communication d urgence',
+  ];
+  const criticalCutoffs = [
+    'coupure electrique critique',
+    'coupure generale electrique',
+    'coupure generale',
+    'coupure gaz',
+    'coupure eau',
+    'coupure ventilation',
+    'coupures techniques',
+  ];
+  if (hasAny(text, strongThemes)) score = Math.max(score, 0.85);
+  if (hasAny(text, criticalCutoffs) && hasAny(text, ['urgence', 'secours', 'incendie', 'critique', 'securite immediate', '112'])) {
+    score = Math.max(score, 0.9);
+  } else if (hasAny(text, criticalCutoffs)) {
+    score = Math.max(score, 0.65);
+  }
+  if (hasAny(text, ['panne critique', 'impact securite immediate'])) score = Math.max(score, 0.8);
+  if (hasAny(text, ['accident majeur', 'incendie industriel', 'fuite massive', 'toxique'])) score = Math.max(score, 0.85);
+  return Math.min(score, 1);
+}
+
+function matchPiuExclusion(text) {
+  if (hasAny(text, ['pv rgie', 'rapport sect', 'rapport de thermographie', 'thermographie', 'former ba4', 'former ba5', 'ba4 ba5', 'ba4/ba5'])) {
+    return 'Action de conformité, contrôle ou formation à traiter dans le PGP/PAA.';
+  }
+  if (hasAny(text, ['mettre a jour les schemas', 'mise a jour schemas', 'schemas electriques', 'procedure administrative', 'faire signer', 'completer un document'])) {
+    return 'Action documentaire à traiter hors PIU sauf utilité secours explicite.';
+  }
+  if (hasAny(text, ['maintenance ordinaire', 'controle periodique', 'tester les differentiels', 'etiquetage non critique', 'remarque organisme agree'])) {
+    return 'Action de maintenance ou contrôle périodique sans impact urgence direct.';
+  }
+  if (hasAny(text, ['ergonomie', 'rps', 'risques psychosociaux', 'travail sur ecran', 'ordre et proprete courant'])) {
+    return 'Action prévention courante à traiter dans le PGP/PAA.';
+  }
+  if (hasAny(text, ['obtenir', 'planifier', 'lever une remarque', 'actualiser']) && !hasAny(text, ['secours', 'urgence', 'incendie', 'evacuation'])) {
+    return 'Action de suivi ou preuve à obtenir, non opérationnelle en urgence.';
+  }
+  return '';
+}
+
+function getPiuLimit(riskProfile, markdown) {
+  if (riskProfile === 'Seveso seuil bas' || riskProfile === 'Seveso seuil haut' || hasAny(normalize(markdown), ['accident majeur', 'incendie industriel', 'site industriel majeur'])) {
+    return 40;
+  }
+  if (riskProfile === 'élevé' || riskProfile === 'très élevé') return 25;
+  return 15;
 }
 
 function mergeResult(base, extra) {

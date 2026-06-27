@@ -48,13 +48,44 @@ Entreprise SPGE, site administratif de Verviers.
   assert.ok(electrical.pgpCandidates.length > 0);
   assert.ok(electrical.evidenceItems.length > 0);
   assert.ok(electrical.priorityActions.length > 0);
-  assert.ok(electrical.piuCandidates.length <= 40);
+  assert.ok(electrical.piuCandidates.length <= 15);
   assert.ok(electrical.pgpCandidates.length <= 80);
   assertContains(electrical.piuCandidates, ['coupure', 'tgbt', 'secours', 'incendie']);
   assertContains(electrical.pgpCandidates, ['consignation', 'thermographie', 'rgie', 'ba4']);
   assertContains(electrical.evidenceItems, ['pv rgie', 'thermographie']);
   assertNoValidatedStatus(electrical);
   assertCandidateStatuses(electrical);
+
+  const piuFiltered = await postJson(baseUrl, '/api/prevention-dossier/extract', {
+    ...electricalPayload,
+    markdown: `# Analyse de risques — Installations électriques BT/HT
+
+- Obtenir PV RGIE.
+- Former BA4/BA5.
+- Planifier thermographie annuelle.
+- Mettre à jour schémas électriques.
+- Localiser coupure générale électrique pour secours.
+- Organiser l’accueil des secours.
+- Incendie d’origine électrique au TGBT.`,
+  });
+  assertContains(piuFiltered.piuCandidates, ['coupure générale', 'coupure générale électrique']);
+  assertContains(piuFiltered.piuCandidates, ['accueil des secours', 'incendie']);
+  assertNotContains(piuFiltered.piuCandidates, ['PV RGIE', 'thermographie', 'BA4/BA5', 'BA4', 'BA5', 'mise à jour schémas', 'schémas électriques']);
+  assertContains(piuFiltered.pgpCandidates, ['PV RGIE', 'thermographie', 'BA4/BA5', 'BA4']);
+  assert.ok(piuFiltered.piuCandidates.length <= 15);
+  assertNoValidatedStatus(piuFiltered);
+
+  const weakProfile = await postJson(baseUrl, '/api/prevention-dossier/extract', {
+    ...electricalPayload,
+    formData: { ...electricalPayload.formData, riskProfile: 'faible' },
+  });
+  assert.ok(weakProfile.piuCandidates.length <= 15);
+
+  const highProfile = await postJson(baseUrl, '/api/prevention-dossier/extract', {
+    ...electricalPayload,
+    formData: { ...electricalPayload.formData, riskProfile: 'élevé' },
+  });
+  assert.ok(highProfile.piuCandidates.length <= 25);
 
   const missingProfile = await postJson(baseUrl, '/api/prevention-dossier/extract', {
     ...electricalPayload,
@@ -101,6 +132,13 @@ console.info('Prevention dossier extraction tests passed.');
 function assertContains(items, needles) {
   const text = JSON.stringify(items).toLowerCase();
   assert.ok(needles.some((needle) => text.includes(needle.toLowerCase())), needles.join(' / '));
+}
+
+function assertNotContains(items, needles) {
+  const text = JSON.stringify(items).toLowerCase();
+  for (const needle of needles) {
+    assert.ok(!text.includes(needle.toLowerCase()), `Ne doit pas contenir ${needle}`);
+  }
 }
 
 function assertNoValidatedStatus(value) {
@@ -174,4 +212,3 @@ function postJson(baseUrl, pathname, payload) {
     request.end(body);
   });
 }
-

@@ -19,7 +19,15 @@ const sampleFormData = {
   country: 'Belgique',
   preventionAdvisor: 'Conseiller Test',
   siteManager: 'Responsable Bâtiment',
+  siteContact: 'Accueil Principal',
   technicalServiceContact: 'Service Technique',
+  generalPhone: '+32 87 00 00 00',
+  generalEmail: 'contact@example.test',
+  activityDescription: 'Activités administratives et accueil du public',
+  numberOfWorkers: '42 travailleurs',
+  visitorsPresence: 'Visiteurs présents en journée',
+  externalCompaniesPresence: 'Entreprises extérieures ponctuelles',
+  workingHours: '08:00-17:00',
   emergencyManager: 'Alice Exemple',
   assemblyPoint: 'Parking nord',
   pmrProcedure: 'Assistance par deux équipiers désignés',
@@ -34,17 +42,21 @@ const sampleFormData = {
 };
 
 const markdown = renderInternalEmergencyPlanMarkdown(sampleFormData, 'fr');
-assertPiu(markdown);
-for (const mapped of [
-  'PreventIA Test', 'Site Bruxelles', '1 rue du Test', 'Conseiller Test',
-  'Responsable Bâtiment', 'Service Technique', 'Alice Exemple', 'Parking nord',
+  assertPiu(markdown);
+  for (const mapped of [
+    'PreventIA Test', 'Site Bruxelles', '1 rue du Test', 'Conseiller Test',
+  'Responsable Bâtiment', 'Accueil Principal', 'Service Technique', '+32 87 00 00 00',
+  'contact@example.test', 'Activités administratives et accueil du public', '42 travailleurs',
+  'Visiteurs présents en journée', 'Entreprises extérieures ponctuelles', '08:00-17:00',
+  'Alice Exemple', 'Parking nord',
   'Assistance par deux équipiers', 'Accueil principal', 'Centrale au poste d’accueil',
   'Local chaufferie', 'TGBT local technique', 'Cave technique', 'Commande accueil',
   'Plan d’évacuation',
 ]) {
-  assert.match(markdown, new RegExp(mapped), mapped);
+  assert.ok(markdown.includes(mapped), mapped);
 }
-assert.doesNotMatch(markdown, /Traduction à prévoir/);
+  assert.doesNotMatch(markdown, /Traduction à prévoir/);
+assert.doesNotMatch(markdown, /Page 1 \/ 1/);
 
 const blankMarkdown = renderInternalEmergencyPlanMarkdown({}, 'fr');
 assertPiu(blankMarkdown);
@@ -55,6 +67,65 @@ assert.ok((blankMarkdown.match(/\[à compléter\]/g) || []).length > 100);
 const translatedFallback = renderInternalEmergencyPlanMarkdown(sampleFormData, 'nl');
 assert.match(translatedFallback, /Traduction à prévoir — version française générée\./);
 assert.match(renderInternalEmergencyPlanMarkdown(sampleFormData, 'es'), /Traduction à prévoir/);
+
+const classifiedPiuMarkdown = renderInternalEmergencyPlanMarkdown({
+  ...sampleFormData,
+  importedRiskAnalyses: [
+    {
+      reference: 'AR-2026-0054',
+      documentType: 'Analyse de risques incendie et évacuation',
+      title: 'Incendie et évacuation',
+      markdown: [
+        '- évacuation du bâtiment',
+        '- alerte interne',
+        '- point de rassemblement',
+        '- consignes visiteurs/sous-traitants',
+      ].join('\n'),
+      riskProfile: 'modéré',
+    },
+    {
+      reference: 'AR-2026-0055',
+      documentType: 'Analyse de risques électricité',
+      title: 'Installations électriques BT/HT',
+      markdown: [
+        '- incendie d’origine électrique',
+        '- coupure générale électrique pour secours',
+        '- PV RGIE à obtenir',
+        '- planifier thermographie',
+        '- formation BA4/BA5',
+      ].join('\n'),
+      riskProfile: 'modéré',
+    },
+    {
+      reference: 'AR-2026-0056',
+      documentType: 'Analyse de risques ergonomie écran',
+      title: 'Ergonomie écran',
+      markdown: [
+        '- réglage des sièges',
+        '- pauses écran',
+        '- éclairage du poste',
+      ].join('\n'),
+      riskProfile: 'faible',
+    },
+  ],
+}, 'fr');
+
+assert.match(classifiedPiuMarkdown, /Analyses de risques utilisées pour le PIU/);
+assert.match(classifiedPiuMarkdown, /Pertinente pour le PIU/);
+assert.match(classifiedPiuMarkdown, /Non pertinente pour le PIU/);
+assert.match(classifiedPiuMarkdown, /incendie d’origine électrique/);
+assert.match(classifiedPiuMarkdown, /coupure générale électrique/);
+assert.match(classifiedPiuMarkdown, /Éléments écartés du PIU et réorientés/);
+
+const proceduresSection = extractSection(classifiedPiuMarkdown, 16);
+assert.doesNotMatch(proceduresSection, /planifier thermographie/i);
+assert.doesNotMatch(proceduresSection, /obtenir PV RGIE|PV RGIE à obtenir/i);
+assert.doesNotMatch(proceduresSection, /formation BA4\/BA5/i);
+
+const reorientedSection = extractSection(classifiedPiuMarkdown, 25);
+assert.match(reorientedSection, /PV RGIE à obtenir/);
+assert.match(reorientedSection, /planifier thermographie/);
+assert.match(reorientedSection, /formation BA4\/BA5/);
 
 const server = await listen(app);
 const baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -76,6 +147,14 @@ try {
     assert.equal(response.source, 'deterministic_backend');
     assert.equal(response.documentType, 'Plan Interne d’Urgence');
     assertPiu(response.document);
+    assert.match(response.document, /1 rue du Test, 1000 Bruxelles, Belgique/);
+    assert.match(response.document, /Conseiller Test/);
+    assert.match(response.document, /Responsable Bâtiment/);
+    assert.match(response.document, /Service Technique/);
+    assert.match(response.document, /Activités administratives et accueil du public/);
+    assert.match(response.document, /42 travailleurs/);
+    assert.match(response.document, /Visiteurs présents en journée/);
+    assert.doesNotMatch(response.document, /Page 1 \/ 1/);
   }
 } finally {
   await close(server);
@@ -116,8 +195,15 @@ function assertPiu(document) {
 
 function assertSectionHasContent(document, number) {
   const next = number + 1;
-  const match = document.match(new RegExp(`^## ${number}\\. [^\\n]+\\n\\n([\\s\\S]*?)(?=^## ${next}\\. |$)`, 'm'));
+  const match = document.match(new RegExp(`^## ${number}\\. [^\\n]+\\n\\n([\\s\\S]*?)(?=^## ${next}\\. |(?![\\s\\S]))`, 'm'));
   assert.ok(match?.[1]?.trim(), `La section ${number} ne doit pas être vide.`);
+}
+
+function extractSection(document, number) {
+  const next = number + 1;
+  const match = document.match(new RegExp(`^## ${number}\\. [^\\n]+\\n\\n([\\s\\S]*?)(?=^## ${next}\\. |(?![\\s\\S]))`, 'm'));
+  assert.ok(match?.[1], `La section ${number} doit exister.`);
+  return match[1];
 }
 
 function listen(appInstance) {
