@@ -125,7 +125,7 @@ const OPERATIONAL_ITEM_PATTERNS = [
   ['deversement dangereux', 'Déversement dangereux', ['scénarios d’urgence', 'confinement']],
   ['accident grave', 'Accident grave ou malaise', ['premiers secours']],
   ['malaise', 'Accident grave ou malaise', ['premiers secours']],
-  ['coupure generale', 'Coupure générale électrique', ['moyens d’intervention', 'accueil des secours']],
+  ['coupure generale', 'coupure générale électrique', ['moyens d’intervention', 'accueil des secours']],
   ['personne bloquee', 'Personne bloquée', ['scénarios d’urgence', 'alerte']],
 ];
 
@@ -223,10 +223,11 @@ export function renderInternalEmergencyPlanMarkdown(formData = {}, language = 'f
 
 function buildChapters(data, piuContext) {
   const address = joinAddress(data);
-  const operationalScenarios = piuOperationalScenarios(piuContext);
+  const shelterScenarios = piuShelterScenarios(piuContext);
   const operationalProcedures = piuOperationalProcedures(piuContext);
   const piuAnnexes = piuAnnexesToPlan(piuContext);
   const reorientedItems = piuReorientedItems(piuContext);
+  const nonRetainedReflexSheets = piuNonRetainedReflexSheets(piuContext);
   const chapters = [
     chapter(1, tables([
       [['Élément', 'Information'], ['Entreprise', data.companyName], ['Dénomination du bâtiment', firstKnown(data.siteName, data.buildingName)], ['Adresse complète', address], ['Téléphone', data.generalPhone], ['Email général', data.generalEmail], ['Coordonnées GPS', VERIFY], ['Accès principal', VERIFY]],
@@ -294,7 +295,7 @@ function buildChapters(data, piuContext) {
 
     reflexChapter(data, piuContext),
 
-    chapter(18, field('Éléments issus des analyses de risques', IMPORT), piuAnnexes, tables([
+    chapter(18, field('Éléments issus des analyses de risques', IMPORT), piuAnnexes, nonRetainedReflexSheets, tables([
       [['Élément du dossier', 'Information ou statut'], ['Emplacement du dossier', data.firefighterFileLocation], ['Coordonnées du bâtiment', address], ['Liste des contacts', COMPLETE], ['Plans disponibles', data.availablePlans], ['Plans des coupures', VERIFY], ['Risques particuliers', VERIFY], ['Clés et badges', VERIFY], ['Date de mise à jour', COMPLETE]],
     ])),
 
@@ -302,7 +303,7 @@ function buildChapters(data, piuContext) {
       [['Plan', 'Disponible', 'Date', 'Vérifié sur site'], ['Plan de situation', data.availablePlans, COMPLETE, VERIFY], ['Plan d’accès secours', VERIFY, COMPLETE, VERIFY], ['Plans d’évacuation', VERIFY, COMPLETE, VERIFY], ['Plan des moyens incendie', VERIFY, COMPLETE, VERIFY], ['Plan des coupures', VERIFY, COMPLETE, VERIFY], ['Plan des zones à risques', NOT_APPLICABLE, COMPLETE, VERIFY]],
     ])),
 
-    chapter(20, field('Mise à l’abri', 'Procédure opérationnelle à compléter.'), operationalScenarios, tables([
+    chapter(20, field('Mise à l’abri', 'Procédure opérationnelle à compléter.'), shelterScenarios, tables([
       [['Élément', 'Disposition'], ['Signal de mise à l’abri', VERIFY], ['Locaux désignés', COMPLETE], ['Capacité', VERIFY], ['Fermeture des ouvertures', VERIFY], ['Coupure ventilation', data.ventilationShutoff], ['Communication avec les autorités', VERIFY]],
     ]), checklist(['Déclencher le signal prévu.', 'Rejoindre le local désigné.', 'Fermer portes et fenêtres.', 'Arrêter la ventilation si prévu.', 'Attendre la fin d’alerte officielle.'])),
 
@@ -345,7 +346,7 @@ function buildChapters(data, piuContext) {
 function reflexChapter(data, piuContext) {
   const retainedScenarios = unique(piuContext.operationalItems.map((item) => item.scenario || item.element)).slice(0, 8);
   const scenarioText = retainedScenarios.join(' ').toLowerCase();
-  const sheets = REFLEX_SHEETS.map(([number, title, actions]) => [
+  const sheets = piuContext.retainedReflexSheets.map(([number, title, actions]) => [
     `### FICHE ${number} – ${title}`,
     '',
     `Applicabilité : ${sheetApplicability(number, title, scenarioText)}`,
@@ -397,6 +398,7 @@ function buildPiuContext(formData, data) {
   const input = formData && typeof formData === 'object' && !Array.isArray(formData) ? formData : {};
   const importedAnalyses = Array.isArray(input.importedRiskAnalyses) ? input.importedRiskAnalyses : [];
   const importedItems = Array.isArray(input.importedPiuItems) ? input.importedPiuItems : [];
+  const contextText = piuContextText(input, data);
   const analysesSource = importedAnalyses.length ? importedAnalyses : importedItemsToAnalyses(importedItems);
   const classifications = classifyRiskAnalysesForPiu(analysesSource, input);
   const usableClassifications = classifications.filter((classification) =>
@@ -438,12 +440,19 @@ function buildPiuContext(formData, data) {
     });
   }
 
+  const retainedReflexSheets = selectReflexSheetsForPiu({ contextText, operationalItems, input });
+
   return {
     classifications,
     usableClassifications,
     operationalItems,
     excludedItems,
     importedKeptItems: importedItemFiltering.kept,
+    retainedReflexSheets,
+    nonRetainedReflexSheets: REFLEX_SHEETS.filter(([number]) =>
+      !retainedReflexSheets.some(([retainedNumber]) => retainedNumber === number),
+    ),
+    contextText,
   };
 }
 
@@ -474,18 +483,24 @@ function piuAnalysisSection(context) {
   ].join('\n');
 }
 
-function piuOperationalScenarios(context) {
-  if (!context.operationalItems.length) return field('Scénarios d’urgence retenus', IMPORT);
+function piuShelterScenarios(context) {
+  const items = context.operationalItems.filter((item) => isShelterItem(item, context.contextText));
+  if (!items.length) {
+    return [
+      'Applicabilité : à confirmer.',
+      'Aucun scénario spécifique de mise à l’abri n’a été confirmé dans les analyses utilisées.',
+    ].join('\n');
+  }
   return [
-    '- Scénarios d’urgence retenus :',
-    ...context.operationalItems.slice(0, 12).map((item) => `  - ${truncateCell(item.scenario || item.element, 120)}`),
+    '- Scénarios de mise à l’abri retenus :',
+    ...items.slice(0, 8).map((item) => `  - ${truncateCell(item.scenario || item.element, 120)}`),
   ].join('\n');
 }
 
 function piuOperationalProcedures(context) {
   const items = context.operationalItems.filter((item) =>
     item.parts.some((part) => ['scénarios d’urgence', 'alerte', 'évacuation', 'moyens d’intervention', 'accueil des secours'].includes(part)),
-  );
+  ).filter(isFireProcedureItem);
   if (!items.length) return field('Procédures issues des analyses retenues', IMPORT);
   return markdownTable([
     ['Situation opérationnelle', 'Action PIU courte', 'Source'],
@@ -495,6 +510,28 @@ function piuOperationalProcedures(context) {
       truncateCell(item.sourceReference || item.analysisTitle, 70),
     ]),
   ]);
+}
+
+function piuNonRetainedReflexSheets(context) {
+  const rows = context.nonRetainedReflexSheets
+    .filter(([number]) => !['09', '12', '18', '22'].includes(number) || context.contextText.includes('administratif'))
+    .slice(0, 10)
+    .map(([number, title]) => [
+      `${number} - ${title}`,
+      'Non confirmé dans les analyses utilisées.',
+      conditionForReflexSheet(number),
+    ]);
+  if (!rows.length) return '';
+  return [
+    '### Fiches réflexes non retenues dans le PIU principal',
+    '',
+    'Ces fiches peuvent être réintégrées si l’analyse de risques ou la situation du site le justifie.',
+    '',
+    markdownTable([
+      ['fiche', 'raison', 'condition de réintégration'],
+      ...rows,
+    ]),
+  ].join('\n');
 }
 
 function piuAnnexesToPlan(context) {
@@ -522,6 +559,92 @@ function piuReorientedItems(context) {
       ]),
     ]),
   ].join('\n');
+}
+
+function piuContextText(input, data) {
+  return normalizeText([
+    input?.riskProfile,
+    input?.companyProfile,
+    data.activityDescription,
+    data.visitorsPresence,
+    data.externalCompaniesPresence,
+    rawTextValue(input?.importedRiskAnalyses),
+    rawTextValue(input?.importedActionItems),
+  ].join('\n'));
+}
+
+function selectReflexSheetsForPiu({ contextText, operationalItems, input }) {
+  const text = normalizeText([
+    contextText,
+    rawTextValue(operationalItems),
+    input?.riskProfile,
+  ].join('\n'));
+  const include = new Set(['00', '01', '11']);
+  const addIf = (number, pattern) => {
+    if (pattern.test(text)) include.add(number);
+  };
+
+  addIf('02', /seveso|incident exterieur|nuage toxique|confinement|mise a l abri|pollution exterieure/);
+  addIf('03', /menace|colis suspect|alerte bombe|violence externe/);
+  addIf('04', /biologique|chimique|risque chimique|risque biologique/);
+  addIf('05', /produit dangereux|produits dangereux|fds|deversement|fuite produit|stockage chimique/);
+  addIf('06', /inondation|zone inondable/);
+  addIf('07', /activite exterieure|exposition meteo|risque meteo|tempete|orage/);
+  addIf('08', /transport de matieres dangereuses|axe tmd|tmd/);
+  addIf('09', /seisme/);
+  addIf('10', /fuite de gaz|chaufferie gaz|conduite gaz/);
+  addIf('12', /piscine|chlore|traitement eau piscine/);
+  addIf('13', /restauration|cantine|cuisine|distribution alimentaire/);
+  addIf('14', /pandemie|epidemie|contexte sante|collectivite sensible/);
+  addIf('15', /panne critique|coupure electrique|coupure generale electrique|eclairage de secours|activite critique|ascenseur|equipement essentiel/);
+  addIf('16', /surete|sûrete|menace externe|site sensible|terroriste/);
+  addIf('17', /violence externe|agression|intrusion|accueil public a risque/);
+  addIf('18', /prise d otage|menace grave|surete renforcee|sûrete renforcee/);
+  addIf('19', /continuite d activite|fermeture critique/);
+  addIf('20', /personnel itinerant|deplacements frequents|chantier externe|mission exterieure/);
+  addIf('21', /accueil public|accueil du public|violence externe|agression|travailleur isole|travailleurs isoles/);
+  addIf('22', /gale|maladie contagieuse|soins|hebergement collectif|ecole|creche/);
+
+  return REFLEX_SHEETS.filter(([number]) => include.has(number));
+}
+
+function conditionForReflexSheet(number) {
+  const conditions = {
+    '02': 'Seveso, confinement ou incident extérieur confirmé.',
+    '03': 'Menace, colis suspect ou alerte bombe confirmé.',
+    '04': 'Risque biologique ou chimique explicite.',
+    '05': 'Produits dangereux ou FDS opérationnelle.',
+    '06': 'Risque inondation confirmé.',
+    '07': 'Exposition météo ou activité extérieure.',
+    '08': 'Transport de matières dangereuses confirmé.',
+    '09': 'Risque séisme explicitement retenu.',
+    '10': 'Gaz ou fuite de gaz confirmé.',
+    '12': 'Piscine ou chlore confirmé.',
+    '13': 'Restauration ou cuisine confirmée.',
+    '14': 'Demande explicite ou contexte santé.',
+    '15': 'Panne critique ou coupure électrique confirmée.',
+    '16': 'Site sensible ou menace externe.',
+    '17': 'Intrusion, agression ou accueil public à risque.',
+    '18': 'Menace grave ou sûreté renforcée.',
+    '19': 'Fermeture critique ou continuité d’activité.',
+    '20': 'Personnel itinérant ou mission extérieure.',
+    '21': 'Agression, accueil public ou travailleurs isolés.',
+    '22': 'Santé, hébergement collectif, école ou crèche.',
+  };
+  return conditions[number] || 'Analyse spécifique à fournir.';
+}
+
+function isShelterItem(item, contextText) {
+  const text = normalizeText([item.element, item.scenario, item.procedure, contextText].join(' '));
+  if (!/confinement|mise a l abri|seveso|incident exterieur|nuage toxique|tempete|pollution exterieure|menace necessitant confinement/.test(text)) {
+    return false;
+  }
+  return !/evacuation generale|moyens d extinction|issue de secours|issues de secours|point de rassemblement/.test(normalizeText([item.element, item.scenario].join(' ')));
+}
+
+function isFireProcedureItem(item) {
+  const text = normalizeText([item.element, item.scenario, item.procedure].join(' '));
+  return /incendie|alarme|evacuation|moyens d extinction|extincteur|issue de secours|issues de secours|portes coupe-feu|compartimentage|point de rassemblement|accueil des secours|acces pompier|acces pompiers|visiteurs|sous-traitants/.test(text);
 }
 
 function normalizeRiskAnalyses(analyses) {
@@ -794,7 +917,7 @@ function isDirtyMetadataLine(line) {
 }
 
 function isPaginationLine(line) {
-  return /^page\s+\d+\s*\/\s*\d+$/i.test(String(line || '').trim());
+  return /^(?:reference|référence)?[\s\S]{0,80}?page\s+\d+\s*\/\s*\d+$/i.test(String(line || '').trim());
 }
 
 function isRawMarkdownTableLine(line) {
@@ -832,13 +955,17 @@ function candidateShortText(raw) {
 }
 
 function finalSanitizePiuMarkdown(markdown) {
-  return String(markdown || '')
-    .split(/\r?\n/)
-    .filter((line) => !isPaginationLine(line))
-    .join('\n')
+  return removePageMarkers(markdown)
     .replace(/\\\\+/g, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim() + '\n';
+}
+
+function removePageMarkers(markdown) {
+  return String(markdown || '')
+    .split(/\r?\n/)
+    .filter((line) => !isPaginationLine(line))
+    .join('\n');
 }
 
 function extractMeaningfulLines(text) {

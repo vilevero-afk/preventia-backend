@@ -178,6 +178,52 @@ const dirtyAnalysisSection = extractBetween(
 );
 assert.equal((dirtyAnalysisSection.match(/AR-2026-RAW/g) || []).length, 1);
 
+const spgeAdministrativePiu = renderInternalEmergencyPlanMarkdown({
+  ...sampleFormData,
+  companyName: 'SPGE',
+  riskProfile: 'modéré',
+  activityDescription: 'Bureaux administratifs, accueil du public, réunions, locaux techniques et archives',
+  importedPiuItems: [
+    { sourceDocumentReference: 'AR-SPGE-PIU', title: 'Évacuation générale', validatedByUser: true },
+    { sourceDocumentReference: 'AR-SPGE-PIU', title: 'Moyens d’extinction accessibles', validatedByUser: true },
+    { sourceDocumentReference: 'AR-SPGE-PIU', title: 'Issues de secours dégagées', validatedByUser: true },
+    { sourceDocumentReference: 'AR-SPGE-PIU', title: 'Point de rassemblement', validatedByUser: true },
+    { sourceDocumentReference: 'AR-SPGE-PIU', title: 'FDS à annexer', validatedByUser: true },
+    { sourceDocumentReference: 'AR-SPGE-PIU', title: 'Photo consignes', validatedByUser: true },
+    { sourceDocumentReference: 'AR-SPGE-PIU', title: 'Chlore piscine', validatedByUser: true },
+    { sourceDocumentReference: 'AR-SPGE-PIU', title: 'Séisme', validatedByUser: true },
+    { sourceDocumentReference: 'AR-SPGE-PIU', title: 'Seveso', validatedByUser: true },
+    { sourceDocumentReference: 'AR-SPGE-PIU', title: 'Fuite de gaz', validatedByUser: true },
+    { sourceDocumentReference: 'AR-SPGE-PIU', title: 'Référence AR-SPGE Page 1 / 1', validatedByUser: true },
+  ],
+}, 'fr');
+
+assert.match(spgeAdministrativePiu, /FICHE 00/);
+assert.match(spgeAdministrativePiu, /FICHE 01/);
+assert.match(spgeAdministrativePiu, /FICHE 11/);
+assert.match(spgeAdministrativePiu, /Évacuation générale/);
+assert.match(spgeAdministrativePiu, /Moyens d’extinction accessibles/);
+assert.match(spgeAdministrativePiu, /Issues de secours dégagées/);
+assert.match(spgeAdministrativePiu, /Point de rassemblement/);
+assert.doesNotMatch(spgeAdministrativePiu, /FICHE 02 – Alerte SEVESO/);
+assert.doesNotMatch(spgeAdministrativePiu, /FICHE 09 – Séisme/);
+assert.doesNotMatch(spgeAdministrativePiu, /FICHE 12 – Fuite de chlore à la piscine/);
+assert.doesNotMatch(spgeAdministrativePiu, /FICHE 18 – Prise d’otages/);
+assert.doesNotMatch(spgeAdministrativePiu, /Page 1 \/ 1/);
+
+const shelterSection = extractSection(spgeAdministrativePiu, 20);
+assert.doesNotMatch(shelterSection, /Évacuation générale/);
+assert.doesNotMatch(shelterSection, /Moyens d’extinction accessibles/);
+assert.doesNotMatch(shelterSection, /Issues de secours dégagées/);
+assert.doesNotMatch(shelterSection, /Point de rassemblement/);
+assert.match(shelterSection, /Aucun scénario spécifique de mise à l’abri/);
+
+const fireSection = extractSection(spgeAdministrativePiu, 16);
+assert.doesNotMatch(fireSection, /FDS à annexer/);
+assert.doesNotMatch(fireSection, /Photo consignes/);
+assert.match(extractSection(spgeAdministrativePiu, 18) + extractSection(spgeAdministrativePiu, 25), /FDS à annexer/);
+assert.match(extractSection(spgeAdministrativePiu, 18) + extractSection(spgeAdministrativePiu, 25), /Photos ou consignes à annexer/);
+
 const server = await listen(app);
 const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
@@ -232,8 +278,8 @@ function assertPiu(document) {
     assert.ok(document.includes(label), label);
   }
 
-  for (let sheet = 0; sheet <= 22; sheet += 1) {
-    assert.match(document, new RegExp(`^### FICHE ${String(sheet).padStart(2, '0')} `, 'm'));
+  for (const sheet of ['00', '01', '11']) {
+    assert.match(document, new RegExp(`^### FICHE ${sheet} `, 'm'));
   }
 
   const artificialLongParagraphs = document.split('\n').filter((line) =>
