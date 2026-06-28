@@ -12,42 +12,56 @@ const server = await listen(app);
 const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
 try {
-  for (const documentType of ['Analyse de risques par poste de travail', 'Fiche de poste']) {
-    assert.equal(isSimplePreventionDocument(documentType), true, documentType);
-    assert.equal(canUseDocumentType(documentType), true, documentType);
+  assert.equal(isSimplePreventionDocument('Analyse de risques par poste de travail'), true);
+  assert.equal(canUseDocumentType('Analyse de risques par poste de travail'), true);
+  assert.equal(isSimplePreventionDocument('Fiche de poste'), true);
+  assert.equal(canUseDocumentType('Fiche de poste'), true);
 
-    const response = await postJson(baseUrl, '/api/generate-document', {
-      documentType,
-      language: 'fr',
-      formData: {
-        companyName: 'SPGE',
-        siteName: 'Site administratif de Verviers',
-        activitePoste: 'Technicien de maintenance',
-        secteurActivite: 'Maintenance bâtiments',
-        tachesPrincipales: 'Interventions techniques; rondes; petites réparations',
-        machinesEquipements: 'Outillage électroportatif, escabeau',
-        risques: 'Manutention, travail en hauteur ponctuel, risque électrique résiduel',
-        mesuresPrevention: 'Vérifier les outils, respecter les consignations, utiliser les EPI',
-        epi: 'Chaussures de sécurité, gants adaptés, lunettes',
-        formations: 'Accueil sécurité, BA4 selon interventions autorisées',
-      },
-    });
+  const workstationResponse = await generate('Analyse de risques par poste de travail');
+  assert.equal(workstationResponse.success, true);
+  assert.equal(workstationResponse.source, 'deterministic_backend');
+  assert.equal(workstationResponse.documentType, 'Analyse de risques par poste de travail');
+  assert.doesNotMatch(JSON.stringify(workstationResponse), /documentType inconnu/i);
+  assert.match(workstationResponse.document, /# Analyse de risques par poste de travail/);
+  assert.match(workstationResponse.document, /Tableau principal d’analyse des risques/);
+  assert.match(workstationResponse.document, /Agent d’accueil administratif|Technicien de maintenance/);
 
-    assert.equal(response.success, true, documentType);
-    assert.equal(response.source, 'deterministic_backend', documentType);
-    assert.equal(response.documentType, 'Fiche de poste', documentType);
-    assert.doesNotMatch(JSON.stringify(response), /documentType inconnu/i);
-    assert.match(response.document, /# Fiche de poste/);
-    assert.match(response.document, /Technicien de maintenance/);
-    assert.match(response.document, /Risques liés au poste/);
-    assert.match(response.document, /Mesures de prévention/);
-    assert.match(response.document, /Projet à adapter et à valider/);
-  }
+  const jobSheetResponse = await generate('Fiche de poste');
+  assert.equal(jobSheetResponse.success, true);
+  assert.equal(jobSheetResponse.source, 'deterministic_backend');
+  assert.equal(jobSheetResponse.documentType, 'Fiche de poste');
+  assert.doesNotMatch(JSON.stringify(jobSheetResponse), /documentType inconnu/i);
+  assert.match(jobSheetResponse.document, /# Fiche de poste/);
+  assert.match(jobSheetResponse.document, /Technicien de maintenance/);
+  assert.match(jobSheetResponse.document, /Risques liés au poste/);
+  assert.match(jobSheetResponse.document, /Mesures de prévention/);
+  assert.match(jobSheetResponse.document, /Projet à adapter et à valider/);
 } finally {
   await close(server);
 }
 
 console.info('Job description alias tests passed.');
+
+function generate(documentType) {
+  return postJson(baseUrl, '/api/generate-document', {
+    documentType,
+    language: 'fr',
+    formData: {
+      companyName: 'SPGE',
+      siteName: 'Site administratif de Verviers',
+      activitePoste: documentType === 'Analyse de risques par poste de travail'
+        ? 'Agent d’accueil administratif'
+        : 'Technicien de maintenance',
+      secteurActivite: 'Maintenance bâtiments',
+      tachesPrincipales: 'Interventions techniques; rondes; petites réparations',
+      machinesEquipements: 'Outillage électroportatif, escabeau',
+      risques: 'Manutention, travail en hauteur ponctuel, risque électrique résiduel',
+      mesuresPrevention: 'Vérifier les outils, respecter les consignations, utiliser les EPI',
+      epi: 'Chaussures de sécurité, gants adaptés, lunettes',
+      formations: 'Accueil sécurité, BA4 selon interventions autorisées',
+    },
+  });
+}
 
 function listen(appInstance) {
   return new Promise((resolve, reject) => {

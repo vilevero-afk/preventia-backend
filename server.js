@@ -16,6 +16,8 @@ import { fileURLToPath } from 'node:url';
 import { renderInternalEmergencyPlanMarkdown } from './src/renderers/internalEmergencyPlanRenderer.js';
 import { renderElectricalBtHtRiskAssessmentMarkdown } from './src/renderers/electricalBtHtRiskAssessmentRenderer.js';
 import { renderElevatorRiskAssessmentMarkdown } from './src/renderers/elevatorRiskAssessmentRenderer.js';
+import { renderErgonomicsRiskAssessment } from './src/renderers/ergonomicsRiskRenderer.js';
+import { renderWorkstationRiskAssessment } from './src/renderers/workstationRiskRenderer.js';
 import {
   enrichElectricalBtHtRiskAssessmentWithAI,
   enrichElevatorRiskAssessmentWithAI,
@@ -2113,10 +2115,12 @@ app.post('/api/generate-document', async (req, res, next) => {
     const isInternalEmergencyPlan = documentDefinition.family === 'internal_emergency_plan';
     const isElectricalBtHtRiskAssessment = documentDefinition.family === 'electrical_bt_ht_risk_assessment';
     const isElevatorRiskAssessment = documentDefinition.family === 'elevator_risk_assessment';
+    const selectedRenderer = selectRendererForDocumentType(documentType, documentDefinition);
+    const isSpecializedStrictRenderer = ['ergonomicsRiskAssessment', 'workstationRiskAssessment'].includes(selectedRenderer?.key);
     const isSpecializedRiskAssessment = isElectricalBtHtRiskAssessment || isElevatorRiskAssessment;
     const isPaaPgpDocument = ['annual_action_plan', 'five_year_global_prevention_plan'].includes(documentDefinition.family);
     const isJobDescriptionSheet = documentDefinition.family === 'job_description_sheet';
-    const isDeterministicDocument = isInternalEmergencyPlan || isSpecializedRiskAssessment || isPaaPgpDocument || isJobDescriptionSheet;
+    const isDeterministicDocument = isInternalEmergencyPlan || isSpecializedRiskAssessment || isPaaPgpDocument || isJobDescriptionSheet || isSpecializedStrictRenderer;
 
     if (!isDeterministicDocument && !process.env.OPENAI_API_KEY) {
       const error = new Error('Configuration OpenAI manquante côté serveur.');
@@ -2139,7 +2143,23 @@ app.post('/api/generate-document', async (req, res, next) => {
     let generatedDocument;
     let generationSource = isDeterministicDocument ? 'deterministic_backend' : 'ai_backend';
 
-    if (isInternalEmergencyPlan) {
+    if (isSpecializedStrictRenderer) {
+      if (typeof selectedRenderer.render !== 'function') {
+        return res.status(501).json({
+          success: false,
+          error: 'Renderer spécialisé indisponible pour ce documentType',
+        });
+      }
+      generatedDocument = {
+        document: selectedRenderer.render({
+          formData,
+          reference: formData?.reference || formData?.documentReference || '',
+          date: formData?.date || formData?.analysisDate || '',
+          language: targetLanguage.code,
+        }),
+        complementaryDocument: null,
+      };
+    } else if (isInternalEmergencyPlan) {
       generatedDocument = {
         document: renderInternalEmergencyPlanMarkdown(formData, language || targetLanguage.code),
         complementaryDocument: null,
@@ -2306,7 +2326,7 @@ app.post('/api/generate-document', async (req, res, next) => {
     res.json({
       success: true,
       source: generationSource,
-      documentType: documentDefinition.labels[targetLanguage.code] || documentType,
+      documentType: selectedRenderer?.responseDocumentType || documentDefinition.labels[targetLanguage.code] || documentType,
       document,
       ...(complementaryDocument ? { complementaryDocument } : {}),
     });
@@ -2403,7 +2423,46 @@ function getDocumentDefinition(documentType) {
   return DOCUMENT_DEFINITION_BY_TYPE.get(normalizeDocumentType(documentType));
 }
 
+function selectRendererForDocumentType(documentType, documentDefinition = getDocumentDefinition(documentType)) {
+  const rawType = normalizeDocumentTypeWithoutAliases(documentType);
+  const normalizedType = normalizeDocumentType(documentType);
+
+  if (normalizedType === normalizeDocumentType('Analyse de risques ergonomie')) {
+    return {
+      key: 'ergonomicsRiskAssessment',
+      rendererName: 'renderErgonomicsRiskAssessment',
+      responseDocumentType: 'Analyse de risques ergonomie',
+      render: renderErgonomicsRiskAssessment,
+    };
+  }
+
+  if (rawType === 'analyse de risques par poste de travail') {
+    return {
+      key: 'workstationRiskAssessment',
+      rendererName: 'renderWorkstationRiskAssessment',
+      responseDocumentType: 'Analyse de risques par poste de travail',
+      render: renderWorkstationRiskAssessment,
+    };
+  }
+
+  if (normalizeDocumentType(documentDefinition?.labels?.fr) === normalizeDocumentType('Fiche de poste')) {
+    return {
+      key: 'jobDescription',
+      rendererName: 'renderJobDescriptionSheetMarkdown',
+      responseDocumentType: documentDefinition.labels.fr,
+      render: (options = {}) => renderJobDescriptionSheetMarkdown(options.formData, options.language),
+    };
+  }
+
+  return null;
+}
+
 function normalizeDocumentType(documentType) {
+  const value = normalizeDocumentTypeWithoutAliases(documentType);
+  return DOCUMENT_TYPE_ALIASES.get(value) || value;
+}
+
+function normalizeDocumentTypeWithoutAliases(documentType) {
   const value = String(documentType || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -2413,7 +2472,7 @@ function normalizeDocumentType(documentType) {
     .trim()
     .toLowerCase();
 
-  return DOCUMENT_TYPE_ALIASES.get(value) || value;
+  return value;
 }
 
 function validateRequiredFields(documentDefinition, formData) {
@@ -10123,6 +10182,7 @@ export {
   resetMonthlyUsageIfNeeded,
   saveLicenses,
   saveUserLicenses,
+  selectRendererForDocumentType,
   validateCheckoutPayload,
   validateLicenseAccess,
   verifyAuthToken,
