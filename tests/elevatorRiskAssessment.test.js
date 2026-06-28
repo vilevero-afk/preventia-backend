@@ -16,6 +16,8 @@ const { enrichElevatorRiskAssessmentWithAI } = await import(
 
 const aliases = [
   'Analyse de risques — Ascenseur',
+  'Analyse de risques – Ascenseur',
+  'Analyse de risques - Ascenseur',
   'Analyse de risques ascenseur',
   'Analyse ascenseur',
   'Ascenseur',

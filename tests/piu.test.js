@@ -6,7 +6,7 @@ process.env.NODE_ENV = 'test';
 process.env.ALLOW_UNLICENSED_GENERATION = 'true';
 process.env.OPENAI_API_KEY = '';
 
-const { app } = await import('../server.js');
+const { app, canUseDocumentType, isSimplePreventionDocument } = await import('../server.js');
 const { CHAPTER_TITLES, renderInternalEmergencyPlanMarkdown } = await import('../src/renderers/internalEmergencyPlanRenderer.js');
 
 const sampleFormData = {
@@ -230,10 +230,13 @@ const baseUrl = `http://127.0.0.1:${server.address().port}`;
 try {
   for (const documentType of [
     'Plan Interne d’Urgence',
+    'Plan interne d’urgence',
     'PIU',
     'Plan d’urgence interne',
     'internal_emergency_plan',
   ]) {
+    assert.equal(isSimplePreventionDocument(documentType), true, documentType);
+    assert.equal(canUseDocumentType(documentType), true, documentType);
     const response = await postJson(baseUrl, '/api/generate-document', {
       documentType,
       formData: sampleFormData,

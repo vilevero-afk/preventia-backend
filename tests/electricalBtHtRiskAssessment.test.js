@@ -16,6 +16,8 @@ const { enrichElectricalBtHtRiskAssessmentWithAI } = await import(
 
 const aliases = [
   'Analyse de risques — Installations électriques BT/HT',
+  'Analyse de risques – Installations électriques BT/HT',
+  'Analyse de risques - Installations électriques BT/HT',
   'Analyse de risques BT/HT',
   'Analyse de risques électrique',
   'Analyse de risques électricité',

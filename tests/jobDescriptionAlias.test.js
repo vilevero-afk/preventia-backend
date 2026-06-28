@@ -6,13 +6,16 @@ process.env.NODE_ENV = 'test';
 process.env.ALLOW_UNLICENSED_GENERATION = 'true';
 process.env.OPENAI_API_KEY = '';
 
-const { app } = await import('../server.js');
+const { app, canUseDocumentType, isSimplePreventionDocument } = await import('../server.js');
 
 const server = await listen(app);
 const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
 try {
   for (const documentType of ['Analyse de risques par poste de travail', 'Fiche de poste']) {
+    assert.equal(isSimplePreventionDocument(documentType), true, documentType);
+    assert.equal(canUseDocumentType(documentType), true, documentType);
+
     const response = await postJson(baseUrl, '/api/generate-document', {
       documentType,
       language: 'fr',

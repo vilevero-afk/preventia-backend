@@ -2407,6 +2407,7 @@ function normalizeDocumentType(documentType) {
   const value = String(documentType || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[–—]/g, '-')
     .replace(/[’']/g, "'")
     .replace(/\s+/g, ' ')
     .trim()
@@ -3504,6 +3505,10 @@ function isSimplePreventionDocument(documentType = '') {
 }
 
 function canUseDocumentType(license, documentType) {
+  if (typeof license === 'string' && documentType === undefined) {
+    return isRiskAnalysisDocument(license) || isSimplePreventionDocument(license);
+  }
+
   const features = ensureArray(license?.allowedFeatures);
 
   if (isRiskAnalysisDocument(documentType)) {

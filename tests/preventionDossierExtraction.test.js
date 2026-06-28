@@ -19,6 +19,7 @@ try {
   await testStrictExclusions();
   await testDeduplication();
   await testLengthLimits();
+  await testPreventionDossierFeedsPaaPgpRenderer();
   await testMissingMarkdown();
 } finally {
   await close(server);
@@ -126,6 +127,44 @@ async function testLengthLimits() {
     assert.ok(item.title.length <= 90, item.title);
     assert.ok(item.description.length <= 240, item.description);
   }
+}
+
+async function testPreventionDossierFeedsPaaPgpRenderer() {
+  const extraction = await extract(`Analyse incendie.
+Page 1 / 1
+additionalInformation: bloc brut à ignorer
+documentType: Analyse de risques incendie
+Conclusion
+Méthode de cotation
+Tableau principal d’analyse
+- Issues encombrées et voies d’évacuation à libérer.
+`);
+
+  assertPgpContains(extraction, 'dégager', 'voies');
+
+  const response = await postJson(baseUrl, '/api/generate-document', {
+    documentType: 'Plan annuel d’action',
+    language: 'fr',
+    formData: {
+      companyName: 'SPGE',
+      siteName: 'Site administratif de Verviers',
+      siteLieuTravail: 'Site administratif de Verviers',
+      context: 'Contrat de caractérisation prevention-dossier vers PGA/PAA/PGP.',
+      pgpCandidates: extraction.pgpCandidates,
+      evidenceItems: extraction.evidenceItems,
+      pointsToVerify: extraction.validationPoints,
+    },
+  });
+
+  assert.equal(response.success, true);
+  assert.equal(response.source, 'deterministic_backend');
+  assert.match(response.document, /Dégager les voies d’évacuation/);
+  assert.doesNotMatch(response.document, /Page 1 \/ 1/);
+  assert.doesNotMatch(response.document, /additionalInformation/);
+  assert.doesNotMatch(response.document, /documentType/);
+  assert.doesNotMatch(response.document, /Conclusion/);
+  assert.doesNotMatch(response.document, /Méthode de cotation/);
+  assert.doesNotMatch(response.document, /Tableau principal d’analyse/);
 }
 
 async function testMissingMarkdown() {
