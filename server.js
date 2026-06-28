@@ -714,6 +714,7 @@ const NEW_DOCUMENT_DEFINITIONS = [
       en: 'Job Description Sheet',
       de: 'Stellenbeschreibung',
     },
+    aliases: ['Analyse de risques par poste de travail'],
     requiredFieldGroups: [
       ['activitePoste', 'poste', 'fonction', 'jobTitle'],
       ['secteurActivite', 'service', 'departement', 'department', 'companyName'],
@@ -757,6 +758,10 @@ const NEW_DOCUMENT_DEFINITIONS = [
     ],
   },
 ];
+
+const DOCUMENT_TYPE_ALIASES = new Map([
+  ['analyse de risques par poste de travail', 'fiche de poste'],
+]);
 
 const DOCUMENT_DEFINITIONS = [
   ...RISK_DOCUMENT_TYPES.map((label) => ({
@@ -2076,13 +2081,14 @@ app.post('/api/generate-document', async (req, res, next) => {
     console.log('[RISK_RENDER_TRACE] route generate-document');
     const { documentType, formData, language, languageLabel, licenseKey, deviceId } = req.body || {};
     const documentDefinition = validateGenerateDocumentPayload(documentType, formData);
+    const backendDocumentType = documentDefinition.labels.fr || documentType;
     const targetLanguage = resolveTargetLanguage(language, languageLabel, formData);
     let licenseValidation = null;
     let userLicenseValidation = null;
     const bearerToken = getBearerTokenFromRequest(req);
 
     if (bearerToken) {
-      userLicenseValidation = await validateUserGenerationAccess(req, { deviceId, documentType });
+      userLicenseValidation = await validateUserGenerationAccess(req, { deviceId, documentType: backendDocumentType });
       if (!userLicenseValidation.ok) {
         return res.json({
           success: false,
@@ -2090,7 +2096,7 @@ app.post('/api/generate-document', async (req, res, next) => {
         });
       }
     } else if (licenseKey && deviceId) {
-      licenseValidation = validateLicenseAccess({ licenseKey, deviceId, documentType });
+      licenseValidation = validateLicenseAccess({ licenseKey, deviceId, documentType: backendDocumentType });
       if (!licenseValidation.ok) {
         return res.json({
           success: false,
@@ -2109,7 +2115,8 @@ app.post('/api/generate-document', async (req, res, next) => {
     const isElevatorRiskAssessment = documentDefinition.family === 'elevator_risk_assessment';
     const isSpecializedRiskAssessment = isElectricalBtHtRiskAssessment || isElevatorRiskAssessment;
     const isPaaPgpDocument = ['annual_action_plan', 'five_year_global_prevention_plan'].includes(documentDefinition.family);
-    const isDeterministicDocument = isInternalEmergencyPlan || isSpecializedRiskAssessment || isPaaPgpDocument;
+    const isJobDescriptionSheet = documentDefinition.family === 'job_description_sheet';
+    const isDeterministicDocument = isInternalEmergencyPlan || isSpecializedRiskAssessment || isPaaPgpDocument || isJobDescriptionSheet;
 
     if (!isDeterministicDocument && !process.env.OPENAI_API_KEY) {
       const error = new Error('Configuration OpenAI manquante côté serveur.');
@@ -2124,6 +2131,7 @@ app.post('/api/generate-document', async (req, res, next) => {
 
     console.info('Demande de génération reçue', {
       documentType,
+      backendDocumentType,
       language: targetLanguage.code,
       formFields: Object.keys(formData).length,
     });
@@ -2141,6 +2149,11 @@ app.post('/api/generate-document', async (req, res, next) => {
         document: renderPaaPgpMarkdown(formData, documentDefinition, targetLanguage.code),
         complementaryDocument: null,
       };
+    } else if (isJobDescriptionSheet) {
+      generatedDocument = {
+        document: renderJobDescriptionSheetMarkdown(formData, targetLanguage.code),
+        complementaryDocument: null,
+      };
     } else if (isElectricalBtHtRiskAssessment) {
       const baseMarkdown = renderElectricalBtHtRiskAssessmentMarkdown(formData, language || targetLanguage.code);
       let document = baseMarkdown;
@@ -2151,7 +2164,7 @@ app.post('/api/generate-document', async (req, res, next) => {
             baseMarkdown,
             formData,
             language: language || targetLanguage.code,
-            documentType,
+            documentType: backendDocumentType,
             openai,
             model: OPENAI_MODEL,
             maxOutputTokens: OPENAI_MAX_OUTPUT_TOKENS,
@@ -2178,7 +2191,7 @@ app.post('/api/generate-document', async (req, res, next) => {
             baseMarkdown,
             formData,
             language: language || targetLanguage.code,
-            documentType,
+            documentType: backendDocumentType,
             openai,
             model: OPENAI_MODEL,
             maxOutputTokens: OPENAI_MAX_OUTPUT_TOKENS,
@@ -2199,7 +2212,7 @@ app.post('/api/generate-document', async (req, res, next) => {
       console.log('[RISK_RENDER_TRACE] using function: generateRiskAssessmentFast');
       const generatedRiskAssessment = await generateRiskAssessmentFast({
         openai,
-        documentType,
+        documentType: backendDocumentType,
         formData,
         languageCode: targetLanguage.code,
         languageLabel: targetLanguage.label,
@@ -2207,7 +2220,7 @@ app.post('/api/generate-document', async (req, res, next) => {
       const reference = generatedRiskAssessment.reference;
       const structuredData = ensureCompleteRiskAssessmentData(
         generatedRiskAssessment.structuredData,
-        documentType,
+        backendDocumentType,
         targetLanguage.code,
         formData,
       );
@@ -2258,7 +2271,7 @@ app.post('/api/generate-document', async (req, res, next) => {
                 {
                   type: 'input_text',
                   text: buildUserPrompt(
-                    documentType,
+                    backendDocumentType,
                     formData,
                     targetLanguage.code,
                     targetLanguage.label,
@@ -2282,11 +2295,11 @@ app.post('/api/generate-document', async (req, res, next) => {
     }
 
     if (licenseValidation?.license && licenseValidation?.store) {
-      incrementUsage(licenseValidation.license, documentType);
+      incrementUsage(licenseValidation.license, backendDocumentType);
       saveLicenses(licenseValidation.store);
     }
     if (userLicenseValidation?.userLicense) {
-      incrementUsage(userLicenseValidation.userLicense, documentType);
+      incrementUsage(userLicenseValidation.userLicense, backendDocumentType);
       await licenseStore.save(userLicenseValidation.userLicense);
     }
 
@@ -2391,13 +2404,15 @@ function getDocumentDefinition(documentType) {
 }
 
 function normalizeDocumentType(documentType) {
-  return String(documentType || '')
+  const value = String(documentType || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[’']/g, "'")
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
+
+  return DOCUMENT_TYPE_ALIASES.get(value) || value;
 }
 
 function validateRequiredFields(documentDefinition, formData) {
@@ -7454,6 +7469,118 @@ function runRiskPromptQualityTests() {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function renderJobDescriptionSheetMarkdown(formData = {}, language = 'fr') {
+  const input = formData && typeof formData === 'object' && !Array.isArray(formData) ? formData : {};
+  const config = LANGUAGE_CONFIGS[language] || LANGUAGE_CONFIGS.fr;
+  const jobTitle = firstText(input.activitePoste, input.poste, input.fonction, input.jobTitle, 'Poste à préciser');
+  const service = firstText(input.secteurActivite, input.service, input.departement, input.department, input.companyName, 'Service à préciser');
+  const tasks = listText(input.tachesPrincipales, input.tasks, input.concernedTasks, input.activity, input.additionalInformation);
+  const equipment = listText(input.machinesEquipements, input.equipement, input.equipment, input.tools);
+  const products = listText(input.produitsUtilises, input.dangerousProducts, input.products);
+  const risks = listText(input.risques, input.specificRisks, input.riskFactors, input.additionalInformation);
+  const prevention = listText(input.mesuresPrevention, input.preventiveMeasures, input.existingMeasures);
+  const ppe = listText(input.epi, input.requiredPpe, input.personalProtectiveEquipment);
+  const training = listText(input.formations, input.training, input.habilitations);
+
+  return [
+    '# Fiche de poste – Projet à adapter et à valider',
+    '',
+    '## 1. Identification du poste',
+    '',
+    simpleMarkdownTable([
+      ['Élément', 'Valeur'],
+      ['Poste / fonction', jobTitle],
+      ['Service concerné', service],
+      ['Entreprise', firstText(input.companyName, input.entreprise, 'À compléter')],
+      ['Site', firstText(input.siteName, input.site, input.lieu, 'À compléter')],
+      ['Statut', 'Projet à valider'],
+    ]),
+    '',
+    '## 2. Mission principale',
+    '',
+    firstText(input.missionPrincipale, input.mainMission, input.context, `Décrire les missions principales du poste ${jobTitle}.`),
+    '',
+    '## 3. Tâches principales',
+    '',
+    bulletList(tasks, ['Décrire les tâches régulières du poste.', 'Confirmer les tâches occasionnelles sur le terrain.']),
+    '',
+    '## 4. Équipements, outils et produits',
+    '',
+    simpleMarkdownTable([
+      ['Catégorie', 'Éléments à vérifier'],
+      ['Équipements et outils', equipment.join('; ') || 'À compléter'],
+      ['Produits utilisés', products.join('; ') || 'Sans objet ou à compléter'],
+    ]),
+    '',
+    '## 5. Risques liés au poste',
+    '',
+    bulletList(risks, [
+      'Risques liés aux tâches, équipements, produits, manutentions, postures et déplacements à confirmer.',
+      'Exposition réelle à valider par observation terrain.',
+    ]),
+    '',
+    '## 6. Mesures de prévention',
+    '',
+    bulletList(prevention, [
+      'Vérifier les consignes applicables au poste.',
+      'Adapter les mesures après validation par le conseiller en prévention.',
+    ]),
+    '',
+    '## 7. EPI requis',
+    '',
+    bulletList(ppe, ['Définir les EPI requis selon les risques réellement présents.']),
+    '',
+    '## 8. Formations et habilitations',
+    '',
+    bulletList(training, ['Vérifier les formations, informations ou habilitations nécessaires avant affectation au poste.']),
+    '',
+    '## 9. Points à vérifier avant validation',
+    '',
+    bulletList([
+      'Observation terrain du poste.',
+      'Avis du conseiller en prévention.',
+      'Validation employeur et ligne hiérarchique.',
+      'Consultation CPPT si applicable.',
+    ]),
+    '',
+    '## 10. Mention de validation',
+    '',
+    config.finalMention,
+  ].join('\n');
+}
+
+function firstText(...values) {
+  for (const value of values) {
+    const cleaned = String(value ?? '').replace(/\s+/g, ' ').trim();
+    if (cleaned) return cleaned;
+  }
+  return '';
+}
+
+function listText(...values) {
+  return values.flatMap((value) => {
+    if (Array.isArray(value)) return value.map((item) => firstText(item)).filter(Boolean);
+    return String(value ?? '')
+      .split(/\n|;|,/)
+      .map((item) => firstText(item))
+      .filter(Boolean);
+  }).slice(0, 12);
+}
+
+function bulletList(items, fallback = []) {
+  const values = (items.length > 0 ? items : fallback).map((item) => `- ${String(item).trim()}`);
+  return values.join('\n');
+}
+
+function simpleMarkdownTable(rows) {
+  const sanitized = rows.map((row) => row.map((cell) => sanitizeMarkdownCell(cell)));
+  return [
+    `| ${sanitized[0].join(' |')} |`,
+    `| ${sanitized[0].map(() => '---').join(' |')} |`,
+    ...sanitized.slice(1).map((row) => `| ${row.join(' |')} |`),
+  ].join('\n');
 }
 
 const PGP_ACTION_VERBS = [
