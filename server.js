@@ -2033,11 +2033,13 @@ app.post('/api/auth/validate-generation', async (req, res, next) => {
 app.post('/api/prevention-dossier/extract', async (req, res, next) => {
   try {
     const {
+      companyKey,
       documentType,
       markdown,
       formData,
       sourceDocumentId,
       sourceReference,
+      existingCandidateFingerprints,
       language,
     } = req.body || {};
 
@@ -2050,11 +2052,13 @@ app.post('/api/prevention-dossier/extract', async (req, res, next) => {
       : null;
 
     const dossier = await extractPreventionDossier({
+      companyKey,
       documentType,
       markdown,
       formData: formData && typeof formData === 'object' ? formData : {},
       sourceDocumentId,
       sourceReference,
+      existingCandidateFingerprints,
       language,
       openai,
       model: OPENAI_MODEL,

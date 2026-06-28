@@ -1,986 +1,726 @@
 import crypto from 'node:crypto';
 
-const ALLOWED_RISK_PROFILES = new Set([
-  'faible',
-  'modéré',
-  'élevé',
-  'très élevé',
-  'Seveso seuil bas',
-  'Seveso seuil haut',
-  'inconnu / à déterminer',
+const ALLOWED_DESTINATIONS = new Set([
+  'piu',
+  'pgp',
+  'evidence',
+  'validationPoint',
+  'annex',
+  'info',
+  'ignoredTechnical',
 ]);
-
-const RISK_PROFILE_WARNING =
-  "Profil de risque de l’entreprise à confirmer avant validation du PIU et du PGP/PAA.";
-const RISK_PROFILE_VERIFY_TITLE =
-  "Déterminer le profil de risque de l’entreprise avant validation du PIU et du PGP/PAA.";
-const VERIFICATION_SOURCE =
-  'À vérifier dans la version applicable du Code du bien-être au travail ou auprès des personnes compétentes.';
-const PIU_EXCLUSION_WARNING =
-  "Certains éléments ont été exclus du PIU car ils ne relèvent pas d’une situation d’urgence opérationnelle.";
 
 const LIMITS = {
-  pgpCandidates: 80,
-  diuCandidates: 40,
-  evidenceItems: 80,
-  priorityActions: 30,
-  pointsToVerify: 30,
-  requiredValidations: 20,
+  piu: 15,
+  pgp: 30,
+  evidence: 20,
+  validationPoint: 15,
+  annex: 15,
+  ignoredTechnical: 50,
 };
 
-const EMPTY_VALUES = new Set([
-  '',
-  'a completer',
-  'a verifier sur site',
-  'preuve a obtenir',
-  'validation requise',
-  '[à compléter]',
-  '[a completer]',
-  '[à vérifier sur site]',
-  '[a verifier sur site]',
-  '[preuve à obtenir]',
-  '[preuve a obtenir]',
-  '[validation requise]',
-]);
+const TECHNICAL_EXCLUSIONS = [
+  'additionalInformation',
+  'documentType',
+  'activity',
+  'concernedTasks',
+  'includedLocations',
+  'exposedWorkers',
+  'documentObjective',
+  'fireRisk',
+  'sector',
+  'visitDate',
+  'youngWorkers',
+  'safetyDataSheetsAvailable',
+  'jobObservationDone',
+  'vehiclePedestrianTraffic',
+  'dangerousMachines',
+  'dangerousProducts',
+  'writtenInstructions',
+  'periodicControls',
+  'availableEvidence',
+  'Famille de danger',
+  'Danger précis',
+  'Scénario plausible',
+  'Référence ou domaine réglementaire',
+  'Livre Ier',
+  'Livre III',
+  'Livre IX',
+  'Code belge du bien-être',
+  'Méthode de cotation',
+  'Tableau principal d’analyse',
+  'Analyse des risques résiduels',
+  'Conclusion',
+  'Mention de validation',
+  'PAA seul',
+  'PGP seul',
+  'CPPT seul',
+];
 
-const MEASURE_TYPES = new Set([
-  'technique',
-  'organisationnelle',
-  'humaine',
-  'documentaire',
-  'contrôle / vérification',
-  'formation / information',
-  'autre',
-]);
+const PIU_TERMS = [
+  'alerte incendie',
+  'évacuation',
+  'evacuation',
+  'point de rassemblement',
+  'accueil secours',
+  'accueil des secours',
+  'accueil pompiers',
+  'accès pompiers',
+  'acces pompiers',
+  'mise à l’abri',
+  'mise a l abri',
+  'accident',
+  'malaise',
+  'fuite gaz',
+  'fuite de gaz',
+  'déversement dangereux',
+  'deversement dangereux',
+  'confinement',
+  'urgence',
+  'personne bloquée',
+  'personne bloquee',
+  'appel secours ascenseur',
+  'coupure électrique d’urgence',
+  'coupure electrique d urgence',
+];
 
-const EVIDENCE_TYPES = new Set(['rapport', 'PV', 'attestation', 'photo', 'plan', 'schéma', 'contrôle', 'autre']);
-const DESTINATIONS = new Set([
-  'Analyse de risques uniquement',
-  'PIU',
-  'PGP/PAA',
-  'PIU + PGP/PAA',
-  'DIU',
-  'À vérifier avant intégration',
-]);
-const VALIDATION_BY = new Set([
-  'employeur',
-  'SIPP/SEPP',
-  'ligne hiérarchique',
-  'CPPT',
-  'personne compétente',
-  'organisme externe',
-  'autre',
-]);
+const PGP_VERBS = [
+  'vérifier',
+  'verifier',
+  'contrôler',
+  'controler',
+  'planifier',
+  'formaliser',
+  'mettre à jour',
+  'mettre a jour',
+  'obtenir',
+  'centraliser',
+  'dégager',
+  'degager',
+  'rendre accessible',
+  'supprimer',
+  'sensibiliser',
+  'former',
+  'informer',
+  'organiser',
+  'corriger',
+  'lever',
+  'sécuriser',
+  'securiser',
+  'signaler',
+];
 
-const SYSTEM_PROMPT = `Tu es un conseiller en prévention belge expérimenté. Tu aides à structurer un dossier prévention à partir d’une analyse de risques. Tu ne valides rien automatiquement. Tu ne donnes pas de conseil juridique définitif. Tu n’inventes jamais de références légales, seuils, dates ou obligations. Les obligations doivent être formulées comme des points à vérifier dans la version applicable du Code du bien-être au travail ou auprès des personnes compétentes.`;
+const EVIDENCE_TERMS = [
+  'rapport',
+  'photo',
+  'fds',
+  'fiche de données de sécurité',
+  'fiche de donnees de securite',
+  'plan à joindre',
+  'plan a joindre',
+  'registre',
+  'attestation',
+  'pv rgie',
+  'rapport sect',
+  'thermographie',
+  'schéma',
+  'schema',
+];
 
-const USER_PROMPT = `À partir de l’analyse de risques fournie, extrais des éléments structurés pour alimenter :
-- le Plan Interne d’Urgence — PIU ;
-- le Plan Global de Prévention / Plan Annuel d’Action — PGP/PAA ;
-- le DIU ;
-- les preuves à obtenir ;
-- les points à vérifier ;
-- les validations nécessaires.
+const VALIDATION_TERMS = [
+  'avis cppt',
+  'avis service externe',
+  'avis expert',
+  'validation employeur',
+  'visite terrain',
+  'preuve manquante bloquante',
+  'responsabilité à confirmer',
+  'responsabilite a confirmer',
+  'délai à confirmer',
+  'delai a confirmer',
+  'bloquant',
+  'obligatoire avant validation',
+];
 
-Utilise les données :
-- Entreprise
-- Site
-- Adresse
-- Secteur
-- Type d’entreprise
-- Nombre de travailleurs
-- Présence de tiers
-- CPPT
-- SIPP/SEPP
-- Conseiller en prévention
-- Responsable site
-- Service technique
-- Profil de risque
-- Activités principales
-- Risques spécifiques
-- Analyse de risques
+const AI_SYSTEM_PROMPT = `Tu extrais des candidats incrémentaux pour un dossier prévention belge. Tu ne valides rien. Tu proposes uniquement des éléments courts à faire valider dans Flutter. Réponds en JSON strict.`;
 
-Méthode :
-1. Reprendre ou structurer l’analyse de risques sous forme de lignes.
-2. Identifier les risques pouvant générer une situation d’urgence et les proposer comme candidats PIU.
-3. Identifier les risques nécessitant des mesures structurelles, organisationnelles, techniques, humaines ou documentaires et les proposer comme candidats PGP/PAA.
-4. Identifier les éléments utiles au DIU.
-5. Identifier les preuves à obtenir.
-6. Identifier les points à vérifier avant validation.
-7. Identifier les validations nécessaires.
-8. Adapter le niveau de détail au profil de risque.
-
-Règles de prudence :
-- Tout item doit avoir status: "à valider".
-- Ne jamais générer un item validé.
-- Ne pas inventer de données absentes.
-- Ne pas inventer de référence légale.
-- Les éléments Seveso ne doivent être générés que si le profil ou l’analyse le justifie.
-- Si le profil est inconnu, ajouter un point à vérifier sur la détermination du profil de risque.
-- Mentionner les validations par l’employeur, SIPP/SEPP, ligne hiérarchique, CPPT si applicable et personnes compétentes.
-
-Règles spécifiques PIU :
-- Le PIU ne doit pas être un plan d’action prévention.
-- Le PIU contient uniquement les situations d’urgence opérationnelles et les informations nécessaires à leur gestion.
-- Les actions de conformité, maintenance, contrôle, formation, documentation ou amélioration doivent aller dans le PGP/PAA, les preuves à obtenir ou les points à vérifier.
-- Avant de placer un élément dans piuCandidates, demande-toi : “Cet élément est-il utile pendant une urgence réelle ?”
-- Si non, ne pas le mettre dans piuCandidates.
-
-Exemples :
-- “Personne bloquée dans un ascenseur” => PIU
-- “Procédure d’appel ascensoriste en cas de blocage” => PIU
-- “Obtenir le rapport SECT” => PGP/PAA + preuve à obtenir
-- “Former BA4/BA5” => PGP/PAA
-- “Localiser la coupure générale électrique pour les secours” => PIU
-- “Planifier thermographie annuelle” => PGP/PAA
-- “Mettre à jour les schémas électriques” => PGP/PAA ou dossier pompiers seulement si utile aux secours
-- “Point de rassemblement non défini” => PIU
-- “Ergonomie poste écran” => PGP/PAA uniquement
-
-Répondre uniquement en JSON valide.`;
-
-export async function extractPreventionDossier({
-  documentType,
-  markdown,
-  formData = {},
-  sourceDocumentId,
-  sourceReference,
-  language = 'fr',
-  openai = null,
-  model = 'gpt-4.1-mini',
-  maxOutputTokens = 9000,
-} = {}) {
-  const normalizedProfile = normalizeRiskProfile(formData.riskProfile);
-  const base = createEmptyResult({ documentType, formData, sourceDocumentId, sourceReference, language, riskProfile: normalizedProfile.value });
-
-  if (normalizedProfile.warning) base.warnings.push(RISK_PROFILE_WARNING);
-
-  let extracted = null;
-  if (openai?.responses?.create) {
-    console.info('[PreventIA] Prevention dossier extraction: AI attempted');
-    try {
-      extracted = await extractWithAi({
-        openai,
-        model,
-        maxOutputTokens,
-        documentType,
-        markdown,
-        formData: { ...formData, riskProfile: normalizedProfile.value },
-        sourceDocumentId,
-        sourceReference,
-        language,
-      });
-      console.info('[PreventIA] Prevention dossier extraction: AI success');
-    } catch {
-      console.info('[PreventIA] Prevention dossier extraction: fallback used');
+const AI_USER_PROMPT = `Retourne ce schéma:
+{
+  "items": [
+    {
+      "destination": "piu|pgp|evidence|validationPoint|annex|info|ignoredTechnical",
+      "title": "",
+      "description": "",
+      "risk": "",
+      "priority": "",
+      "responsible": "",
+      "deadline": "",
+      "evidence": "",
+      "confidence": 0.0,
+      "reason": "",
+      "tags": []
     }
-  } else {
-    console.info('[PreventIA] Prevention dossier extraction: fallback used');
-  }
-
-  const result = extracted ? mergeResult(base, extracted) : mergeResult(base, deterministicFallback({
-    documentType,
-    markdown,
-    formData,
-    sourceDocumentId,
-    sourceReference,
-    riskProfile: normalizedProfile.value,
-  }));
-
-  return sanitizeResult(result, {
-    documentType,
-    markdown,
-    formData,
-    sourceDocumentId,
-    sourceReference,
-    riskProfile: normalizedProfile.value,
-    riskProfileWasInvalid: normalizedProfile.warning,
-  });
+  ],
+  "ignoredItems": [],
+  "warnings": []
 }
 
-async function extractWithAi({ openai, model, maxOutputTokens, documentType, markdown, formData, sourceDocumentId, sourceReference, language }) {
-  const response = await openai.responses.create({
-    model,
-    max_output_tokens: maxOutputTokens,
-    instructions: SYSTEM_PROMPT,
+Règles:
+- PIU seulement pour une urgence opérationnelle réelle.
+- PGP pour actions concrètes de prévention.
+- Evidence pour preuve à obtenir, false par défaut sauf preuve bloquante.
+- Exclure les en-têtes, champs techniques, pagination et texte descriptif.
+- Ne jamais écrire "validé".`;
+
+export async function extractPreventionDossierItems(input = {}) {
+  const context = normalizeInput(input);
+  let extracted = null;
+
+  if (context.openai?.responses?.create) {
+    try {
+      extracted = await extractWithAi(context);
+    } catch {
+      context.warnings.push('Extraction IA indisponible, fallback déterministe utilisé.');
+    }
+  }
+
+  const raw = extracted || deterministicFallback(context);
+  return sanitizeExtraction(raw, context);
+}
+
+export async function extractPreventionDossier(input = {}) {
+  return extractPreventionDossierItems(input);
+}
+
+export function classifyPreventionCandidate(text, context = {}) {
+  const raw = clean(text);
+  const normalized = normalize(raw);
+  if (!normalized) {
+    return ignored('Élément vide ou insuffisant.');
+  }
+  if (isStrictTechnical(raw)) {
+    return ignored('Élément technique ou structurel sans valeur métier à valider.');
+  }
+  if (isTableHeaderOrHeavyMarkdown(raw)) {
+    return ignored('En-tête ou bloc Markdown technique sans valeur métier.');
+  }
+
+  const isBlocking = hasAny(normalized, VALIDATION_TERMS);
+  const hasPiu = hasAny(normalized, PIU_TERMS);
+  const hasPgpVerb = hasAny(normalized, PGP_VERBS);
+  const hasEvidence = hasAny(normalized, EVIDENCE_TERMS) || hasAny(normalized, ['preuve à obtenir', 'preuve a obtenir']);
+  const doc = normalize(context.documentType);
+
+  if (hasPgpVerb && !hasAny(normalized, ['évacuation générale', 'evacuation generale', 'point de rassemblement', 'accueil secours', 'accueil des secours', 'accès pompiers', 'acces pompiers', 'personne bloquée', 'personne bloquee', 'fuite gaz', 'fuite de gaz', 'déversement dangereux', 'deversement dangereux', 'confinement'])) {
+    return {
+      destination: 'pgp',
+      shouldReview: true,
+      confidence: 0.84,
+      reason: 'Action de prévention concrète issue de l’analyse.',
+    };
+  }
+
+  if (hasPiu && hasAny(normalized, ['secours', 'urgence', 'évacuation', 'evacuation', 'incendie', 'rassemblement', 'bloquée', 'bloquee', 'coupure'])) {
+    return {
+      destination: 'piu',
+      shouldReview: true,
+      confidence: 0.9,
+      reason: 'Situation d’urgence opérationnelle utile au PIU.',
+    };
+  }
+
+  if (hasEvidence) {
+    return {
+      destination: 'evidence',
+      shouldReview: isBlocking,
+      confidence: isBlocking ? 0.85 : 0.78,
+      reason: isBlocking ? 'Preuve bloquante avant validation.' : 'Preuve à obtenir pour compléter le dossier.',
+    };
+  }
+
+  if (isBlocking) {
+    return {
+      destination: 'validationPoint',
+      shouldReview: true,
+      confidence: 0.82,
+      reason: 'Point nécessitant validation ou arbitrage du conseiller.',
+    };
+  }
+
+  if (hasAny(normalized, ['annexe', 'joindre', 'dossier pompiers']) && !hasAny(normalized, ['urgence', 'secours'])) {
+    return {
+      destination: 'annex',
+      shouldReview: false,
+      confidence: 0.68,
+      reason: 'Annexe documentaire potentielle.',
+    };
+  }
+
+  if (doc.includes('ascenseur') && hasAny(normalized, ['personne bloquee cabine', 'personne bloquee en cabine'])) {
+    return {
+      destination: 'piu',
+      shouldReview: true,
+      confidence: 0.9,
+      reason: 'Scénario d’urgence ascenseur.',
+    };
+  }
+
+  return {
+    destination: 'info',
+    shouldReview: false,
+    confidence: 0.35,
+    reason: 'Texte descriptif sans décision métier immédiate.',
+  };
+}
+
+export function buildCandidateFingerprint(candidate = {}) {
+  const destination = normalizeDestination(candidate.destination);
+  const title = slug(candidate.normalizedTitle || candidate.title || candidate.objective || '');
+  const risk = slug(candidate.normalizedRisk || candidate.risk || candidate.riskTargeted || '');
+  return [destination, title, risk].filter(Boolean).join('|');
+}
+
+async function extractWithAi(context) {
+  const response = await context.openai.responses.create({
+    model: context.model,
+    max_output_tokens: context.maxOutputTokens,
+    instructions: AI_SYSTEM_PROMPT,
     input: [{
       role: 'user',
       content: [{
         type: 'input_text',
-        text: `${USER_PROMPT}
+        text: `${AI_USER_PROMPT}
 
-Schéma attendu :
-{
-  "companyProfile": {},
-  "structuredRiskRows": [],
-  "piuCandidates": [],
-  "pgpCandidates": [],
-  "diuCandidates": [],
-  "evidenceItems": [],
-  "priorityActions": [],
-  "pointsToVerify": [],
-  "requiredValidations": [],
-  "warnings": []
-}
+Contexte:
+${JSON.stringify({
+  companyKey: context.companyKey,
+  documentType: context.documentType,
+  sourceDocumentId: context.sourceDocumentId,
+  sourceReference: context.sourceReference,
+  formData: context.formData,
+  language: context.language,
+}, null, 2)}
 
-Contexte :
-${safeJson({ documentType, formData, sourceDocumentId, sourceReference, language })}
-
-Analyse de risques :
-${String(markdown || '').slice(0, 45000)}`,
+Analyse:
+${context.markdown.slice(0, 45000)}`,
       }],
     }],
   });
 
-  const parsed = parseJsonResponse(response?.output_text);
+  const parsed = parseJson(response?.output_text);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('Réponse IA JSON invalide.');
+    throw new Error('Réponse IA invalide.');
   }
   return parsed;
 }
 
-function deterministicFallback({ documentType, markdown, formData, sourceDocumentId, sourceReference, riskProfile }) {
-  const text = String(markdown || '');
+function deterministicFallback(context) {
+  const text = context.markdown;
   const lower = normalize(text);
-  const rows = extractStructuredRows(text, sourceReference);
-  const source = { documentType, sourceDocumentId, sourceReference };
-  const piuCandidates = [];
-  const pgpCandidates = [];
-  const diuCandidates = [];
-  const evidenceItems = [];
-  const priorityActions = [];
-  const pointsToVerify = [];
-  const requiredValidations = [];
+  const candidates = [];
+  const ignoredItems = [];
 
-  addCoreProfileItems({ riskProfile, lower, piuCandidates, pgpCandidates, source });
-  addElectricalItems({ lower, piuCandidates, pgpCandidates, diuCandidates, evidenceItems, priorityActions, pointsToVerify, requiredValidations, source, formData });
-  addGenericItems({ lower, riskProfile, piuCandidates, pgpCandidates, priorityActions, evidenceItems, source, formData });
-  addRiskProfileAdaptation({ riskProfile, lower, piuCandidates, pgpCandidates, pointsToVerify, requiredValidations, source });
+  for (const fragment of extractFragments(text)) {
+    const classification = classifyPreventionCandidate(fragment, context);
+    if (classification.destination === 'ignoredTechnical' || classification.destination === 'info') {
+      ignoredItems.push({ title: shortTitle(fragment), ...classification });
+      continue;
+    }
+    candidates.push(candidateFromText(fragment, classification, context));
+  }
 
-  requiredValidations.push(validation('validation-employeur', 'employeur', 'Validation du dossier prévention et des priorités proposées avant intégration opérationnelle.'));
-  requiredValidations.push(validation('validation-sipp-sepp', 'SIPP/SEPP', 'Avis prévention requis sur les mesures proposées et les points à vérifier.'));
-  if (hasAny(lower, ['cppt', 'comite', 'comité'])) {
-    requiredValidations.push(validation('validation-cppt', 'CPPT', 'Consultation ou information CPPT à confirmer si applicable.'));
+  addFireEvacuationCandidates(candidates, lower, context);
+  addElectricalCandidates(candidates, lower, context);
+  addElevatorCandidates(candidates, lower, context);
+
+  return { items: candidates, ignoredItems, warnings: [] };
+}
+
+function addFireEvacuationCandidates(candidates, lower, context) {
+  if (!hasAny(lower, ['incendie', 'evacuation', 'évacuation', 'extincteur', 'coupe feu', 'fds'])) return;
+
+  if (hasAny(lower, ['évacuation générale', 'evacuation generale'])) {
+    candidates.push(baseCandidate('piu', 'Organiser l’évacuation générale', 'Définir l’alerte, les rôles et le cheminement d’évacuation en cas d’incendie.', 'Évacuation incendie', context, ['incendie', 'évacuation', 'piu']));
+  }
+  if (hasAny(lower, ['point de rassemblement'])) {
+    candidates.push(baseCandidate('piu', 'Confirmer le point de rassemblement', 'Localiser et communiquer le point de rassemblement à utiliser après évacuation.', 'Évacuation incendie', context, ['incendie', 'évacuation', 'piu']));
+  }
+  if (hasAny(lower, ['accueil secours', 'accueil des secours', 'accueil pompiers', 'accès pompiers', 'acces pompiers'])) {
+    candidates.push(baseCandidate('piu', 'Organiser l’accueil des secours', 'Prévoir l’accueil des secours, les accès pompiers et les informations utiles à transmettre.', 'Intervention des secours', context, ['incendie', 'secours', 'piu']));
+  }
+  if (hasAny(lower, ['dégager voies', 'degager voies', 'dégager les voies', 'degager les voies', 'issues'])) {
+    candidates.push(baseCandidate('pgp', 'Dégager les voies d’évacuation', 'Dégager les voies d’évacuation, marquer les zones interdites au stockage et contrôler leur maintien libre.', 'Obstruction issues', context, ['incendie', 'évacuation', 'pgp'], {
+      priority: 'élevée',
+      deadline: 'immédiat',
+      evidence: 'Photos avant/après, check-list de contrôle, consigne stockage',
+      responsible: 'Responsable logistique / ligne hiérarchique',
+    }));
+  }
+  if (hasAny(lower, ['extincteurs accessibles', 'moyens extinction accessibles', 'moyens d extinction accessibles'])) {
+    candidates.push(baseCandidate('pgp', 'Rendre les moyens d’extinction accessibles', 'Contrôler l’accessibilité des extincteurs et supprimer les obstacles autour des moyens de première intervention.', 'Moyens d’extinction inaccessibles', context, ['incendie', 'extinction', 'pgp']));
+  }
+  if (hasAny(lower, ['portes coupe-feu', 'portes coupe feu', 'porte coupe-feu', 'porte coupe feu'])) {
+    candidates.push(baseCandidate('pgp', 'Contrôler les portes coupe-feu', 'Vérifier la fermeture, l’absence de calage et le maintien en bon état des portes coupe-feu.', 'Compartimentage incendie', context, ['incendie', 'coupe-feu', 'pgp']));
+  }
+  if (hasAny(lower, ['fds', 'fiche de donnees de securite', 'fiche de données de sécurité', 'produits dangereux'])) {
+    candidates.push(baseCandidate('evidence', 'Obtenir les FDS des produits dangereux', 'Centraliser les fiches de données de sécurité utiles à l’analyse et aux interventions.', 'Produits dangereux', context, ['produits dangereux', 'evidence'], { shouldReview: false, evidence: 'FDS à obtenir' }));
+  }
+  if (hasAny(lower, ['rapport extincteurs', 'rapport de contrôle extincteurs', 'rapport controle extincteurs'])) {
+    candidates.push(baseCandidate('evidence', 'Obtenir le rapport de contrôle des extincteurs', 'Joindre le dernier rapport de contrôle des extincteurs et suivre les remarques ouvertes.', 'Moyens d’extinction', context, ['incendie', 'evidence'], { shouldReview: false, evidence: 'Rapport extincteurs à obtenir' }));
+  }
+  if (hasAny(lower, ['exercice évacuation', 'exercice evacuation'])) {
+    candidates.push(baseCandidate('pgp', 'Planifier un exercice d’évacuation', 'Organiser un exercice d’évacuation et conserver le retour d’expérience.', 'Préparation évacuation', context, ['incendie', 'évacuation', 'pgp']));
+  }
+  if (hasAny(lower, ['dossier pompiers'])) {
+    const destination = hasAny(lower, ['urgence', 'secours', 'accès pompiers', 'acces pompiers']) ? 'piu' : 'evidence';
+    candidates.push(baseCandidate(destination, 'Préparer le dossier pompiers', 'Centraliser les informations utiles aux secours et les plans disponibles.', 'Intervention des secours', context, ['incendie', 'secours', destination], { shouldReview: destination === 'piu' }));
+  }
+}
+
+function addElectricalCandidates(candidates, lower, context) {
+  if (!hasAny(lower, ['rgie', 'arei', 'ba4', 'ba5', 'tgbt', 'thermographie', 'consignation', 'loto', 'local électrique', 'local electrique', 'cabine ht'])) return;
+
+  if (hasAny(lower, ['coupure électrique d’urgence', 'coupure electrique d urgence', 'coupure générale électrique', 'coupure generale electrique', 'coupure tgbt']) && hasAny(lower, ['secours', 'urgence', 'pompiers'])) {
+    candidates.push(baseCandidate('piu', 'Localiser la coupure électrique d’urgence', 'Identifier la coupure électrique utile aux secours et les personnes autorisées à intervenir.', 'Incident électrique nécessitant coupure', context, ['électrique', 'secours', 'piu']));
+  }
+  if (hasAny(lower, ['accès local électrique', 'acces local electrique', 'cabine ht']) && hasAny(lower, ['secours', 'urgence'])) {
+    candidates.push(baseCandidate('piu', 'Organiser l’accès secours au local électrique', 'Définir les modalités d’accès au local électrique ou HT en situation d’urgence.', 'Accès installation électrique', context, ['électrique', 'secours', 'piu']));
+  }
+  if (hasAny(lower, ['pv rgie', 'contrôle rgie', 'controle rgie', 'rapport rgie'])) {
+    candidates.push(baseCandidate('evidence', 'Obtenir le PV RGIE', 'Joindre le contrôle RGIE disponible et suivre les remarques éventuelles.', 'Conformité électrique', context, ['électrique', 'evidence'], { shouldReview: false, evidence: 'PV RGIE à obtenir' }));
+  }
+  if (hasAny(lower, ['thermographie'])) {
+    candidates.push(baseCandidate('evidence', 'Obtenir le rapport de thermographie', 'Joindre ou planifier le rapport de thermographie des installations critiques.', 'Échauffement électrique', context, ['électrique', 'evidence'], { shouldReview: false, evidence: 'Rapport de thermographie' }));
+  }
+  if (hasAny(lower, ['schémas', 'schemas', 'plans de coupure'])) {
+    candidates.push(baseCandidate('evidence', 'Joindre les schémas électriques', 'Centraliser les schémas électriques et plans de coupure utiles au dossier technique.', 'Documentation électrique', context, ['électrique', 'evidence'], { shouldReview: false }));
+  }
+  if (hasAny(lower, ['ba4', 'ba5'])) {
+    candidates.push(baseCandidate('pgp', 'Formaliser les habilitations BA4/BA5', 'Confirmer les personnes BA4/BA5 autorisées et conserver les preuves d’information ou d’habilitation.', 'Interventions électriques', context, ['électrique', 'pgp']));
+  }
+  if (hasAny(lower, ['consignation', 'loto'])) {
+    candidates.push(baseCandidate('pgp', 'Formaliser la consignation électrique', 'Définir la procédure de consignation/LOTO, les rôles autorisés et les preuves de formation.', 'Interventions électriques', context, ['électrique', 'pgp']));
+  }
+}
+
+function addElevatorCandidates(candidates, lower, context) {
+  if (!hasAny(lower, ['ascenseur', 'cabine', 'sect', 'modernisation'])) return;
+
+  if (hasAny(lower, ['personne bloquée', 'personne bloquee', 'bloquée en cabine', 'bloquee en cabine'])) {
+    candidates.push(baseCandidate('piu', 'Gérer une personne bloquée en cabine', 'Prévoir l’appel secours ascenseur, l’information de la personne bloquée et le contact maintenance.', 'Personne bloquée dans l’ascenseur', context, ['ascenseur', 'piu']));
+  }
+  if (hasAny(lower, ['appel secours ascenseur', 'appel de secours ascenseur'])) {
+    candidates.push(baseCandidate('piu', 'Vérifier l’appel secours ascenseur', 'Confirmer le fonctionnement et la procédure d’appel secours ascenseur en cas de blocage.', 'Alerte ascenseur', context, ['ascenseur', 'piu']));
+  }
+  if (hasAny(lower, ['rapport sect', 'contrôle sect', 'controle sect'])) {
+    candidates.push(baseCandidate('evidence', 'Obtenir le rapport SECT ascenseur', 'Joindre le rapport SECT et suivre les remarques ou non-conformités ouvertes.', 'Contrôle ascenseur', context, ['ascenseur', 'evidence'], { shouldReview: false, evidence: 'Rapport SECT à obtenir' }));
+  }
+  if (hasAny(lower, ['modernisation'])) {
+    candidates.push(baseCandidate('pgp', 'Planifier les suites de modernisation ascenseur', 'Analyser les remarques de modernisation et planifier les actions nécessaires.', 'Modernisation ascenseur', context, ['ascenseur', 'pgp']));
+  }
+  if (hasAny(lower, ['signalisation', 'consignes usagers', 'consignes utilisateurs'])) {
+    candidates.push(baseCandidate('pgp', 'Mettre à jour les consignes ascenseur', 'Afficher les consignes usagers et les contacts utiles près de l’ascenseur.', 'Information usagers ascenseur', context, ['ascenseur', 'pgp']));
+  }
+}
+
+function sanitizeExtraction(raw, context) {
+  const seen = new Set(context.existingCandidateFingerprints);
+  const items = [];
+  const ignoredItems = [];
+  const destinationCounts = Object.fromEntries(Object.keys(LIMITS).map((key) => [key, 0]));
+
+  for (const rawIgnored of array(raw.ignoredItems)) {
+    pushIgnored(ignoredItems, rawIgnored, context, destinationCounts, rawIgnored.reason || 'Élément ignoré.');
+  }
+
+  for (const rawItem of array(raw.items)) {
+    const item = normalizeCandidate(rawItem, context);
+    const classification = classifyPreventionCandidate([
+      item.title,
+      item.description,
+      item.risk,
+      item.evidence,
+    ].filter(Boolean).join(' '), context);
+
+    item.destination = shouldKeepDestination(item.destination, classification.destination)
+      ? item.destination
+      : classification.destination;
+    item.shouldReview = resolveShouldReview(item, classification);
+    item.reason = item.reason || classification.reason;
+    item.confidence = clampNumber(item.confidence || classification.confidence, 0, 1);
+
+    if (item.destination === 'ignoredTechnical' || item.destination === 'info') {
+      pushIgnored(ignoredItems, item, context, destinationCounts, item.reason);
+      continue;
+    }
+
+    if (destinationCounts[item.destination] >= LIMITS[item.destination]) continue;
+
+    item.fingerprint = buildCandidateFingerprint(item);
+    item.id = item.id || stableId(item.fingerprint);
+    item.status = 'à valider';
+    item.sourceReference = context.sourceReference;
+    item.sourceReferences = uniqueStrings([...(array(item.sourceReferences)), context.sourceReference]);
+    item.sourceDocumentId = context.sourceDocumentId;
+    item.sourceDocumentType = context.documentType;
+
+    if (seen.has(item.fingerprint)) {
+      pushIgnored(ignoredItems, {
+        destination: 'ignoredTechnical',
+        shouldReview: false,
+        title: item.title,
+        reason: 'Déjà présent dans le dossier prévention',
+      }, context, destinationCounts, 'Déjà présent dans le dossier prévention');
+      continue;
+    }
+
+    seen.add(item.fingerprint);
+    destinationCounts[item.destination] += 1;
+    items.push(item);
   }
 
   return {
-    structuredRiskRows: rows,
-    piuCandidates,
-    pgpCandidates,
-    diuCandidates,
-    evidenceItems,
-    priorityActions,
-    pointsToVerify,
-    requiredValidations,
+    companyKey: context.companyKey,
+    sourceDocumentId: context.sourceDocumentId,
+    sourceReference: context.sourceReference,
+    sourceDocumentType: context.documentType,
+    items,
+    ignoredItems,
+    warnings: uniqueStrings([...(array(raw.warnings)), ...context.warnings]),
   };
 }
 
-function createEmptyResult({ documentType, formData, sourceDocumentId, sourceReference, language, riskProfile }) {
+function normalizeCandidate(rawItem, context) {
+  const item = plainObject(rawItem);
+  const destination = normalizeDestination(item.destination);
+  const title = truncate(clean(item.title || item.objective || item.risk || 'Élément à valider'), 90);
   return {
-    companyProfile: {
-      companyName: clean(formData.companyName),
-      siteName: clean(formData.siteName),
-      address: clean([formData.address, formData.postalCode, formData.city].filter(Boolean).join(' ')),
-      postalCode: clean(formData.postalCode),
-      city: clean(formData.city),
-      sector: clean(formData.sector || formData.activitySector),
-      companyType: clean(formData.companyType),
-      workersCount: clean(formData.workersCount || formData.numberOfWorkers),
-      thirdPartiesPresence: clean(formData.thirdPartiesPresence || formData.presenceOfThirdParties),
-      cppt: clean(formData.cppt),
-      sippSepp: clean(formData.sippSepp || formData.sipp || formData.sepp),
-      preventionAdvisor: clean(formData.preventionAdvisor),
-      siteManager: clean(formData.siteManager || formData.responsibleSite),
-      technicalService: clean(formData.technicalServiceContact || formData.technicalService),
-      riskProfile,
-      activities: clean(formData.activities || formData.mainActivities),
-      specificRisks: clean(formData.specificRisks),
-      sourceDocumentId: clean(sourceDocumentId),
-      sourceReference: clean(sourceReference),
-      sourceDocumentType: clean(documentType),
-      language: clean(language || 'fr'),
+    id: clean(item.id),
+    fingerprint: clean(item.fingerprint),
+    destination,
+    shouldReview: Boolean(item.shouldReview),
+    status: 'à valider',
+    title,
+    description: truncate(clean(item.description || item.mainMeasure || item.reason), 240),
+    risk: truncate(clean(item.risk || item.riskTargeted), 120),
+    priority: truncate(clean(item.priority || defaultPriority(destination)), 60),
+    responsible: truncate(clean(item.responsible || defaultResponsible(destination)), 90),
+    deadline: truncate(clean(item.deadline || item.proposedDeadline || defaultDeadline(destination)), 60),
+    evidence: truncate(clean(item.evidence || item.expectedEvidence), 180),
+    sourceReference: context.sourceReference,
+    sourceDocumentId: context.sourceDocumentId,
+    sourceDocumentType: context.documentType,
+    sourceReferences: array(item.sourceReferences),
+    confidence: clampNumber(item.confidence, 0, 1),
+    reason: truncate(clean(item.reason), 180),
+    tags: uniqueStrings(array(item.tags)).slice(0, 8),
+  };
+}
+
+function candidateFromText(fragment, classification, context) {
+  return baseCandidate(
+    classification.destination,
+    shortTitle(fragment),
+    clean(fragment),
+    inferRisk(fragment),
+    context,
+    tagsFor(classification.destination, fragment),
+    {
+      shouldReview: classification.shouldReview,
+      confidence: classification.confidence,
+      reason: classification.reason,
     },
-    structuredRiskRows: [],
-    piuCandidates: [],
-    pgpCandidates: [],
-    diuCandidates: [],
-    evidenceItems: [],
-    priorityActions: [],
-    pointsToVerify: [],
-    requiredValidations: [],
+  );
+}
+
+function baseCandidate(destination, title, description, risk, context, tags = [], overrides = {}) {
+  const classification = classifyPreventionCandidate(`${title} ${description} ${risk}`, context);
+  const finalDestination = normalizeDestination(destination);
+  const shouldReview = overrides.shouldReview ?? resolveShouldReview({ destination: finalDestination, title, description, risk }, classification);
+  return {
+    destination: finalDestination,
+    shouldReview,
+    status: 'à valider',
+    title,
+    description,
+    risk,
+    priority: overrides.priority || defaultPriority(finalDestination),
+    responsible: overrides.responsible || defaultResponsible(finalDestination),
+    deadline: overrides.deadline || defaultDeadline(finalDestination),
+    evidence: overrides.evidence || defaultEvidence(finalDestination),
+    sourceReference: context.sourceReference,
+    sourceDocumentId: context.sourceDocumentId,
+    sourceDocumentType: context.documentType,
+    confidence: overrides.confidence || classification.confidence || 0.82,
+    reason: overrides.reason || classification.reason || 'Candidat extrait de l’analyse.',
+    tags,
+  };
+}
+
+function pushIgnored(ignoredItems, rawItem, context, destinationCounts, reason) {
+  if (destinationCounts.ignoredTechnical >= LIMITS.ignoredTechnical) return;
+  const item = plainObject(rawItem);
+  ignoredItems.push({
+    destination: normalizeDestination(item.destination || 'ignoredTechnical') === 'info' ? 'info' : 'ignoredTechnical',
+    shouldReview: false,
+    title: truncate(clean(item.title || 'Élément ignoré'), 90),
+    reason: truncate(clean(reason || item.reason || 'Élément ignoré.'), 180),
+    sourceReference: context.sourceReference,
+    sourceDocumentId: context.sourceDocumentId,
+  });
+  destinationCounts.ignoredTechnical += 1;
+}
+
+function resolveShouldReview(item, classification) {
+  const destination = normalizeDestination(item.destination);
+  const text = normalize([item.title, item.description, item.risk, item.evidence].filter(Boolean).join(' '));
+  if (destination === 'piu') return classification.shouldReview && classification.destination === 'piu';
+  if (destination === 'pgp') return hasAny(text, PGP_VERBS) || classification.shouldReview;
+  if (destination === 'validationPoint') return true;
+  if (destination === 'evidence') return hasAny(text, VALIDATION_TERMS);
+  return false;
+}
+
+function shouldKeepDestination(current, classified) {
+  if (current === 'piu' && classified === 'evidence') return false;
+  if (current === 'piu' && classified === 'pgp') return false;
+  if (current === 'evidence' && classified === 'pgp' && !hasAny(normalize(current), ['rapport', 'photo', 'fds'])) return true;
+  return ALLOWED_DESTINATIONS.has(current);
+}
+
+function normalizeInput(input) {
+  return {
+    companyKey: clean(input.companyKey),
+    documentType: clean(input.documentType),
+    sourceDocumentId: clean(input.sourceDocumentId),
+    sourceReference: clean(input.sourceReference),
+    markdown: String(input.markdown || ''),
+    formData: plainObject(input.formData),
+    existingCandidateFingerprints: normalizeExistingFingerprints(input.existingCandidateFingerprints),
+    language: clean(input.language || 'fr'),
+    openai: input.openai,
+    model: input.model || 'gpt-4.1-mini',
+    maxOutputTokens: Number(input.maxOutputTokens || 5000),
     warnings: [],
   };
 }
 
-function addCoreProfileItems({ riskProfile, lower, piuCandidates, pgpCandidates, source }) {
-  if (riskProfile === 'faible') {
-    piuCandidates.push(piu('piu-incendie', 'Incendie et évacuation', 'Départ de feu ou fumées nécessitant l’évacuation.', 'incendie / évacuation', source));
-    piuCandidates.push(piu('piu-malaise', 'Malaise ou accident grave', 'Prise en charge d’un malaise ou accident grave sur site.', 'premiers secours', source));
-    pgpCandidates.push(pgp('pgp-ergonomie', 'Prévenir les troubles liés au travail sur écran et à l’ergonomie', 'ergonomie / travail sur écran', 'Adapter les postes et informer les travailleurs.', 'humaine', source));
-    pgpCandidates.push(pgp('pgp-evacuation-base', 'Maintenir les bases premiers secours et évacuation', 'urgence de base', 'Vérifier consignes, affichages et formation de base.', 'formation / information', source));
-  }
-  if (['modéré', 'élevé', 'très élevé', 'Seveso seuil bas', 'Seveso seuil haut'].includes(riskProfile)) {
-    if (hasAny(lower, ['manutention'])) pgpCandidates.push(pgp('pgp-manutention', 'Réduire les risques de manutention', 'manutention', 'Analyser les tâches et adapter les moyens de manutention.', 'organisationnelle', source));
-    if (hasAny(lower, ['circulation', 'parking', 'vehicule', 'véhicule'])) pgpCandidates.push(pgp('pgp-circulation', 'Sécuriser la circulation et les flux', 'circulation', 'Clarifier les cheminements, zones et consignes.', 'organisationnelle', source));
-    if (hasAny(lower, ['stockage'])) pgpCandidates.push(pgp('pgp-stockage', 'Maîtriser les risques liés au stockage', 'stockage', 'Vérifier stabilité, séparation et ordre des zones.', 'contrôle / vérification', source));
-    if (hasAny(lower, ['sous-traitant', 'sous traitant', 'entreprise exterieure', 'entreprise extérieure'])) {
-      pgpCandidates.push(pgp('pgp-sous-traitants', 'Encadrer les interventions des sous-traitants', 'coactivité', 'Formaliser l’accueil, les consignes et la coordination.', 'organisationnelle', source));
-    }
-  }
-}
-
-function addElectricalItems({ lower, piuCandidates, pgpCandidates, diuCandidates, evidenceItems, priorityActions, pointsToVerify, requiredValidations, source, formData }) {
-  const electrical = hasAny(lower, ['rgie', 'arei', 'ba4', 'ba5', 'tgbt', 'consignation', 'thermographie', 'cabine ht', 'haute tension', 'basse tension']);
-  if (!electrical) return;
-
-  piuCandidates.push(piu('piu-tgbt-coupure', 'Coupure générale TGBT et secours', 'Incident électrique, échauffement, incendie ou besoin de coupure d’urgence.', 'TGBT / installation électrique', source, {
-    procedureToPlan: 'Identifier les personnes autorisées, la procédure de coupure et les contacts de secours.',
-    requiredMeans: 'Plan de coupure, accès au local technique, contacts service technique.',
-    responsible: clean(formData.technicalServiceContact || formData.technicalService || 'service technique'),
-    chapterSuggestion: 'Coupures techniques et procédures d’urgence',
-  }));
-  piuCandidates.push(piu('piu-incendie-electrique', 'Incendie d’origine électrique', 'Échauffement, arc électrique ou défaut pouvant déclencher fumée ou incendie.', 'armoires électriques / tableaux', source));
-
-  pgpCandidates.push(pgp('pgp-consignation', 'Formaliser la consignation électrique', 'interventions électriques', 'Définir une procédure de consignation et les rôles BA4/BA5.', 'organisationnelle', source, {
-    expectedEvidence: 'Procédure de consignation validée, liste des personnes autorisées.',
-  }));
-  pgpCandidates.push(pgp('pgp-thermographie', 'Planifier la thermographie des installations critiques', 'échauffement / TGBT', 'Obtenir ou programmer un contrôle thermographique selon criticité.', 'contrôle / vérification', source, {
-    expectedEvidence: 'Rapport de thermographie et suivi des remarques.',
-  }));
-  pgpCandidates.push(pgp('pgp-rgie-ba4-ba5', 'Mettre à jour les preuves RGIE et BA4/BA5', 'conformité et habilitations électriques', 'Obtenir les PV RGIE et confirmer les personnes BA4/BA5.', 'documentaire', source, {
-    expectedEvidence: 'PV RGIE, liste BA4/BA5, attestations ou instructions.',
-  }));
-
-  diuCandidates.push(diu('diu-schemas-electriques', 'Schémas électriques et plans de coupure', 'Documents utiles au DIU pour intervention, maintenance et coordination technique.', source));
-  diuCandidates.push(diu('diu-tgbt-local-technique', 'Localisation TGBT et tableaux divisionnaires', 'Repérage des installations critiques à conserver dans le dossier technique.', source));
-
-  evidenceItems.push(evidence('preuve-pv-rgie', 'PV RGIE à obtenir ou actualiser', 'PV', 'Confirmer l’état de conformité et les remarques ouvertes.', source));
-  evidenceItems.push(evidence('preuve-thermographie', 'Rapport de thermographie à obtenir', 'rapport', 'Identifier les échauffements et prioriser les corrections.', source));
-  evidenceItems.push(evidence('preuve-ba4-ba5', 'Liste BA4/BA5 et autorisations', 'attestation', 'Vérifier les personnes autorisées à intervenir ou accéder aux installations.', source));
-
-  priorityActions.push(action('action-rgie-consignation', 'Obtenir PV RGIE et formaliser la consignation', 'RGIE, BA4/BA5, consignation, TGBT', 'PGP/PAA', 'documentaire / organisationnelle', source, {
-    responsible: clean(formData.technicalServiceContact || formData.technicalService || formData.preventionAdvisor || 'à déterminer'),
-    expectedEvidence: 'PV RGIE, procédure de consignation, liste BA4/BA5.',
-    proposedDeadline: '1 à 3 mois',
-  }));
-  priorityActions.push(action('action-piu-coupure-tgbt', 'Intégrer la coupure TGBT dans le PIU', 'TGBT, coupure générale, secours', 'PIU', 'urgence technique', source, {
-    expectedEvidence: 'Plan de coupure et contacts de secours vérifiés.',
-  }));
-
-  pointsToVerify.push(verify('verify-rgie', 'Vérifier les obligations RGIE applicables et les remarques de contrôle', 'Ne pas conclure sans PV et situation technique à jour.'));
-  pointsToVerify.push(verify('verify-ba4-ba5', 'Vérifier les désignations BA4/BA5 et autorisations d’accès', 'Les accès et interventions électriques doivent être confirmés par les personnes compétentes.'));
-  requiredValidations.push(validation('validation-personne-competente-electricite', 'personne compétente', 'Validation technique des mesures électriques, coupures, consignation et habilitations.'));
-  requiredValidations.push(validation('validation-organisme-rgie', 'organisme externe', 'Contrôles ou rapports électriques à confirmer par l’organisme compétent si applicable.'));
-}
-
-function addGenericItems({ lower, riskProfile, piuCandidates, pgpCandidates, priorityActions, evidenceItems, source, formData }) {
-  if (hasAny(lower, ['incendie', 'evacuation', 'évacuation'])) {
-    piuCandidates.push(piu('piu-evacuation', 'Évacuation incendie', 'Évacuation du site en cas d’incendie ou alarme.', 'incendie / évacuation', source));
-    priorityActions.push(action('action-evacuation', 'Vérifier les consignes et moyens d’évacuation', 'incendie / évacuation', 'PIU + PGP/PAA', 'organisationnelle', source));
-  }
-  if (hasAny(lower, ['preuve a obtenir', 'preuve à obtenir', 'rapport', 'pv ', 'attestation'])) {
-    evidenceItems.push(evidence('preuve-dossier-analyse', 'Preuves mentionnées dans l’analyse à obtenir', 'autre', 'L’analyse signale des preuves ou rapports à collecter avant validation.', source));
-  }
-  if (hasAny(lower, ['formation', 'information', 'sensibilisation'])) {
-    pgpCandidates.push(pgp('pgp-formation', 'Planifier les formations et informations nécessaires', 'compétences / consignes', 'Définir les publics, contenus et preuves de participation.', 'formation / information', source));
-  }
-  if (riskProfile === 'modéré') {
-    pgpCandidates.push(pgp('pgp-equipements-controles', 'Vérifier les équipements et contrôles périodiques', 'équipements / contrôles', 'Lister les équipements concernés et les preuves attendues.', 'contrôle / vérification', source));
-  }
-  if (clean(formData.preventionAdvisor)) {
-    priorityActions.push(action('action-validation-conseiller', 'Faire relire les priorités par le conseiller en prévention', 'ensemble de l’analyse', 'À vérifier avant intégration', 'validation', source, {
-      responsible: clean(formData.preventionAdvisor),
-      requiredValidation: 'Conseiller en prévention puis employeur.',
-    }));
-  }
-}
-
-function addRiskProfileAdaptation({ riskProfile, lower, piuCandidates, pgpCandidates, pointsToVerify, requiredValidations, source }) {
-  if (riskProfile === 'inconnu / à déterminer') {
-    pointsToVerify.push(verify('verify-risk-profile', RISK_PROFILE_VERIFY_TITLE, 'Le niveau de détail PIU et PGP/PAA dépend du profil réel de l’entreprise.'));
-  }
-  if (['élevé', 'très élevé', 'Seveso seuil bas', 'Seveso seuil haut'].includes(riskProfile)) {
-    pgpCandidates.push(pgp('pgp-maintenance-controles', 'Renforcer maintenance, contrôles et traçabilité', 'maintenance / contrôles', 'Planifier les contrôles, responsables, échéances et preuves.', 'contrôle / vérification', source));
-    pgpCandidates.push(pgp('pgp-procedures-critiques', 'Formaliser les procédures critiques et EPI/EPC', 'procédures / protections', 'Vérifier les procédures, EPI/EPC et instructions écrites.', 'documentaire', source));
-  }
-  if (riskProfile === 'très élevé') {
-    piuCandidates.push(piu('piu-gestion-crise', 'Coordination et gestion de crise', 'Situation grave nécessitant coordination renforcée.', 'risques critiques', source));
-    pgpCandidates.push(pgp('pgp-exercices-tracabilite', 'Renforcer exercices, formations et traçabilité', 'gestion de crise / compétences', 'Programmer exercices, retours d’expérience et preuves de formation.', 'formation / information', source));
-  }
-  if (riskProfile === 'Seveso seuil bas' || riskProfile === 'Seveso seuil haut') {
-    pointsToVerify.push(verify('verify-seveso', 'Vérifier les exigences Seveso applicables au site', 'Le profil Seveso doit être confirmé sans inventer de scénario d’accident majeur.'));
-    requiredValidations.push(validation('validation-seveso-specialisee', 'personne compétente', 'Validation spécialisée requise pour tout élément Seveso avant intégration au PIU ou au PGP/PAA.'));
-    if (hasAny(lower, ['accident majeur', 'explosion', 'toxique', 'produits dangereux', 'produit dangereux', 'incendie industriel', 'fuite massive'])) {
-      piuCandidates.push(piu('piu-seveso-analyse', 'Scénario Seveso mentionné dans l’analyse à instruire', 'Scénario explicitement mentionné dans l’analyse, à détailler par personne compétente.', 'Seveso / accident majeur', source));
-    }
-  }
-}
-
-function sanitizeResult(result, context) {
-  const sanitized = createEmptyResult({
-    documentType: context.documentType,
-    formData: result.companyProfile || context.formData || {},
-    sourceDocumentId: context.sourceDocumentId,
-    sourceReference: context.sourceReference,
-    language: result.companyProfile?.language || 'fr',
-    riskProfile: context.riskProfile,
-  });
-  sanitized.companyProfile = {
-    ...sanitized.companyProfile,
-    ...plainObject(result.companyProfile),
-    riskProfile: context.riskProfile,
-  };
-  sanitized.structuredRiskRows = sanitizeStructuredRows(result.structuredRiskRows);
-  const piuLimit = getPiuLimit(context.riskProfile, context.markdown);
-  const piuFiltering = filterPiuCandidates(
-    sanitizeList(result.piuCandidates, 80, 'title', (item, index) => normalizePiu(item, index, context)),
-    context,
-    piuLimit,
-  );
-  sanitized.piuCandidates = piuFiltering.kept;
-  sanitized.pgpCandidates = sanitizeList(result.pgpCandidates, LIMITS.pgpCandidates, 'objective', (item, index) => normalizePgp(item, index, context));
-  sanitized.diuCandidates = sanitizeList(result.diuCandidates, LIMITS.diuCandidates, 'title', (item, index) => normalizeDiu(item, index, context));
-  sanitized.evidenceItems = sanitizeList(result.evidenceItems, LIMITS.evidenceItems, 'title', (item, index) => normalizeEvidence(item, index, context));
-  sanitized.priorityActions = sanitizeList(result.priorityActions, LIMITS.priorityActions, 'title', (item, index) => normalizeAction(item, index, context));
-  sanitized.pointsToVerify = sanitizeList(result.pointsToVerify, LIMITS.pointsToVerify, 'title', (item, index) => normalizeVerify(item, index));
-  sanitized.requiredValidations = sanitizeList(result.requiredValidations, LIMITS.requiredValidations, 'reason', (item, index) => normalizeValidation(item, index));
-  sanitized.warnings = uniqueStrings([...(Array.isArray(result.warnings) ? result.warnings : [])]);
-  if (piuFiltering.excluded.length > 0 && !sanitized.warnings.includes(PIU_EXCLUSION_WARNING)) {
-    sanitized.warnings.push(PIU_EXCLUSION_WARNING);
-  }
-  sanitized.pgpCandidates = sanitizeList(
-    [...sanitized.pgpCandidates, ...piuFiltering.toPgp],
-    LIMITS.pgpCandidates,
-    'objective',
-    (item, index) => normalizePgp(item, index, context),
-  );
-  sanitized.pointsToVerify = sanitizeList(
-    [...sanitized.pointsToVerify, ...piuFiltering.toVerify],
-    LIMITS.pointsToVerify,
-    'title',
-    (item, index) => normalizeVerify(item, index),
-  );
-
-  if (context.riskProfileWasInvalid && !sanitized.warnings.includes(RISK_PROFILE_WARNING)) {
-    sanitized.warnings.unshift(RISK_PROFILE_WARNING);
-  }
-  if (context.riskProfile === 'inconnu / à déterminer' && !hasTitle(sanitized.pointsToVerify, 'profil de risque')) {
-    sanitized.pointsToVerify.unshift(verify('verify-risk-profile', RISK_PROFILE_VERIFY_TITLE, 'Le profil doit être confirmé avant validation.'));
-  }
-  if ((context.riskProfile === 'Seveso seuil bas' || context.riskProfile === 'Seveso seuil haut') && !hasTitle(sanitized.pointsToVerify, 'seveso')) {
-    sanitized.pointsToVerify.push(verify('verify-seveso', 'Vérifier les exigences Seveso applicables au site', 'Le profil Seveso doit être confirmé avec les personnes compétentes.'));
-  }
-  if ((context.riskProfile === 'Seveso seuil bas' || context.riskProfile === 'Seveso seuil haut') && !sanitized.requiredValidations.some((item) => normalize(item.reason).includes('seveso'))) {
-    sanitized.requiredValidations.push(validation('validation-seveso-specialisee', 'personne compétente', 'Validation spécialisée requise pour tout élément Seveso avant intégration.'));
-  }
-  if (!sanitized.requiredValidations.some((item) => item.validationBy === 'employeur')) {
-    sanitized.requiredValidations.push(validation('validation-employeur', 'employeur', 'Validation du dossier prévention et des priorités proposées avant intégration opérationnelle.'));
-  }
-  if (!sanitized.requiredValidations.some((item) => item.validationBy === 'SIPP/SEPP')) {
-    sanitized.requiredValidations.push(validation('validation-sipp-sepp', 'SIPP/SEPP', 'Avis prévention requis sur les mesures proposées et les points à vérifier.'));
-  }
-
-  sanitized.pointsToVerify = sanitizeList(sanitized.pointsToVerify, LIMITS.pointsToVerify, 'title', (item, index) => normalizeVerify(item, index));
-  sanitized.requiredValidations = sanitizeList(sanitized.requiredValidations, LIMITS.requiredValidations, 'reason', (item, index) => normalizeValidation(item, index));
-  return sanitized;
-}
-
-export function classifyPiuRelevance(itemOrText, riskProfile) {
-  const rawText = typeof itemOrText === 'string'
-    ? itemOrText
-    : [
-        itemOrText?.title,
-        itemOrText?.scenario,
-        itemOrText?.riskSource,
-        itemOrText?.procedureToPlan,
-        itemOrText?.requiredMeans,
-        itemOrText?.pointsToVerify,
-        itemOrText?.chapterSuggestion,
-      ].filter(Boolean).join(' ');
-  const text = normalize(rawText);
-  if (!text) {
-    return {
-      includeInPiu: false,
-      reason: 'Élément vide ou insuffisant.',
-      confidence: 0,
-      destination: 'ignorer',
-    };
-  }
-
-  const hasSevesoProfile = riskProfile === 'Seveso seuil bas' || riskProfile === 'Seveso seuil haut';
-  const hasSevesoEmergency = hasAny(text, ['accident majeur', 'explosion', 'toxique', 'produits dangereux', 'incendie industriel', 'fuite massive']);
-  if (hasAny(text, ['seveso']) && !(hasSevesoProfile && hasSevesoEmergency)) {
-    return {
-      includeInPiu: false,
-      reason: 'Mention Seveso sans scénario d’urgence justifié.',
-      confidence: 0.3,
-      destination: 'À vérifier avant intégration',
-    };
-  }
-
-  const exclusion = matchPiuExclusion(text);
-  const emergencyScore = scoreEmergencyTheme(text);
-  const isUsefulEmergencyInfo = hasAny(text, [
-    'pour les secours',
-    'utile aux secours',
-    'accueil des secours',
-    'accueil secours',
-    'dossier pompiers',
-    'appel 112',
-    'urgence',
-  ]);
-
-  if (exclusion && emergencyScore < 0.7 && !isUsefulEmergencyInfo) {
-    return {
-      includeInPiu: false,
-      reason: exclusion,
-      confidence: Math.max(0.1, emergencyScore),
-      destination: exclusion.includes('documentaire') ? 'À vérifier avant intégration' : 'PGP/PAA',
-    };
-  }
-
-  if (emergencyScore >= 0.7) {
-    return {
-      includeInPiu: true,
-      reason: 'Situation d’urgence opérationnelle ou information directement utile pendant l’urgence.',
-      confidence: emergencyScore,
-      destination: emergencyScore >= 0.85 ? 'PIU' : 'PIU + PGP/PAA',
-    };
-  }
-
-  return {
-    includeInPiu: false,
-    reason: 'Pas d’utilité opérationnelle claire pendant une urgence réelle.',
-    confidence: emergencyScore,
-    destination: exclusion ? 'PGP/PAA' : 'À vérifier avant intégration',
-  };
-}
-
-function filterPiuCandidates(candidates, context, limit) {
-  const kept = [];
-  const excluded = [];
-  const toPgp = [];
-  const toVerify = [];
-
-  for (const candidate of candidates) {
-    const relevance = classifyPiuRelevance(candidate, context.riskProfile);
-    if (relevance.includeInPiu && relevance.confidence >= 0.7 && kept.length < limit) {
-      kept.push(candidate);
-      continue;
-    }
-
-    excluded.push(candidate);
-    if (relevance.destination === 'PGP/PAA' || relevance.destination === 'PIU + PGP/PAA') {
-      toPgp.push(pgpFromPiu(candidate, relevance, context));
-    } else if (relevance.destination === 'À vérifier avant intégration') {
-      toVerify.push(verify(
-        clean(candidate.id) ? `${candidate.id}-verify` : stableId('verify-piu-exclu', candidate.title, excluded.length),
-        clean(candidate.title) || 'Élément PIU à reclasser',
-        relevance.reason,
-      ));
-    }
-  }
-
-  return { kept, excluded, toPgp, toVerify };
-}
-
-function pgpFromPiu(candidate, relevance, context) {
-  return pgp(
-    clean(candidate.id) ? `${candidate.id}-pgp` : stableId('pgp-piu-exclu', candidate.title, 0),
-    clean(candidate.title) || 'Élément à traiter hors PIU',
-    clean(candidate.riskSource || candidate.scenario),
-    clean(candidate.procedureToPlan || relevance.reason),
-    'organisationnelle',
-    {
-      documentType: context.documentType,
-      sourceDocumentId: context.sourceDocumentId,
-      sourceReference: context.sourceReference,
-    },
-    {
-      expectedEvidence: clean(candidate.requiredMeans || candidate.pointsToVerify || 'preuve ou validation à obtenir'),
-      responsible: clean(candidate.responsible || 'à désigner'),
-    },
-  );
-}
-
-function scoreEmergencyTheme(text) {
-  let score = 0;
-  const strongThemes = [
-    'incendie',
-    'evacuation',
-    'alerte',
-    'appel 112',
-    '112',
-    'accident grave',
-    'malaise',
-    'secours',
-    'personne bloquee',
-    'personne bloquee dans un ascenseur',
-    'fuite de gaz',
-    'deversement dangereux',
-    'explosion',
-    'mise a l abri',
-    'confinement',
-    'acces secours',
-    'accueil pompiers',
-    'accueil secours',
-    'dossier pompiers',
-    'point de rassemblement',
-    'pmr',
-    'communication d urgence',
-  ];
-  const criticalCutoffs = [
-    'coupure electrique critique',
-    'coupure generale electrique',
-    'coupure generale',
-    'coupure gaz',
-    'coupure eau',
-    'coupure ventilation',
-    'coupures techniques',
-  ];
-  if (hasAny(text, strongThemes)) score = Math.max(score, 0.85);
-  if (hasAny(text, criticalCutoffs) && hasAny(text, ['urgence', 'secours', 'incendie', 'critique', 'securite immediate', '112'])) {
-    score = Math.max(score, 0.9);
-  } else if (hasAny(text, criticalCutoffs)) {
-    score = Math.max(score, 0.65);
-  }
-  if (hasAny(text, ['panne critique', 'impact securite immediate'])) score = Math.max(score, 0.8);
-  if (hasAny(text, ['accident majeur', 'incendie industriel', 'fuite massive', 'toxique'])) score = Math.max(score, 0.85);
-  return Math.min(score, 1);
-}
-
-function matchPiuExclusion(text) {
-  if (hasAny(text, ['pv rgie', 'rapport sect', 'rapport de thermographie', 'thermographie', 'former ba4', 'former ba5', 'ba4 ba5', 'ba4/ba5'])) {
-    return 'Action de conformité, contrôle ou formation à traiter dans le PGP/PAA.';
-  }
-  if (hasAny(text, ['mettre a jour les schemas', 'mise a jour schemas', 'schemas electriques', 'procedure administrative', 'faire signer', 'completer un document'])) {
-    return 'Action documentaire à traiter hors PIU sauf utilité secours explicite.';
-  }
-  if (hasAny(text, ['maintenance ordinaire', 'controle periodique', 'tester les differentiels', 'etiquetage non critique', 'remarque organisme agree'])) {
-    return 'Action de maintenance ou contrôle périodique sans impact urgence direct.';
-  }
-  if (hasAny(text, ['ergonomie', 'rps', 'risques psychosociaux', 'travail sur ecran', 'ordre et proprete courant'])) {
-    return 'Action prévention courante à traiter dans le PGP/PAA.';
-  }
-  if (hasAny(text, ['obtenir', 'planifier', 'lever une remarque', 'actualiser']) && !hasAny(text, ['secours', 'urgence', 'incendie', 'evacuation'])) {
-    return 'Action de suivi ou preuve à obtenir, non opérationnelle en urgence.';
-  }
-  return '';
-}
-
-function getPiuLimit(riskProfile, markdown) {
-  if (riskProfile === 'Seveso seuil bas' || riskProfile === 'Seveso seuil haut' || hasAny(normalize(markdown), ['accident majeur', 'incendie industriel', 'site industriel majeur'])) {
-    return 40;
-  }
-  if (riskProfile === 'élevé' || riskProfile === 'très élevé') return 25;
-  return 15;
-}
-
-function mergeResult(base, extra) {
-  return {
-    ...base,
-    ...plainObject(extra),
-    companyProfile: { ...base.companyProfile, ...plainObject(extra?.companyProfile) },
-    structuredRiskRows: [...array(base.structuredRiskRows), ...array(extra?.structuredRiskRows)],
-    piuCandidates: [...array(base.piuCandidates), ...array(extra?.piuCandidates)],
-    pgpCandidates: [...array(base.pgpCandidates), ...array(extra?.pgpCandidates)],
-    diuCandidates: [...array(base.diuCandidates), ...array(extra?.diuCandidates)],
-    evidenceItems: [...array(base.evidenceItems), ...array(extra?.evidenceItems)],
-    priorityActions: [...array(base.priorityActions), ...array(extra?.priorityActions)],
-    pointsToVerify: [...array(base.pointsToVerify), ...array(extra?.pointsToVerify)],
-    requiredValidations: [...array(base.requiredValidations), ...array(extra?.requiredValidations)],
-    warnings: [...array(base.warnings), ...array(extra?.warnings)],
-  };
-}
-
-function normalizePiu(item, index, context) {
-  return {
-    id: clean(item.id) || stableId('piu', item.title, index),
-    sourceDocumentId: clean(item.sourceDocumentId || context.sourceDocumentId),
-    sourceReference: clean(item.sourceReference || context.sourceReference),
-    sourceDocumentType: clean(item.sourceDocumentType || context.documentType),
-    title: clean(item.title),
-    scenario: clean(item.scenario),
-    riskSource: clean(item.riskSource),
-    personsConcerned: clean(item.personsConcerned),
-    existingMeasures: clean(item.existingMeasures),
-    procedureToPlan: clean(item.procedureToPlan),
-    requiredMeans: clean(item.requiredMeans),
-    responsible: clean(item.responsible),
-    trainingOrExercise: clean(item.trainingOrExercise),
-    pointsToVerify: clean(item.pointsToVerify),
-    chapterSuggestion: clean(item.chapterSuggestion),
-    status: 'à valider',
-  };
-}
-
-function normalizePgp(item, index, context) {
-  const measureType = clean(item.measureType);
-  return {
-    id: clean(item.id) || stableId('pgp', item.objective || item.title, index),
-    sourceDocumentId: clean(item.sourceDocumentId || context.sourceDocumentId),
-    sourceReference: clean(item.sourceReference || context.sourceReference),
-    sourceDocumentType: clean(item.sourceDocumentType || context.documentType),
-    objective: clean(item.objective || item.title),
-    riskTargeted: clean(item.riskTargeted),
-    mainMeasure: clean(item.mainMeasure),
-    measureType: MEASURE_TYPES.has(measureType) ? measureType : 'autre',
-    priority: clean(item.priority),
-    deadline: clean(item.deadline),
-    responsible: clean(item.responsible),
-    requiredMeans: clean(item.requiredMeans),
-    followUpIndicator: clean(item.followUpIndicator),
-    expectedEvidence: clean(item.expectedEvidence),
-    status: 'à valider',
-  };
-}
-
-function normalizeDiu(item, index, context) {
-  return {
-    id: clean(item.id) || stableId('diu', item.title, index),
-    sourceDocumentId: clean(item.sourceDocumentId || context.sourceDocumentId),
-    sourceReference: clean(item.sourceReference || context.sourceReference),
-    sourceDocumentType: clean(item.sourceDocumentType || context.documentType),
-    title: clean(item.title),
-    reason: clean(item.reason || item.description),
-    expectedContent: clean(item.expectedContent),
-    responsible: clean(item.responsible),
-    status: 'à valider',
-  };
-}
-
-function normalizeEvidence(item, index, context) {
-  const type = clean(item.type);
-  return {
-    id: clean(item.id) || stableId('evidence', item.title, index),
-    sourceReference: clean(item.sourceReference || context.sourceReference),
-    title: clean(item.title),
-    type: EVIDENCE_TYPES.has(type) ? type : 'autre',
-    reason: clean(item.reason),
-    status: 'à obtenir',
-  };
-}
-
-function normalizeAction(item, index, context) {
-  const destination = clean(item.destination);
-  return {
-    id: clean(item.id) || stableId('action', item.title, index),
-    sourceReference: clean(item.sourceReference || context.sourceReference),
-    title: clean(item.title),
-    sourceInRiskAssessment: clean(item.sourceInRiskAssessment),
-    destination: DESTINATIONS.has(destination) ? destination : 'À vérifier avant intégration',
-    type: clean(item.type),
-    responsible: clean(item.responsible),
-    proposedDeadline: clean(item.proposedDeadline),
-    expectedEvidence: clean(item.expectedEvidence),
-    requiredValidation: clean(item.requiredValidation),
-    status: 'à valider',
-  };
-}
-
-function normalizeVerify(item, index) {
-  return {
-    id: clean(item.id) || stableId('verify', item.title, index),
-    title: clean(item.title),
-    reason: clean(item.reason),
-    verificationSource: VERIFICATION_SOURCE,
-    status: 'à vérifier',
-  };
-}
-
-function normalizeValidation(item, index) {
-  const validationBy = clean(item.validationBy);
-  return {
-    id: clean(item.id) || stableId('validation', item.reason, index),
-    validationBy: VALIDATION_BY.has(validationBy) ? validationBy : 'autre',
-    reason: clean(item.reason),
-    status: 'à obtenir',
-  };
-}
-
-function sanitizeList(items, limit, titleField, normalizer) {
-  const seen = new Set();
-  const output = [];
-  for (const raw of array(items)) {
-    if (!raw || typeof raw !== 'object') continue;
-    const item = normalizer(raw, output.length);
-    const title = clean(item[titleField]);
-    if (isEmptyOnly(title)) continue;
-    const key = normalize(title);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    output.push(item);
-    if (output.length >= limit) break;
+function normalizeExistingFingerprints(value) {
+  const output = new Set();
+  for (const fingerprint of array(value)) {
+    const cleaned = clean(fingerprint);
+    if (!cleaned) continue;
+    output.add(cleaned);
+    const parts = cleaned.split('|');
+    if (parts.length > 3) output.add(parts.slice(0, 3).join('|'));
   }
   return output;
 }
 
-function sanitizeStructuredRows(rows) {
-  return array(rows)
-    .filter((row) => row && typeof row === 'object')
-    .map((row, index) => ({
-      id: clean(row.id) || stableId('risk-row', row.title || row.risk || row.danger, index),
-      title: clean(row.title || row.risk || row.danger),
-      source: clean(row.source),
-      hazard: clean(row.hazard || row.danger),
-      risk: clean(row.risk),
-      existingMeasures: clean(row.existingMeasures),
-      proposedMeasures: clean(row.proposedMeasures),
-      priority: clean(row.priority),
-      status: 'à valider',
-    }))
-    .filter((row) => !isEmptyOnly(row.title || row.risk || row.hazard))
-    .slice(0, 120);
-}
-
-function extractStructuredRows(markdown, sourceReference) {
+function extractFragments(markdown) {
   return String(markdown || '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => /^[-*]\s+/.test(line) || /^\|/.test(line))
-    .filter((line) => /risque|danger|mesure|preuve|rgie|ba4|ba5|consignation|thermographie|tgbt|incendie|évacuation|evacuation/i.test(line))
-    .slice(0, 80)
-    .map((line, index) => ({
-      id: stableId('risk-row', line, index),
-      title: clean(line.replace(/^[-*]\s+/, '').replace(/^\|+|\|+$/g, '').split('|')[0]),
-      source: clean(sourceReference),
-      risk: clean(line.replace(/^[-*]\s+/, '').replace(/\s+/g, ' ')),
-      status: 'à valider',
-    }));
+    .split(/\n+/)
+    .flatMap((line) => line.split(/(?<=[.!?])\s+/))
+    .map((line) => clean(line.replace(/^#{1,6}\s*/, '').replace(/^[-*]\s*/, '')))
+    .filter(Boolean)
+    .filter((line) => line.length <= 500);
 }
 
-function piu(id, title, scenario, riskSource, source, overrides = {}) {
-  return {
-    id,
-    sourceDocumentId: source.sourceDocumentId,
-    sourceReference: source.sourceReference,
-    sourceDocumentType: source.documentType,
-    title,
-    scenario,
-    riskSource,
-    personsConcerned: 'travailleurs, visiteurs et intervenants concernés à confirmer',
-    existingMeasures: '',
-    procedureToPlan: 'Procédure à vérifier et formaliser avant validation.',
-    requiredMeans: '',
-    responsible: '',
-    trainingOrExercise: 'Exercice ou information à planifier selon le niveau de risque.',
-    pointsToVerify: 'À confirmer sur base de l’analyse et des moyens réellement disponibles.',
-    chapterSuggestion: 'Plan Interne d’Urgence',
-    status: 'à valider',
-    ...overrides,
-  };
+function isStrictTechnical(value) {
+  const text = clean(value);
+  const normalized = normalize(text);
+  if (/^page\s+\d+\s*\/\s*\d+$/i.test(text)) return true;
+  if (TECHNICAL_EXCLUSIONS.some((term) => normalized.includes(normalize(term)))) return true;
+  if (hasAny(normalized, ['texte purement descriptif'])) return true;
+  return false;
 }
 
-function pgp(id, objective, riskTargeted, mainMeasure, measureType, source, overrides = {}) {
-  return {
-    id,
-    sourceDocumentId: source.sourceDocumentId,
-    sourceReference: source.sourceReference,
-    sourceDocumentType: source.documentType,
-    objective,
-    riskTargeted,
-    mainMeasure,
-    measureType,
-    priority: 'à prioriser',
-    deadline: 'à définir',
-    responsible: 'à désigner',
-    requiredMeans: 'à confirmer',
-    followUpIndicator: 'preuve obtenue et mesure validée',
-    expectedEvidence: 'preuve documentaire ou contrôle à obtenir',
-    status: 'à valider',
-    ...overrides,
-  };
+function isTableHeaderOrHeavyMarkdown(value) {
+  const text = clean(value);
+  if ((text.match(/\|/g) || []).length >= 4) return true;
+  const normalized = normalize(text);
+  return hasAny(normalized, ['n tache danger situation dangereuse', 'risque dommage possible exposes mesures existantes']);
 }
 
-function diu(id, title, reason, source, overrides = {}) {
+function ignored(reason) {
   return {
-    id,
-    sourceDocumentId: source.sourceDocumentId,
-    sourceReference: source.sourceReference,
-    sourceDocumentType: source.documentType,
-    title,
+    destination: 'ignoredTechnical',
+    shouldReview: false,
+    confidence: 0.1,
     reason,
-    expectedContent: 'document, plan ou information technique à intégrer après validation',
-    responsible: 'à désigner',
-    status: 'à valider',
-    ...overrides,
   };
 }
 
-function evidence(id, title, type, reason, source) {
-  return {
-    id,
-    sourceReference: source.sourceReference,
-    title,
-    type,
-    reason,
-    status: 'à obtenir',
-  };
+function normalizeDestination(value) {
+  const normalized = clean(value);
+  return ALLOWED_DESTINATIONS.has(normalized) ? normalized : 'info';
 }
 
-function action(id, title, sourceInRiskAssessment, destination, type, source, overrides = {}) {
-  return {
-    id,
-    sourceReference: source.sourceReference,
-    title,
-    sourceInRiskAssessment,
-    destination,
-    type,
-    responsible: 'à désigner',
-    proposedDeadline: 'à définir',
-    expectedEvidence: 'preuve à obtenir',
-    requiredValidation: 'employeur et prévention',
-    status: 'à valider',
-    ...overrides,
-  };
+function defaultPriority(destination) {
+  if (destination === 'piu') return 'élevée';
+  if (destination === 'pgp') return 'à prioriser';
+  return '';
 }
 
-function verify(id, title, reason) {
-  return {
-    id,
-    title,
-    reason,
-    verificationSource: VERIFICATION_SOURCE,
-    status: 'à vérifier',
-  };
+function defaultResponsible(destination) {
+  if (destination === 'pgp') return 'Ligne hiérarchique / conseiller en prévention';
+  if (destination === 'piu') return 'Employeur / conseiller en prévention';
+  return '';
 }
 
-function validation(id, validationBy, reason) {
-  return {
-    id,
-    validationBy,
-    reason,
-    status: 'à obtenir',
-  };
+function defaultDeadline(destination) {
+  if (destination === 'piu') return 'avant validation PIU';
+  if (destination === 'pgp') return 'à planifier';
+  return '';
 }
 
-function normalizeRiskProfile(value) {
-  const cleaned = clean(value);
-  if (ALLOWED_RISK_PROFILES.has(cleaned)) {
-    return { value: cleaned, warning: false };
-  }
-  return { value: 'inconnu / à déterminer', warning: true };
+function defaultEvidence(destination) {
+  if (destination === 'pgp') return 'Preuve d’action, contrôle ou photo après correction';
+  if (destination === 'evidence') return 'Document ou preuve à obtenir';
+  return '';
 }
 
-function parseJsonResponse(text) {
-  const cleaned = String(text || '')
-    .trim()
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```\s*$/i, '');
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    return match ? JSON.parse(match[0]) : null;
-  }
+function inferRisk(value) {
+  const text = normalize(value);
+  if (hasAny(text, ['voie evacuation', 'issue'])) return 'Obstruction issues';
+  if (hasAny(text, ['extincteur'])) return 'Moyens d’extinction inaccessibles';
+  if (hasAny(text, ['coupe feu'])) return 'Compartimentage incendie';
+  if (hasAny(text, ['fds', 'produits dangereux'])) return 'Produits dangereux';
+  if (hasAny(text, ['rgie', 'tgbt', 'ba4', 'ba5', 'thermographie'])) return 'Risque électrique';
+  if (hasAny(text, ['ascenseur', 'cabine'])) return 'Risque ascenseur';
+  return '';
 }
 
-function safeJson(value) {
-  return JSON.stringify(value, null, 2);
+function tagsFor(destination, value) {
+  const text = normalize(value);
+  const tags = [destination];
+  if (hasAny(text, ['incendie', 'evacuation', 'extincteur'])) tags.unshift('incendie');
+  if (hasAny(text, ['rgie', 'tgbt', 'ba4', 'ba5', 'electrique'])) tags.unshift('électrique');
+  if (hasAny(text, ['ascenseur', 'cabine'])) tags.unshift('ascenseur');
+  return uniqueStrings(tags);
 }
 
-function clean(value) {
-  return String(value ?? '').replace(/\s+/g, ' ').trim();
+function shortTitle(value) {
+  const cleaned = clean(value)
+    .replace(/^[-*]\s*/, '')
+    .replace(/\*\*/g, '')
+    .replace(/\s*:\s*$/, '');
+  const firstPart = cleaned.split(/[.;]/)[0] || cleaned;
+  return truncate(firstPart, 90);
+}
+
+function stableId(value) {
+  return `candidate-${crypto.createHash('sha1').update(clean(value)).digest('hex').slice(0, 12)}`;
+}
+
+function slug(value) {
+  return normalize(value)
+    .split(' ')
+    .filter((part) => !['a', 'au', 'aux', 'd', 'de', 'des', 'du', 'l', 'la', 'le', 'les'].includes(part))
+    .join(' ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 70);
 }
 
 function normalize(value) {
@@ -988,21 +728,23 @@ function normalize(value) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[’']/g, ' ')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim();
 }
 
-function isEmptyOnly(value) {
-  return EMPTY_VALUES.has(normalize(value)) || EMPTY_VALUES.has(clean(value));
-}
-
 function hasAny(text, needles) {
-  return needles.some((needle) => text.includes(normalize(needle)));
+  const normalized = normalize(text);
+  return needles.some((needle) => normalized.includes(normalize(needle)));
 }
 
-function hasTitle(items, needle) {
-  const normalizedNeedle = normalize(needle);
-  return items.some((item) => normalize(item.title || item.reason).includes(normalizedNeedle));
+function clean(value) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function truncate(value, maxLength) {
+  const cleaned = clean(value);
+  return cleaned.length <= maxLength ? cleaned : cleaned.slice(0, maxLength - 1).trimEnd();
 }
 
 function array(value) {
@@ -1025,11 +767,21 @@ function uniqueStrings(values) {
   return output;
 }
 
-function stableId(prefix, value, index) {
-  const hash = crypto
-    .createHash('sha1')
-    .update(`${prefix}:${clean(value)}:${index}`)
-    .digest('hex')
-    .slice(0, 10);
-  return `${prefix}-${hash}`;
+function clampNumber(value, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.min(max, Math.max(min, number));
+}
+
+function parseJson(text) {
+  const cleaned = String(text || '')
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```\s*$/i, '');
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    return match ? JSON.parse(match[0]) : null;
+  }
 }
